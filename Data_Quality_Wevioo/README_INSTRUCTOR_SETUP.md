@@ -8,12 +8,12 @@ Expected local services:
 - Spring Boot backend: `http://localhost:8081`
 - Airflow webserver: `http://localhost:8080`
 - Ollama: `http://localhost:11434`
-- Airflow metadata Postgres: `localhost:5432`
+- Airflow metadata Postgres: internal to Docker Compose (not published on the host)
 
 ## First Setup
 
 ```powershell
-cd C:\Users\ahmed\Documents\Codex\2026-06-30\t\work\Data_Quality_Wevioo
+cd <project path>\Data_Quality_Wevioo
 Copy-Item .\.env.example .\.env -ErrorAction SilentlyContinue
 docker compose up --build
 ```
@@ -46,15 +46,9 @@ Visible phases:
 
 ## Smoke Test
 
-```powershell
-docker compose exec airflow-webserver python /opt/airflow/trigger_smoke_dag.py
-```
-
-To use another conf file:
-
-```powershell
-docker compose exec airflow-webserver python /opt/airflow/trigger_smoke_dag.py --conf /opt/airflow/airflow_smoke_conf.json
-```
+Start the backend and frontend, sign in, and upload one or two CSV files with
+**New analysis**. The run should go from Queued to Completed, with tables
+appearing as they finish. Unit tests: `.\venv\Scripts\python.exe -m pytest`.
 
 ## LLM Behavior
 

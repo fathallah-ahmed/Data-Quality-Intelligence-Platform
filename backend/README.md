@@ -6,7 +6,9 @@ Backend REST de la plateforme Data Quality. Il reçoit les uploads, versionne le
 
 - Upload de un ou plusieurs fichiers CSV.
 - Création de datasets et versions.
-- Détection de version déjà existante sans hash complet du dataset.
+- Détection d'un upload déjà existant (noms de fichiers + SHA-256 du contenu).
+- Statuts `COMPLETED` / `PARTIAL` / `FAILED`, tables en échec et raisons exposées.
+- Watchdog qui marque `FAILED` les runs bloqués (Airflow arrêté, DAG en pause, callback perdu).
 - Stockage des métriques table/global et interprétations LLM.
 - Déclenchement du DAG Airflow `data_quality_analysis_pipeline`.
 - Réception des callbacks Airflow.
@@ -29,7 +31,7 @@ java -version
 
 ## Lancer En Local
 
-Depuis `C:\Users\ahmed\Documents\Codex\2026-06-30\t\work\backend` :
+Depuis `<project path>\backend` :
 
 ```powershell
 .\run-backend.ps1
@@ -88,6 +90,14 @@ Les valeurs par défaut sont dans `src/main/resources/application.properties`.
 | `ADMIN_USERNAME` | `admin` | Login admin |
 | `ADMIN_PASSWORD` | `admin123` | Mot de passe admin |
 | `PIPELINE_API_TOKEN` | `dev-pipeline-token` | Token partagé avec Airflow |
+| `JWT_SECRET` | valeur de dev | Clé de signature des jetons de connexion |
+| `JWT_TTL_MINUTES` | `480` | Durée de validité d'un jeton (8 h) |
+| `STRICT_SECRETS` | `false` | `true` : refuse de démarrer avec les secrets par défaut |
+| `AIRFLOW_DEBUG` | `false` | Logs détaillés du worker pour les runs déclenchés |
+| `AIRFLOW_CONNECT_TIMEOUT_MS` / `AIRFLOW_READ_TIMEOUT_MS` | `5000` / `15000` | Timeouts des appels à Airflow |
+| `WATCHDOG_INTERVAL_MS` | `60000` | Fréquence du contrôle des runs bloqués |
+| `WATCHDOG_STALE_AFTER_MINUTES` | `10` | Âge à partir duquel un run est vérifié auprès d'Airflow |
+| `WATCHDOG_MAX_RUN_MINUTES` | `180` | Au-delà, un run toujours en cours passe en `FAILED` |
 
 Exemple MySQL :
 
@@ -101,34 +111,33 @@ $env:DB_DRIVER='com.mysql.cj.jdbc.Driver'
 
 ## Sécurité
 
-Le backend utilise HTTP Basic.
+Connexion par jeton : `POST /api/auth/login` avec `{"username", "password"}` renvoie un JWT signé (HS256, 8 h). Les appels suivants envoient `Authorization: Bearer <jeton>`.
 
-Compte par défaut :
+Compte par défaut (développement uniquement, un WARN est affiché au démarrage) :
 
 ```text
 admin / admin123
 ```
 
-Endpoints protégés par `ROLE_ADMIN` :
-
-- `/api/auth/**`
-- `/api/datasets/**`
-- `/api/events/**`
+Tous les endpoints `/api/**` exigent `ROLE_ADMIN`, sauf `POST /api/auth/login` et les callbacks pipeline.
 
 Endpoints pipeline :
 
-- `/api/pipeline/**` est accessible sans session admin, mais exige le header `X-Pipeline-Token`.
+- `/api/pipeline/**` est accessible sans session admin, mais exige le header `X-Pipeline-Token` (comparaison à temps constant).
 
 ## Endpoints Principaux
 
 | Méthode | Endpoint | Description |
 | --- | --- | --- |
 | `GET` | `/health` | Vérifie que le backend répond |
+| `POST` | `/api/auth/login` | Retourne un jeton JWT |
 | `GET` | `/api/auth/me` | Retourne l'utilisateur courant et ses rôles |
 | `POST` | `/api/datasets/upload` | Upload CSV et déclenche Airflow |
 | `GET` | `/api/datasets` | Liste les datasets |
 | `GET` | `/api/datasets/{datasetId}/versions` | Liste les versions |
-| `GET` | `/api/datasets/{datasetId}/versions/{versionId}` | Détails d'une version |
+| `GET` | `/api/datasets/{datasetId}/versions/{versionId}` | Détails d'une version (tables, `failedTables`, `qualityScore`) |
+| `GET` | `/api/datasets/{datasetId}/versions/{versionId}/tables/{tableVersionId}` | Une table avec ses métriques brutes |
+| `POST` | `/api/datasets/{datasetId}/versions/{versionId}/rerun` | Relance une version |
 | `DELETE` | `/api/datasets/{datasetId}` | Supprime dataset, versions et artefacts |
 | `GET` | `/api/events/stream` | Flux SSE temps réel |
 | `POST` | `/api/pipeline/{runId}/start` | Callback Airflow démarrage |

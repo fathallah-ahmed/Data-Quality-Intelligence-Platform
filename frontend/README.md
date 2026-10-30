@@ -1,93 +1,59 @@
 # Frontend Angular
 
-Interface utilisateur de la plateforme Data Quality. Elle permet à l'admin d'uploader des bases CSV, suivre Airflow en temps réel, consulter les métriques, les insights LLM, les versions et le diagramme du modèle de données.
+Interface de la plateforme Data Quality : connexion, upload de bases CSV, suivi du pipeline en temps réel et consultation des résultats par onglets.
 
-## Rôle
-
-- Connexion admin avec HTTP Basic vers le backend.
-- Upload multi-fichiers CSV.
-- Ajout optionnel d'un contexte LLM global et/ou par table.
-- Suppression d'un fichier avant upload.
-- Détection visuelle d'une version déjà existante avec action "ouvrir" ou "relancer".
-- Suivi de progression pendant le pipeline.
-- Résultats progressifs dès qu'une table est prête.
-- Dashboard global et table par table.
-- Diagramme de modèle de données avec zoom, export image et mise en évidence des relations au survol.
-- Suppression d'un dataset depuis l'interface.
-
-## Prérequis
-
-- Node.js et npm.
-- Backend lancé sur `http://localhost:8081`.
-- Airflow lancé indirectement via le backend.
-
-## Lancer En Local
-
-Depuis `<project path>\frontend` :
+## Lancer en local
 
 ```powershell
 npm install
 npm start
 ```
 
-URL :
-
-```text
-http://localhost:4200
-```
-
-Le serveur Angular recharge automatiquement l'application pendant le développement.
-
-## Configuration API
-
-L'URL API est actuellement définie dans `src/app/app.ts` :
-
-```ts
-private readonly apiBase = 'http://localhost:8081/api';
-```
-
-Si le backend change de port ou d'hôte, mets cette valeur à jour.
-
-## Structure Utile
-
-| Fichier/Dossier | Rôle |
-| --- | --- |
-| `src/app/app.ts` | Orchestration principale, appels API, SSE, état dashboard |
-| `src/app/app.html` | Layout principal de l'application |
-| `src/app/app.css` | Styles globaux du dashboard |
-| `src/app/components/upload-panel` | Composant upload, contexte LLM, gestion fichiers |
-| `src/app/components/dataset-sidebar` | Liste et suppression des datasets |
-| `src/app/components/login-panel` | Formulaire de connexion admin |
-| `src/app/models/data-quality.models.ts` | Types TypeScript des réponses backend |
+Application : `http://localhost:4200` (backend attendu sur `http://localhost:8081`).
 
 ## Commandes
 
 ```powershell
-npm start
-npm run build
-npm test
+npm start        # serveur de développement
+npm run build    # build de production (dist/frontend)
+npm test         # tests unitaires (Vitest)
 ```
 
-## Workflow UI
+## Configuration
 
-1. Se connecter avec `admin / admin123` sauf si le backend utilise d'autres variables.
-2. Choisir un ou plusieurs CSV.
-3. Donner un nom au dataset.
-4. Optionnel : ajouter contexte global, contexte par table et question métier.
-5. Lancer `Upload and run`.
-6. Suivre la progression; les tables prêtes apparaissent sans attendre la fin complète.
-7. Consulter les métriques, LLM insights, modèle de données et comparaison de versions.
+Les URLs sont dans `src/environments/` :
 
-## Vérification Avant Push
+| Fichier | Utilisé par | Contenu |
+| --- | --- | --- |
+| `environment.ts` | `npm start` | `apiBase`, `airflowUiUrl`, `maxUploadBytes` |
+| `environment.prod.ts` | `npm run build` | mêmes clés, à adapter au déploiement |
 
-```powershell
-npm run build
-git status --short
-```
+## Navigation
 
-Ne commit pas :
+| URL | Écran |
+| --- | --- |
+| `/login` | Connexion (jeton JWT gardé dans `sessionStorage`) |
+| `/datasets` | Ouvre le dataset le plus récent, ou l'état vide avec « New analysis » |
+| `/datasets/:id/versions/:versionId/overview` | Statut du run (étapes, durée, erreurs, Retry), KPI, changements, insights globaux |
+| `.../tables?table=orders` | Liste des tables + détail (colonnes, valeurs fréquentes, valeurs manquantes, associations, insights) |
+| `.../model` | Modèle de données (zoom, déplacement, export SVG, relations avec couverture) |
+| `.../insights?table=orders` | Analyse sémantique par groupes repliables + recommandations globales |
 
-- `node_modules/`
-- `dist/`
-- `.angular/`
-- captures ou fichiers temporaires locaux.
+L'URL contient toute la sélection : un lien partagé ou un rafraîchissement rouvre le même dataset, la même version, le même onglet et la même table.
+
+## Structure
+
+| Dossier | Rôle |
+| --- | --- |
+| `src/app/core` | `ApiService` (tous les appels HTTP), `AuthService` + guard + intercepteur (jeton, 401), `LiveEventsService` (SSE puis polling), `WorkspaceStore` (état partagé en signals), thème, toasts |
+| `src/app/features` | Écrans : `login`, `shell` (barre du haut, panneau latéral), `datasets`, `version`, `overview`, `tables`, `data-model`, `insights`, `upload` |
+| `src/app/shared` | Formatage (`format.ts`), lecture des réponses LLM (`insight.ts`), pipes, composants communs (badges, état vide, modal, confirmation, onglets, toasts, skeleton, info-bulle) |
+| `src/styles.css` | Design system : variables (couleurs, espacements, rayons, ombres), thème sombre, boutons, badges, cartes, tableaux, formulaires |
+
+Les composants sont `OnPush` et l'application tourne sans zone.js : les valeurs dérivées sont des `computed()`, pas des appels de méthodes dans les templates.
+
+## Accessibilité et responsive
+
+- Focus visible, libellés sur tous les champs, toasts dans une région `aria-live`, navigation clavier dans les onglets (flèches) et la liste des tables.
+- Thème clair/sombre selon le système, bouton de bascule mémorisé.
+- De 360 px à 1 920 px ; sous 1 024 px la liste des datasets devient un tiroir ; les tableaux larges défilent dans leur carte.

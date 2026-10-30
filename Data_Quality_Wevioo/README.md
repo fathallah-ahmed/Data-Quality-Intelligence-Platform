@@ -37,7 +37,12 @@ backend.
    when enabled, and falls back to deterministic global analysis if the LLM fails.
 
 8. `mark_pipeline_completed`
-   Posts final `success`, `partial`, or `failed` status to the backend.
+   Posts final `success`, `partial`, or `failed` status to the backend, with the
+   list of failed tables (`failed_tables`) and a readable error message.
+
+Each table result carries `llm_status`: `ok`, `unavailable` (Ollama could not be
+reached), `invalid` (answer rejected by validation), `disabled` or `pending`.
+A header-only CSV is published with 0 rows and reported as a failed table.
 
 ## Run Locally
 
@@ -57,12 +62,8 @@ username: admin
 password: value of AIRFLOW_ADMIN_PASSWORD in .env
 ```
 
-The backend normally triggers the DAG through Airflow's REST API. For a smoke
-test inside the Airflow container:
-
-```powershell
-docker compose exec airflow-webserver python /opt/airflow/trigger_smoke_dag.py
-```
+The backend triggers the DAG through Airflow's REST API when a CSV is uploaded
+from the frontend; that is also the easiest end-to-end test.
 
 ## Required DAG Conf
 
@@ -93,15 +94,17 @@ only to that table.
 ## Verification
 
 ```powershell
-python verify_status.py
-python -m py_compile @(git ls-files --cached --others --exclude-standard -- '*.py' | Where-Object { Test-Path $_ })
+.\venv\Scripts\python.exe -m pip install -r requirements-dev.txt
+.\venv\Scripts\python.exe -m pytest
 ```
 
 ## Notes
 
 - The worker does not generate SweetViz HTML for the Angular app. The frontend
   renders dynamic pages from backend JSON results.
-- File/version comparison is intentionally lightweight. It uses structured
-  metrics and file size, not a full dataset hash.
+- Change detection uses a `content_hash` of the table values and a `schema_hash`
+  of column names/types; counts are kept for older versions.
+- `requirements.txt` is pinned to the Airflow 2.10.0 / Python 3.12 constraints,
+  and the Dockerfile installs it with that constraints file.
 - `GLOBAL_LLM_ENABLED=false` disables the extra global LLM call while keeping the
   deterministic global analysis.

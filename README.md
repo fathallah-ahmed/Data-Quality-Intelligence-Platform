@@ -1,140 +1,25 @@
 # Plateforme Data Quality Wevioo
 
-Ce dossier contient la plateforme complète d'analyse de qualité de données :
+Plateforme d'analyse de qualité de données pour des bases CSV :
 
-- un frontend Angular pour uploader des bases CSV, suivre l'exécution et consulter les résultats;
-- un backend Spring Boot qui gère les datasets, versions, authentification, API REST et événements temps réel;
-- un worker Python/Airflow qui profile les tables, calcule les métriques, lance l'enrichissement LLM et renvoie les résultats au backend.
+- **frontend** Angular : upload, suivi de l'exécution en temps réel, résultats par onglets (vue d'ensemble, tables, modèle de données, insights) ;
+- **backend** Spring Boot : datasets et versions, authentification par jeton, API REST, événements temps réel (SSE), déclenchement et surveillance d'Airflow ;
+- **worker** Python/Airflow : profiling des tables, métriques, relations entre tables, enrichissement LLM (Ollama) et envoi progressif des résultats au backend.
 
-## How To Run - Quick Start
+## Démarrage rapide
 
-Lance le projet avec quatre terminaux PowerShell.
+Ouvre **quatre** terminaux PowerShell depuis la racine du projet, dans cet ordre.
 
-### Terminal 1 - Ollama
-
-```powershell
-ollama serve
-```
-
-Si tu vois une erreur de type `bind: Only one usage of each socket address`, Ollama tourne déjà sur le port `11434`.
-
-### Terminal 2 - Airflow
-
-```powershell
-cd <project path>
-Copy-Item .\.env.example .\.env -ErrorAction SilentlyContinue
-docker compose up --build
-```
-
-Airflow UI :
-
-```text
-http://localhost:8080
-```
-
-Login Airflow :
-
-```text
-username: admin
-password: valeur de AIRFLOW_ADMIN_PASSWORD dans Data_Quality_Wevioo\.env
-```
-
-### Terminal 3 - Backend Spring Boot
-
-```powershell
-cd <project path>\backend
-.\run-backend.ps1
-```
-
-Backend :
-
-```text
-http://localhost:8081
-```
-
-Test rapide :
-
-```powershell
-Invoke-RestMethod http://localhost:8081/health
-```
-
-Si tu as l'erreur `The JAVA_HOME environment variable is not defined correctly`, installe un JDK 17 puis rouvre PowerShell :
-
-```powershell
-winget install --id EclipseAdoptium.Temurin.17.JDK -e
-java -version
-```
-
-### Terminal 4 - Frontend Angular
-
-```powershell
-cd <project path>\frontend
-npm install
-npm start
-```
-
-Frontend :
-
-```text
-http://localhost:4200
-```
-
-Login application :
-
-```text
-admin / admin123
-```
-
-Ordre recommandé : Ollama, Airflow, backend, frontend. Ensuite ouvre `http://localhost:4200`, connecte-toi, upload les CSV, et le backend déclenchera Airflow automatiquement.
-
-## Architecture Locale
-
-| Bloc | Dossier | Port local | Rôle |
-| --- | --- | --- | --- |
-| Frontend Angular | `frontend` | `4200` | Interface utilisateur, upload, dashboard, diagramme de modèle de données |
-| Backend Spring Boot | `backend` | `8081` | API REST, sécurité admin, stockage des métadonnées, déclenchement Airflow, SSE |
-| Airflow | `Data_Quality_Wevioo` | `8080` | DAG `data_quality_analysis_pipeline` et phases Python |
-| Ollama | externe | `11434` | Modèle LLM local quand l'enrichissement LLM est activé |
-| Base backend | `backend/data` par défaut | fichier H2 | Métadonnées datasets/versions/résultats; MySQL possible via variables |
-| Stockage fichiers | `Data_Quality_Wevioo/data` et `Data_Quality_Wevioo/storage` | disque local | CSV uploadés, JSON de métriques, analyses, artefacts pipeline |
-
-Flux principal :
-
-```text
-Utilisateur
-  -> Angular http://localhost:4200
-  -> Spring Boot http://localhost:8081/api
-  -> Airflow REST http://localhost:8080/api/v1/dags/data_quality_analysis_pipeline/dagRuns
-  -> DAG Python
-  -> Backend callbacks /api/pipeline/{runId}/...
-  -> Angular via SSE /api/events/stream ou rechargement API
-```
-
-## Prérequis
-
-- Docker Desktop avec WSL2 actif pour Airflow.
-- Java 17 pour le backend.
-- Node.js et npm pour Angular.
-- Ollama si tu veux les réponses LLM locales.
-- Optionnel : MySQL si tu ne veux pas utiliser H2.
-
-## Démarrage Complet
-
-Ouvre trois terminaux PowerShell depuis `<project path>`.
-
-### 1. Lancer Ollama
+### 1. Ollama (optionnel)
 
 ```powershell
 ollama serve
+ollama pull qwen2.5:14b-instruct
 ```
 
-Si Windows dit que le port `11434` est déjà utilisé, Ollama tourne déjà. Tu peux vérifier avec :
+Sans Ollama, le pipeline fonctionne quand même : les insights sont alors calculés à partir des métriques et l'interface l'indique (« Deterministic only – Ollama unavailable »). Si `bind: Only one usage of each socket address` s'affiche, Ollama tourne déjà.
 
-```powershell
-Get-Process ollama
-```
-
-### 2. Lancer Airflow
+### 2. Airflow
 
 ```powershell
 cd .\Data_Quality_Wevioo
@@ -142,33 +27,21 @@ Copy-Item .\.env.example .\.env -ErrorAction SilentlyContinue
 docker compose up --build
 ```
 
-Airflow UI : `http://localhost:8080`
+- UI Airflow : `http://localhost:8080`
+- Login : `admin` / valeur de `AIRFLOW_ADMIN_PASSWORD` dans `Data_Quality_Wevioo\.env`
+- `PIPELINE_API_TOKEN` dans `.env` doit être identique côté backend (le script de lancement du backend le lit automatiquement).
 
-Login Airflow :
-
-```text
-username: admin
-password: valeur de AIRFLOW_ADMIN_PASSWORD dans Data_Quality_Wevioo\.env
-```
-
-Important : la valeur `PIPELINE_API_TOKEN` dans `Data_Quality_Wevioo\.env` doit être la même que celle du backend.
-
-### 3. Lancer le backend
+### 3. Backend
 
 ```powershell
 cd .\backend
 .\run-backend.ps1
 ```
 
-Backend : `http://localhost:8081`
+- API : `http://localhost:8081` — test : `Invoke-RestMethod http://localhost:8081/health`
+- Java 17 requis : `winget install --id EclipseAdoptium.Temurin.17.JDK -e`
 
-Compte admin par défaut :
-
-```text
-admin / admin123
-```
-
-### 4. Lancer le frontend
+### 4. Frontend
 
 ```powershell
 cd .\frontend
@@ -176,82 +49,92 @@ npm install
 npm start
 ```
 
-Frontend : `http://localhost:4200`
+Ouvre `http://localhost:4200` et connecte-toi avec `admin / admin123` (valeurs de développement, voir *Sécurité*).
 
-## Workflow Fonctionnel
+## Architecture
 
-1. L'utilisateur se connecte avec le rôle `ADMIN`.
-2. Il upload un ou plusieurs fichiers CSV.
-3. Le backend crée ou réutilise le dataset, crée une version, sauvegarde les fichiers et déclenche Airflow.
-4. Airflow exécute les phases visibles dans l'UI Airflow :
-   - validation de la requête backend;
-   - notification de démarrage;
-   - découverte des tables CSV;
-   - profiling;
-   - extraction des métriques et analyse LLM table par table;
-   - publication progressive des résultats;
-   - analyse globale;
-   - clôture du pipeline.
-5. Le backend reçoit les callbacks pipeline et publie les changements au frontend via SSE.
-6. Le frontend affiche les résultats dès qu'ils arrivent : métriques, insights LLM, diagrammes, tables, versioning et statut.
-
-## Cas Gérés
-
-- Upload multi-tables : plusieurs CSV dans une même version.
-- Même dataset sans changement : le backend détecte une version déjà existante via signature légère des fichiers et propose de l'ouvrir ou de relancer.
-- Relance volontaire : `rerunExisting=true` permet de réexécuter une version existante.
-- Résultats progressifs : les tables prêtes sont visibles sans attendre toute la base.
-- Suppression dataset : le backend supprime les métadonnées et les artefacts locaux liés au dataset.
-- Sécurité simple : un seul utilisateur admin avec rôle `ADMIN`; les endpoints dataset/event/auth nécessitent ce rôle.
-- Pipeline interne : les callbacks Airflow utilisent `X-Pipeline-Token`.
-
-## Préparer Pour Git
-
-Le fichier `.gitignore` racine évite d'ajouter les sorties locales si tu initialises Git au niveau `work`.
-
-Avant un push :
-
-```powershell
-git status --short
-```
-
-Ne commit pas :
-
-- `.env` et secrets;
-- `node_modules`, `dist`, `.angular`;
-- `target`, `backend/data`;
-- `Data_Quality_Wevioo/data`, `storage`, `logs`, `airflow.cfg`, `*.pid`, `*.db`;
-- fichiers générés par les tests ou uploads locaux.
-
-Les README spécifiques sont ici :
-
-- `frontend\README.md`
-- `backend\README.md`
-- `Data_Quality_Wevioo\README.md`
-
-## Dépannage Rapide
-
-### Backend: JAVA_HOME non défini
-
-Symptôme :
+| Bloc | Dossier | Port | Rôle |
+| --- | --- | --- | --- |
+| Frontend Angular | `frontend` | 4200 | Interface, upload, tableaux de bord, modèle de données |
+| Backend Spring Boot | `backend` | 8081 | API REST, sécurité, métadonnées, déclenchement Airflow, SSE, watchdog |
+| Airflow | `Data_Quality_Wevioo` | 8080 | DAG `data_quality_analysis_pipeline` (phases Python) |
+| Ollama | externe | 11434 | LLM local pour les interprétations |
+| Base backend | `backend/data` | fichier H2 | Datasets, versions, résultats (MySQL possible) |
+| Fichiers | `Data_Quality_Wevioo/data`, `storage` | disque | CSV uploadés, JSON de métriques et d'analyses |
 
 ```text
-The JAVA_HOME environment variable is not defined correctly
+Navigateur -> Angular (4200) -> Spring Boot (8081, /api)
+Spring Boot -> Airflow REST (8080) : déclenche le DAG après l'enregistrement de la version
+Airflow -> Spring Boot /api/pipeline/{runId}/... : start, table-analysis, global-analysis, complete
+Spring Boot -> Angular : SSE /api/events/stream (repli automatique en polling)
 ```
 
-Correction recommandée :
+## Fonctionnement
+
+1. L'admin se connecte (`POST /api/auth/login`, jeton JWT valable 8 h, gardé dans `sessionStorage`).
+2. Il dépose un ou plusieurs CSV dans la fenêtre **New analysis** (une table par fichier).
+3. Le backend valide tous les fichiers avant d'écrire quoi que ce soit, calcule un SHA-256 par fichier, crée la version, enregistre les fichiers, puis déclenche Airflow une fois la transaction validée.
+4. Airflow exécute les phases visibles : validation, notification, découverte des tables, profiling, métriques + LLM, publication, analyse globale, clôture.
+5. Chaque table apparaît dès que ses métriques sont prêtes, puis est enrichie par le LLM.
+6. Le statut final est `COMPLETED`, `PARTIAL` (au moins une table en échec, avec la raison) ou `FAILED`. Un bouton **Retry** relance une version en échec ou partielle.
+
+### Statuts
+
+| Objet | Valeurs |
+| --- | --- |
+| Run / version | `PENDING` (en file), `RUNNING`, `COMPLETED`, `PARTIAL`, `FAILED` |
+| Table par rapport à la version précédente | `NEW`, `MODIFIED`, `UNCHANGED`, `REMOVED` |
+| Statut LLM (`llmStatus`) | `ok`, `unavailable` (Ollama injoignable), `invalid` (réponse rejetée), `disabled`, `pending` |
+
+- **Doublons** : un upload identique (mêmes noms de fichiers et même contenu SHA-256) propose d'ouvrir la version existante ou de la relancer. Un fichier modifié de même taille crée bien une nouvelle version.
+- **Changements de table** : comparés par empreinte du contenu (`content_hash`) et du schéma ; une valeur modifiée donne `MODIFIED`. Les tables absentes de la nouvelle version sont listées `REMOVED`.
+- **Score qualité** : par table, 100 − % moyen de valeurs manquantes − % de lignes dupliquées ; pour la version, moyenne pondérée par le nombre de lignes.
+- **Watchdog** : toutes les minutes, les runs `PENDING`/`RUNNING` depuis plus de 10 min sont vérifiés auprès d'Airflow ; un run inconnu ou en échec dans Airflow passe en `FAILED` avec un message clair.
+
+## API
+
+Tous les endpoints `/api/**` (sauf login et callbacks pipeline) exigent `Authorization: Bearer <jeton>` et le rôle `ADMIN`.
+
+| Méthode | Endpoint | Description |
+| --- | --- | --- |
+| `GET` | `/health` | État du backend |
+| `POST` | `/api/auth/login` | `{username, password}` → `{token, expiresAt, username, roles}` |
+| `GET` | `/api/auth/me` | Utilisateur courant |
+| `POST` | `/api/datasets/upload` | Upload multipart (`files`, `name`, `rerunExisting`, contexte LLM) ; renvoie aussi `skippedFiles` (fichiers vides) |
+| `GET` | `/api/datasets` | Datasets (avec `versionCount` et dernière version) |
+| `GET` | `/api/datasets/{id}/versions` | Versions d'un dataset |
+| `GET` | `/api/datasets/{id}/versions/{versionId}` | Détails : tables, `failedTables`, `qualityScore`, analyse globale |
+| `GET` | `/api/datasets/{id}/versions/{versionId}/tables/{tableVersionId}` | Une table avec ses métriques brutes (valeurs fréquentes, quartiles, associations) |
+| `POST` | `/api/datasets/{id}/versions/{versionId}/rerun` | Relance l'analyse d'une version (409 si elle tourne déjà) |
+| `DELETE` | `/api/datasets/{id}` | Supprime le dataset et ses fichiers (409 pendant un run) |
+| `GET` | `/api/events/stream` | Flux SSE |
+| `POST` | `/api/pipeline/{runId}/start` \| `table-analysis` \| `global-analysis` \| `complete` | Callbacks Airflow (`X-Pipeline-Token`) |
+
+Codes d'erreur : 400 requête invalide, 401 jeton absent/invalide (y compris jeton pipeline), 404 ressource ou route inconnue, 409 conflit, 413 upload trop gros, 500 erreur interne (message générique, détail dans les logs).
+
+## Sécurité
+
+- Les valeurs par défaut (`admin123`, `dev-pipeline-token`, `JWT_SECRET` de dev, mot de passe Airflow `admin`) sont réservées au développement : le backend affiche un **WARN** au démarrage s'il les utilise, et `STRICT_SECRETS=true` refuse de démarrer avec elles.
+- Variables à définir avant tout partage : `ADMIN_PASSWORD`, `JWT_SECRET`, `PIPELINE_API_TOKEN`, `AIRFLOW_PASSWORD` (backend) et les secrets de `Data_Quality_Wevioo\.env`.
+- Le port PostgreSQL d'Airflow n'est plus publié sur l'hôte.
+
+## Tests
 
 ```powershell
-winget install --id EclipseAdoptium.Temurin.17.JDK -e
+cd .\backend; .\mvnw.cmd test
+cd .\frontend; npm run build; npm test
+cd .\Data_Quality_Wevioo; .\venv\Scripts\python.exe -m pip install -r requirements-dev.txt; .\venv\Scripts\python.exe -m pytest
 ```
 
-Ferme puis rouvre PowerShell, puis vérifie :
+## Git
 
-```powershell
-java -version
-```
+Le `.gitignore` racine exclut `.env`, `node_modules`, `dist`, `.angular`, `target`, `backend/data`, `Data_Quality_Wevioo/data`, `storage`, `logs`, `airflow.cfg`, `*.pid`, `*.db`. Vérifie `git status --short` avant un push.
 
-Si `java` n'est toujours pas trouvé, configure `JAVA_HOME` :
+READMEs détaillés : `frontend\README.md`, `backend\README.md`, `Data_Quality_Wevioo\README.md`.
+
+## Dépannage
+
+**`JAVA_HOME` non défini** — installe le JDK 17, rouvre PowerShell, puis si besoin :
 
 ```powershell
 $jdk = Get-ChildItem 'C:\Program Files\Eclipse Adoptium' -Directory | Where-Object { $_.Name -like 'jdk-17*' } | Select-Object -First 1 -ExpandProperty FullName
@@ -259,44 +142,17 @@ $jdk = Get-ChildItem 'C:\Program Files\Eclipse Adoptium' -Directory | Where-Obje
 [Environment]::SetEnvironmentVariable('Path', "$jdk\bin;" + [Environment]::GetEnvironmentVariable('Path', 'User'), 'User')
 ```
 
-Ensuite ferme et rouvre PowerShell.
-
-### Airflow: invalid login
-
-Le login est `admin`, mais le mot de passe vient de `Data_Quality_Wevioo\.env` :
-
-```text
-AIRFLOW_ADMIN_PASSWORD=...
-```
-
-Si Airflow garde un ancien mot de passe à cause du volume Postgres déjà existant :
+**Airflow : login invalide** — le mot de passe vient de `AIRFLOW_ADMIN_PASSWORD`. Si le volume Postgres garde un ancien mot de passe :
 
 ```powershell
-cd <project path>
-$pwdLine = Get-Content .\.env | Where-Object { $_ -match '^AIRFLOW_ADMIN_PASSWORD=' } | Select-Object -First 1
-$airflowPassword = $pwdLine.Substring($pwdLine.IndexOf('=') + 1)
-docker compose exec airflow-webserver airflow users reset-password -u admin -p $airflowPassword
+cd .\Data_Quality_Wevioo
+$line = Get-Content .\.env | Where-Object { $_ -match '^AIRFLOW_ADMIN_PASSWORD=' } | Select-Object -First 1
+docker compose exec airflow-webserver airflow users reset-password -u admin -p $line.Substring($line.IndexOf('=') + 1)
 ```
 
-### Frontend: Upload saved, but Airflow trigger failed 403
+**Run en échec dès l'upload (« Could not start the analysis in Airflow »)** — Airflow n'est pas joignable ou refuse les identifiants (403). Relance le backend avec `.\run-backend.ps1` (il lit le mot de passe Airflow dans `.env`), puis si besoin `docker compose exec airflow-webserver airflow sync-perm`. Une fois Airflow disponible, clique **Retry**.
 
-Cause fréquente : le backend tourne avec le mot de passe Airflow par défaut `admin`, alors que ton Airflow utilise `AIRFLOW_ADMIN_PASSWORD` dans `Data_Quality_Wevioo\.env`.
-
-Stoppe le backend avec `Ctrl+C`, puis relance-le comme ceci :
-
-```powershell
-cd <project path>\backend
-.\run-backend.ps1
-```
-
-Si Airflow continue à répondre `403`, resynchronise les permissions :
-
-```powershell
-cd <project path>
-docker compose exec airflow-webserver airflow sync-perm
-```
-
-Si le run reste bloqué en `queued`, vérifie que le DAG n'est pas en pause :
+**Run qui reste « Queued »** — après 2 minutes l'interface affiche un lien vers Airflow. Vérifie que le DAG n'est pas en pause :
 
 ```powershell
 docker compose exec airflow-webserver airflow dags unpause data_quality_analysis_pipeline

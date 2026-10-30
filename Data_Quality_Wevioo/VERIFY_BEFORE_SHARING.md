@@ -18,9 +18,7 @@
 ## Static Checks
 
 ```powershell
-python verify_status.py
-$files = git ls-files --cached --others --exclude-standard -- '*.py' | Where-Object { Test-Path $_ }
-python -m py_compile @files
+.\venv\Scripts\python.exe -m pytest
 ```
 
 ## Docker/Airflow Checks
@@ -51,4 +49,4 @@ Upload a multi-table CSV dataset from the Angular frontend. Confirm:
 - LLM-enriched table cards replace deterministic-only cards progressively.
 - Global analysis appears after table publishing.
 - Malformed CSV fallback warnings, if any, are visible in logs/results.
-- Final backend status is `success`, `partial`, or `failed`, not silently lost.
+- Final status is `Completed`, `Partial` (failed tables listed with their reason) or `Failed`, never stuck in Running.
