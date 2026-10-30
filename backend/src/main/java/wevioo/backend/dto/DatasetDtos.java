@@ -11,6 +11,7 @@ public class DatasetDtos {
         String sourceType,
         Instant createdAt,
         Instant updatedAt,
+        Integer versionCount,
         VersionSummary latestVersion
     ) {}
 
@@ -21,7 +22,10 @@ public class DatasetDtos {
         String filePath,
         Integer expectedTableCount,
         Instant uploadedAt,
-        String pipelineRunId
+        String pipelineRunId,
+        String errorMessage,
+        Instant startedAt,
+        Instant finishedAt
     ) {}
 
     public record ColumnMetricView(
@@ -44,6 +48,8 @@ public class DatasetDtos {
         Long duplicateCount,
         Double qualityScore,
         String llmSummary,
+        String llmStatus,
+        String llmModel,
         Map<String, Object> llmInterpretation,
         Map<String, Object> dataSignature,
         Map<String, Object> rawMetrics,
@@ -56,16 +62,26 @@ public class DatasetDtos {
         Integer totalTables,
         Long totalRows,
         Long totalColumns,
-        Double globalQualityScore,
         String llmGlobalSummary,
+        String llmStatus,
         Map<String, Object> llmInterpretation,
         String recommendations,
         Map<String, Object> rawGlobalAnalysis
     ) {}
 
+    public record FailedTableView(
+        String tableName,
+        String error
+    ) {}
+
+    /**
+     * @param qualityScore row-weighted average of the table quality scores (null until a table is ready)
+     */
     public record VersionDetails(
         VersionSummary version,
         GlobalAnalysisView globalAnalysis,
-        List<TableAnalysisView> tables
+        List<TableAnalysisView> tables,
+        List<FailedTableView> failedTables,
+        Double qualityScore
     ) {}
 }

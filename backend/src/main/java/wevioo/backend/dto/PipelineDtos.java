@@ -4,16 +4,16 @@ import java.util.List;
 import java.util.Map;
 
 public class PipelineDtos {
-    public record PipelineStartedRequest(
-        String pipelineRunId,
-        String datasetId,
-        String versionId
+    public record FailedTable(
+        String tableName,
+        String error
     ) {}
 
     public record PipelineCompletedRequest(
         String pipelineRunId,
         String status,
-        String errorMessage
+        String errorMessage,
+        List<FailedTable> failedTables
     ) {}
 
     public record DatasetMetrics(
@@ -42,6 +42,7 @@ public class PipelineDtos {
         List<ColumnMetrics> columnMetrics,
         Map<String, Object> llmInterpretation,
         String llmModelUsed,
+        String llmStatus,
         String metricsJsonPath,
         String analysisJsonPath,
         Map<String, Object> dataSignature,
@@ -55,6 +56,7 @@ public class PipelineDtos {
         Long totalRowCount,
         Long totalColumnCount,
         Map<String, Object> llmInterpretation,
+        String llmStatus,
         String analysisJsonPath
     ) {}
 }

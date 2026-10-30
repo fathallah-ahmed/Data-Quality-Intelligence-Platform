@@ -31,6 +31,13 @@ public class PipelineRun {
     @Column(name = "error_message")
     private String errorMessage;
 
+    @Lob
+    @Column(name = "failed_tables_json")
+    private String failedTablesJson;
+
+    @Column(name = "created_at")
+    private Instant createdAt = Instant.now();
+
     public Long getId() { return id; }
     public String getExternalRunId() { return externalRunId; }
     public void setExternalRunId(String externalRunId) { this.externalRunId = externalRunId; }
@@ -44,4 +51,7 @@ public class PipelineRun {
     public void setFinishedAt(Instant finishedAt) { this.finishedAt = finishedAt; }
     public String getErrorMessage() { return errorMessage; }
     public void setErrorMessage(String errorMessage) { this.errorMessage = errorMessage; }
+    public String getFailedTablesJson() { return failedTablesJson; }
+    public void setFailedTablesJson(String failedTablesJson) { this.failedTablesJson = failedTablesJson; }
+    public Instant getCreatedAt() { return createdAt; }
 }

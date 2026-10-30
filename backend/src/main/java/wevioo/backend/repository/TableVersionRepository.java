@@ -11,11 +11,14 @@ public interface TableVersionRepository extends JpaRepository<TableVersion, Long
 
     List<TableVersion> findByDatasetVersionDatasetId(Long datasetId);
 
+    List<TableVersion> findByPreviousTableVersionIn(List<TableVersion> previousTableVersions);
+
     Optional<TableVersion> findByDatasetVersionIdAndTableName(Long datasetVersionId, String tableName);
 
-    Optional<TableVersion> findTopByDatasetVersionDatasetIdAndTableNameAndDatasetVersionIdNotOrderByDatasetVersionVersionNumberDesc(
+    /** The same table in the closest earlier version of the dataset. */
+    Optional<TableVersion> findTopByDatasetVersionDatasetIdAndTableNameAndDatasetVersionVersionNumberLessThanOrderByDatasetVersionVersionNumberDesc(
         Long datasetId,
         String tableName,
-        Long excludedDatasetVersionId
+        Integer versionNumber
     );
 }

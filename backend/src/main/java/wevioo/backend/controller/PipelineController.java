@@ -9,6 +9,8 @@ import wevioo.backend.dto.PipelineDtos.*;
 import wevioo.backend.service.EventStreamService;
 import wevioo.backend.service.PipelineIngestionService;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.List;
 import java.util.Map;
 
@@ -72,7 +74,8 @@ public class PipelineController {
         publish(pipelineService.markCompleted(runId, new PipelineCompletedRequest(
             stringValue(request, "pipeline_run_id"),
             stringValue(request, "status"),
-            stringValue(request, "error_message")
+            stringValue(request, "error_message"),
+            failedTables(listValue(request.get("failed_tables")))
         )));
         return Map.of("status", "accepted");
     }
@@ -83,9 +86,22 @@ public class PipelineController {
 
     private void requirePipelineToken(String token) {
         String expected = properties.getPipelineApiToken();
-        if (expected == null || expected.isBlank() || !expected.equals(token)) {
+        boolean valid = expected != null
+            && !expected.isBlank()
+            && token != null
+            // Constant-time comparison so the token cannot be guessed from response timings.
+            && MessageDigest.isEqual(expected.getBytes(StandardCharsets.UTF_8), token.getBytes(StandardCharsets.UTF_8));
+        if (!valid) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid pipeline token");
         }
+    }
+
+    private List<FailedTable> failedTables(List<Object> payload) {
+        return payload.stream()
+            .map(this::mapValue)
+            .filter(item -> !item.isEmpty())
+            .map(item -> new FailedTable(stringValue(item, "table_name"), stringValue(item, "error")))
+            .toList();
     }
 
     private TableAnalysisRequest tableAnalysisRequest(Map<String, Object> payload) {
@@ -98,6 +114,7 @@ public class PipelineController {
             columnMetrics(listValue(payload.get("column_metrics"))),
             mapValue(payload.get("llm_interpretation")),
             stringValue(payload, "llm_model_used"),
+            stringValue(payload, "llm_status"),
             stringValue(payload, "metrics_json_path"),
             stringValue(payload, "analysis_json_path"),
             mapValue(payload.get("data_signature")),
@@ -113,6 +130,7 @@ public class PipelineController {
             longValue(payload.get("total_row_count")),
             longValue(payload.get("total_column_count")),
             mapValue(payload.get("llm_interpretation")),
+            stringValue(payload, "llm_status"),
             stringValue(payload, "analysis_json_path")
         );
     }

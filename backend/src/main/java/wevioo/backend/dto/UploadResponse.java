@@ -1,5 +1,10 @@
 package wevioo.backend.dto;
 
+import java.util.List;
+
+/**
+ * @param skippedFiles uploaded files that were ignored (empty files), with the reason
+ */
 public record UploadResponse(
     Long datasetId,
     Long versionId,
@@ -12,5 +17,6 @@ public record UploadResponse(
     String airflowMessage,
     boolean duplicateVersion,
     boolean rerunStarted,
-    String duplicateMessage
+    String duplicateMessage,
+    List<String> skippedFiles
 ) {}

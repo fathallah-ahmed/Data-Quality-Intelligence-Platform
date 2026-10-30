@@ -4,5 +4,6 @@ public enum RunStatus {
     PENDING,
     RUNNING,
     COMPLETED,
+    PARTIAL,
     FAILED
 }

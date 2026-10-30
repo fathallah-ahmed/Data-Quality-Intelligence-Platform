@@ -5,6 +5,7 @@ import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.nio.file.Path;
 
@@ -35,6 +36,17 @@ public class JsonService {
             return mapper.readValue(json, new TypeReference<>() {});
         } catch (Exception e) {
             return Collections.emptyMap();
+        }
+    }
+
+    public List<Object> toList(String json) {
+        if (json == null || json.isBlank()) {
+            return Collections.emptyList();
+        }
+        try {
+            return mapper.readValue(json, new TypeReference<List<Object>>() {});
+        } catch (Exception e) {
+            return Collections.emptyList();
         }
     }
 

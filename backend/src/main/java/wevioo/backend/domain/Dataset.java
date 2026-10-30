@@ -33,6 +33,11 @@ public class Dataset {
         updatedAt = Instant.now();
     }
 
+    /** Mark the dataset as recently changed (a new version or run does not modify its own columns). */
+    public void touch() {
+        updatedAt = Instant.now();
+    }
+
     public Long getId() { return id; }
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }

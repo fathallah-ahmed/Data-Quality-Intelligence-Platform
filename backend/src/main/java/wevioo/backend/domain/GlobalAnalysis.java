@@ -41,6 +41,9 @@ public class GlobalAnalysis {
     @Column(name = "analysis_json_path", length = 1000)
     private String analysisJsonPath;
 
+    @Column(name = "llm_status", length = 32)
+    private String llmStatus;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();
 
@@ -63,5 +66,7 @@ public class GlobalAnalysis {
     public void setRecommendations(String recommendations) { this.recommendations = recommendations; }
     public String getAnalysisJsonPath() { return analysisJsonPath; }
     public void setAnalysisJsonPath(String analysisJsonPath) { this.analysisJsonPath = analysisJsonPath; }
+    public String getLlmStatus() { return llmStatus; }
+    public void setLlmStatus(String llmStatus) { this.llmStatus = llmStatus; }
     public Instant getCreatedAt() { return createdAt; }
 }

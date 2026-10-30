@@ -60,6 +60,22 @@ public class DatasetController {
         return datasetService.getVersionDetails(datasetId, versionId, includeRaw);
     }
 
+    /** One table with its raw pipeline metrics and analysis (top values, quartiles, associations...). */
+    @GetMapping("/{datasetId}/versions/{versionId}/tables/{tableVersionId}")
+    public TableAnalysisView getTableDetails(
+        @PathVariable Long datasetId,
+        @PathVariable Long versionId,
+        @PathVariable Long tableVersionId
+    ) {
+        return datasetService.getTableDetails(datasetId, versionId, tableVersionId);
+    }
+
+    /** Re-run the pipeline on the files already stored for this version. */
+    @PostMapping("/{datasetId}/versions/{versionId}/rerun")
+    public UploadResponse rerunVersion(@PathVariable Long datasetId, @PathVariable Long versionId) {
+        return datasetService.rerunVersion(datasetId, versionId);
+    }
+
     @DeleteMapping("/{datasetId}")
     public Map<String, String> deleteDataset(@PathVariable Long datasetId) {
         datasetService.deleteDataset(datasetId);
