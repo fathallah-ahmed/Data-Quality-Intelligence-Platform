@@ -3,6 +3,12 @@ import json
 import html
 from enum import Enum
 
+import matplotlib
+
+# Sweetviz draws its association graph with matplotlib. The worker never shows plots, so use the
+# headless backend: a GUI backend (Tk) fails intermittently on machines with no or a broken Tk.
+matplotlib.use("Agg")
+
 import pandas as pd
 import sweetviz as sv
 import sweetviz.dataframe_report as df_report
