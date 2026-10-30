@@ -75,6 +75,11 @@ describe('table profile', () => {
   it('accepts object-shaped top values', () => {
     expect(topValues({ top_values: [{ value: 'x', count: 3 }] })).toEqual([{ value: 'x', count: 3, percent: null }]);
   });
+
+  it('reads Sweetviz full_count for low-cardinality columns', () => {
+    const feature = { detail: { full_count: [{ name: 1, count: { number: 2, perc: 33.3 }, count_compare: null }] } };
+    expect(topValues(feature)).toEqual([{ value: '1', count: 2, percent: 33.3 }]);
+  });
 });
 
 describe('upload selection', () => {

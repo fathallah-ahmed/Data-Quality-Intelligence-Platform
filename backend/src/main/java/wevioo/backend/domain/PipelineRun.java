@@ -1,6 +1,8 @@
 package wevioo.backend.domain;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import java.time.Instant;
 
 @Entity
@@ -18,7 +20,8 @@ public class PipelineRun {
     private DatasetVersion datasetVersion;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(nullable = false, length = 32)
     private RunStatus status = RunStatus.PENDING;
 
     @Column(name = "started_at")

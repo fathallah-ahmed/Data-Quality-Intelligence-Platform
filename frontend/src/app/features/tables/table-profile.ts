@@ -74,10 +74,14 @@ export function columnProfiles(table: TableAnalysisView, detail: TableAnalysisVi
   });
 }
 
-/** Sweetviz `detail.frequent_values` rows look like `[value, {number, perc}, ...]`. */
+/**
+ * Sweetviz stores value counts as `detail.frequent_values` rows (`[value, {number, perc}, ...]`)
+ * for high-cardinality columns and as `detail.full_count` objects (`{name, count: {number, perc}}`)
+ * for low-cardinality ones.
+ */
 export function topValues(feature: Record<string, unknown>, limit = 8): TopValue[] {
   const detail = asRecord(feature['detail']);
-  const values = detail['frequent_values'] ?? feature['top_values'];
+  const values = detail['frequent_values'] ?? detail['full_count'] ?? feature['top_values'];
   if (!Array.isArray(values)) {
     return [];
   }
@@ -87,10 +91,11 @@ export function topValues(feature: Record<string, unknown>, limit = 8): TopValue
       return { value: String(entry[0] ?? '∅'), count: num(stats['number']), percent: num(stats['perc']) };
     }
     const record = asRecord(entry);
+    const count = asRecord(record['count']);
     return {
-      value: String(record['value'] ?? record['name'] ?? '∅'),
-      count: num(record['count'] ?? record['number']),
-      percent: num(record['percent'] ?? record['perc'])
+      value: String(record['name'] ?? record['value'] ?? '∅'),
+      count: num(count['number']) ?? num(record['count']) ?? num(record['number']),
+      percent: num(count['perc']) ?? num(record['percent']) ?? num(record['perc'])
     };
   });
 }

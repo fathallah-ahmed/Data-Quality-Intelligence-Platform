@@ -1,6 +1,8 @@
 package wevioo.backend.domain;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Entity
 @Table(name = "table_version")
@@ -21,7 +23,8 @@ public class TableVersion {
     private String dataSignatureJson;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "change_status", nullable = false)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(name = "change_status", nullable = false, length = 32)
     private ChangeStatus changeStatus = ChangeStatus.UNKNOWN;
 
     @ManyToOne(fetch = FetchType.LAZY)
