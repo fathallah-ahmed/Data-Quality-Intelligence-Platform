@@ -83,7 +83,7 @@ export function formatInsightItem(item: unknown): string {
   if (main !== undefined && main !== null && main !== '') {
     const priority = record['priority'] ? `P${record['priority']} · ` : '';
     const field = record['field'] && record['field'] !== 'table' ? `${formatInsightItem(record['field'])}: ` : '';
-    const parts = [`${priority}${field}${formatInsightItem(main)}`.replace(/\.$/, '')];
+    const parts = [`${priority}${field}${formatInsightItem(main)}`];
     if (record['impact']) {
       parts.push(`Impact: ${formatInsightItem(record['impact'])}`);
     }
@@ -91,9 +91,9 @@ export function formatInsightItem(item: unknown): string {
       parts.push(`Effort: ${formatInsightItem(record['effort'])}`);
     }
     if (Array.isArray(record['steps']) && record['steps'].length > 0) {
-      parts.push(`Steps: ${record['steps'].map(formatInsightItem).join(' → ')}`);
+      parts.push(`Steps: ${record['steps'].map((step) => formatInsightItem(step).replace(/\.+$/, '')).join(' → ')}`);
     }
-    return parts.join('. ') + '.';
+    return parts.map((part) => part.replace(/\.+$/, '')).join('. ') + '.';
   }
   return Object.entries(record)
     .filter(([, value]) => value !== null && value !== undefined && value !== '')

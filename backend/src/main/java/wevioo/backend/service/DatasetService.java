@@ -241,6 +241,9 @@ public class DatasetService {
             .orElse(1);
 
         Path versionDir = versionDirectory(dataset.getId(), nextVersion);
+        // A folder for a brand-new version number can only be a leftover (e.g. the database was
+        // reset but not the uploads); its files must not be mixed into this version.
+        deleteDirectory(versionDir, Path.of(properties.getStorageRoot()));
         try {
             storeFiles(versionDir, prepared.files());
             writeDatasetConfig(versionDir, context);

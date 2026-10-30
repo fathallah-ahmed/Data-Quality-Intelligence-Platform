@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, input, output } from '@an
 import { RouterLink } from '@angular/router';
 import { VersionDetails } from '../../core/models';
 import { EmptyState, InfoTip, LlmBadge, StatusBadge } from '../../shared/components';
-import { scoreTone, statusTone } from '../../shared/format';
+import { isActiveStatus, scoreTone, statusTone } from '../../shared/format';
 import { DQ_PIPES } from '../../shared/pipes';
 import { PipelineProgress } from './pipeline-progress';
 import {
@@ -29,6 +29,7 @@ export class OverviewTab {
   readonly retrying = input(false);
   readonly retry = output<void>();
 
+  readonly active = computed(() => isActiveStatus(this.details().version.status));
   readonly ready = computed(() => readyTables(this.details()));
   readonly expected = computed(() => Math.max(expectedTables(this.details()), this.ready().length));
   readonly rows = computed(() => totalRows(this.details()));

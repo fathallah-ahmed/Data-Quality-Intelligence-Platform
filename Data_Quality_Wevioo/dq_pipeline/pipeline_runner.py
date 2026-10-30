@@ -232,7 +232,8 @@ class PipelineRunner:
                     missing_percent=float(missing_percent),
                     distinct_count=int(distinct_count),
                     distinct_percent=float(distinct_percent),
-                    is_id_like=len(df) > 0 and distinct_count == len(df),
+                    # Unique floats (amounts, measures) are not identifiers.
+                    is_id_like=len(df) > 0 and distinct_count == len(df) and not pd.api.types.is_float_dtype(col_data),
                     is_date_like=False,  # Simplified
                 )
 

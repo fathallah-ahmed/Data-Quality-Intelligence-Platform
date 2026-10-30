@@ -1,6 +1,8 @@
 :host {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-4);
+  min-width: 0;
 }
 
 .dataset-header {
@@ -41,7 +43,13 @@
 
 .tab-panel {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-4);
+  min-width: 0;
+}
+
+/* Wide content (column tables, the diagram) scrolls inside its card, never the page. */
+.tab-panel > * {
   min-width: 0;
 }
 

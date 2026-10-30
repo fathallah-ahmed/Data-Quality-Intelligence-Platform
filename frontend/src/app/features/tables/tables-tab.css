@@ -1,3 +1,8 @@
+:host {
+  display: block;
+  min-width: 0;
+}
+
 .tables-layout {
   display: grid;
   grid-template-columns: minmax(240px, 300px) minmax(0, 1fr);

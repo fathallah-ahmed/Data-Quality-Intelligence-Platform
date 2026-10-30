@@ -20,7 +20,11 @@
 </section>
 
 @if (ready().length === 0) {
-  <app-empty-state compact title="No table results yet" message="Metrics appear here as soon as the first table has been profiled." icon="⏳" />
+  @if (active()) {
+    <app-empty-state compact title="No table results yet" message="Metrics appear here as soon as the first table has been profiled." icon="⏳" />
+  } @else {
+    <app-empty-state compact title="No table was analysed in this run" message="See the pipeline status above for the reason, then retry." icon="!" />
+  }
 } @else {
   <div class="overview-grid">
     <section class="card">

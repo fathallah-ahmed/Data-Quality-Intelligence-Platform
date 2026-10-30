@@ -85,7 +85,9 @@ export function topValues(feature: Record<string, unknown>, limit = 8): TopValue
   if (!Array.isArray(values)) {
     return [];
   }
-  return values.slice(0, limit).map((entry): TopValue => {
+  // full_count ends with a synthetic "ALL" total row.
+  const rows = values.filter((entry) => !(entry && typeof entry === 'object' && !Array.isArray(entry) && asRecord(entry)['is_total']));
+  return rows.slice(0, limit).map((entry): TopValue => {
     if (Array.isArray(entry)) {
       const stats = asRecord(entry[1]);
       return { value: String(entry[0] ?? '∅'), count: num(stats['number']), percent: num(stats['perc']) };

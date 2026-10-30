@@ -24,9 +24,9 @@
     <div class="dataset-header__controls">
       <label class="field field--inline">
         <span class="field__label">Version</span>
-        <select class="input input--sm" [value]="versionId()" (change)="selectVersion($any($event.target).value)" aria-label="Version">
+        <select class="input input--sm" (change)="selectVersion($any($event.target).value)" aria-label="Version">
           @for (version of store.versions(); track version.id) {
-            <option [value]="version.id">v{{ version.versionNumber }} · {{ version.status | statusLabel }}</option>
+            <option [value]="version.id" [selected]="version.id === +versionId()">v{{ version.versionNumber }} · {{ version.status | statusLabel }}</option>
           } @empty {
             <option [value]="versionId()">Loading…</option>
           }

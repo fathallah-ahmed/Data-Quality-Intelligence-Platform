@@ -48,6 +48,13 @@ def test_empty_table_is_not_id_like():
     assert columns[0].is_id_like is False
 
 
+def test_unique_floats_are_not_id_like():
+    df = pd.DataFrame({"order_id": [1, 2, 3], "amount": [9.5, 12.0, 7.25]})
+    runner = PipelineRunner.__new__(PipelineRunner)
+    _, columns = PipelineRunner._extract_metrics(runner, "t", df, {})
+    assert {column.name: column.is_id_like for column in columns} == {"order_id": True, "amount": False}
+
+
 def test_type_mix_is_human_readable():
     assert _format_type_mix({"TYPE_NUM": 3, "TYPE_CAT": 1}) == "3 numerical, 1 categorical"
     assert "{" not in _format_type_mix({"TYPE_TEXT": 2})
