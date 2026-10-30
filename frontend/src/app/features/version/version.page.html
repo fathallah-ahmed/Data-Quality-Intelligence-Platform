@@ -1,0 +1,99 @@
+@if (store.detailsError()) {
+  <app-empty-state title="This version could not be loaded" [message]="store.detailsError() ?? ''" icon="!" />
+} @else {
+  <header class="dataset-header">
+    <div class="dataset-header__main">
+      @if (dataset(); as dataset) {
+        <h1 class="dataset-header__title">{{ dataset.name }}</h1>
+        <p class="dataset-header__meta">
+          <span>{{ sourceLabel() }}</span>
+          @if (details(); as details) {
+            <span aria-hidden="true">·</span>
+            <span [attr.title]="details.version.uploadedAt | absoluteTime">uploaded {{ details.version.uploadedAt | relativeTime: now() }}</span>
+            @if (duration()) {
+              <span aria-hidden="true">·</span>
+              <span>{{ active() ? 'running for' : 'run took' }} {{ duration() }}</span>
+            }
+          }
+        </p>
+      } @else {
+        <app-skeleton [height]="28" />
+      }
+    </div>
+
+    <div class="dataset-header__controls">
+      <label class="field field--inline">
+        <span class="field__label">Version</span>
+        <select class="input input--sm" [value]="versionId()" (change)="selectVersion($any($event.target).value)" aria-label="Version">
+          @for (version of store.versions(); track version.id) {
+            <option [value]="version.id">v{{ version.versionNumber }} · {{ version.status | statusLabel }}</option>
+          } @empty {
+            <option [value]="versionId()">Loading…</option>
+          }
+        </select>
+      </label>
+      @if (status()) {
+        <app-status-badge [status]="status()" />
+      }
+      <div class="menu">
+        <button type="button" class="btn btn--ghost btn--icon" aria-label="Dataset actions" aria-haspopup="menu" [attr.aria-expanded]="menuOpen()" (click)="toggleMenu()">⋯</button>
+        @if (menuOpen()) {
+          <div class="menu__panel" role="menu" (keydown.escape)="menuOpen.set(false)">
+            <button
+              type="button"
+              role="menuitem"
+              class="menu__item menu__item--danger"
+              [disabled]="active()"
+              [attr.title]="active() ? 'Wait for the running analysis to finish' : null"
+              (click)="askDelete()"
+            >Delete dataset…</button>
+          </div>
+        }
+      </div>
+    </div>
+  </header>
+
+  <app-tabs [tabs]="tabs()" [active]="activeTab()" label="Version sections" />
+
+  <div class="tab-panel" role="tabpanel" [attr.aria-label]="activeTab()">
+    @if (details(); as details) {
+      @switch (activeTab()) {
+        @case ('overview') {
+          <app-overview-tab [details]="details" [now]="now()" [retrying]="retrying()" (retry)="retry()" />
+        }
+        @case ('tables') {
+          <app-tables-tab
+            [details]="details"
+            [selected]="selectedTable()"
+            [detail]="store.tableDetail()"
+            [detailLoading]="store.tableDetailLoading()"
+            (selectTable)="selectTable($event)"
+          />
+        }
+        @case ('model') {
+          <app-data-model-tab [details]="details" [datasetName]="dataset()?.name ?? 'dataset'" />
+        }
+        @case ('insights') {
+          <app-insights-tab [details]="details" [selected]="selectedTable()" (selectTable)="selectTable($event)" />
+        }
+      }
+    } @else {
+      <div class="loading-grid" aria-busy="true" aria-label="Loading version">
+        <div class="card"><app-skeleton [count]="3" [height]="20" /></div>
+        <div class="card"><app-skeleton [count]="5" /></div>
+      </div>
+    }
+  </div>
+
+  <app-confirm-dialog
+    [open]="confirmDelete()"
+    title="Delete dataset"
+    [message]="'This permanently deletes “' + (dataset()?.name ?? '') + '”, all its versions, analysis results and stored files.'"
+    [requireText]="dataset()?.name ?? ''"
+    confirmText="Delete dataset"
+    [danger]="true"
+    [busy]="deleting()"
+    (confirmed)="deleteDataset()"
+    (cancelled)="confirmDelete.set(false)"
+  />
+}

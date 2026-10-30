@@ -1,0 +1,152 @@
+:host {
+  display: block;
+}
+
+.dm-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.dm-zoom {
+  min-width: 3.5rem;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.dm-hint {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.dm-download {
+  margin-left: auto;
+}
+
+.dm-viewport {
+  overflow: auto;
+  max-height: 72vh;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background:
+    radial-gradient(circle, var(--grid-dot) 1px, transparent 1px) 0 0 / 22px 22px,
+    var(--surface-sunken);
+  cursor: grab;
+  touch-action: none;
+}
+
+.dm-viewport--panning {
+  cursor: grabbing;
+  user-select: none;
+}
+
+.dm-svg {
+  display: block;
+  height: auto;
+  font-family: var(--font-sans);
+}
+
+.dm-arrow {
+  fill: var(--primary);
+}
+
+.dm-edge {
+  fill: none;
+  stroke: var(--primary);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.85;
+  transition: opacity 120ms ease, stroke-width 120ms ease;
+}
+
+.dm-edge--active {
+  stroke-width: 3;
+  opacity: 1;
+}
+
+.dm-edge--dim {
+  opacity: 0.12;
+}
+
+.dm-node {
+  outline: none;
+  transition: opacity 120ms ease;
+}
+
+.dm-node--dim {
+  opacity: 0.35;
+}
+
+.dm-node__box {
+  fill: var(--surface);
+  stroke: var(--border-strong);
+  stroke-width: 1.4;
+}
+
+.dm-node--hover .dm-node__box,
+.dm-node:focus-visible .dm-node__box {
+  stroke: var(--primary);
+  stroke-width: 2.4;
+}
+
+.dm-node__header {
+  fill: var(--primary-soft);
+}
+
+.dm-node__title {
+  font-size: 14px;
+  font-weight: 700;
+  fill: var(--text);
+}
+
+.dm-node__subtitle {
+  font-size: 10px;
+  fill: var(--text-muted);
+}
+
+.dm-field {
+  font-size: 11px;
+  fill: var(--text);
+}
+
+.dm-field__role {
+  font-weight: 700;
+  fill: var(--text-muted);
+}
+
+.dm-field__role[data-role='PK'],
+.dm-field__role[data-role='PK FK'] {
+  fill: var(--primary);
+}
+
+.dm-field__role[data-role='FK'] {
+  fill: var(--info);
+}
+
+.dm-field__type {
+  fill: var(--text-muted);
+}
+
+.dm-label rect {
+  fill: var(--surface);
+  stroke: var(--border-strong);
+}
+
+.dm-label text {
+  font-size: 11px;
+  font-weight: 700;
+  fill: var(--primary-strong);
+}
+
+.dm-label .dm-card {
+  fill: var(--text-muted);
+}
+
+.dm-label--dim {
+  opacity: 0.18;
+}

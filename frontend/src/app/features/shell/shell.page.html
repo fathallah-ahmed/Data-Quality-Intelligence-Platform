@@ -1,0 +1,68 @@
+<a class="skip-link" href="#main-content">Skip to content</a>
+
+<header class="topbar">
+  <button
+    type="button"
+    class="btn btn--ghost btn--icon topbar__menu"
+    aria-label="Show datasets"
+    aria-controls="dataset-drawer"
+    [attr.aria-expanded]="layout.sidebarOpen()"
+    (click)="layout.sidebarOpen.set(!layout.sidebarOpen())"
+  >☰</button>
+
+  <a class="brand" routerLink="/datasets">
+    <span class="brand__mark" aria-hidden="true">DQ</span>
+    <span class="brand__name">Data Quality <span class="brand__sub">Wevioo</span></span>
+  </a>
+
+  <div class="topbar__actions">
+    <span class="live" [attr.data-state]="live.transport()" [attr.title]="liveLabel().hint" role="status" aria-live="polite">
+      <span class="live__dot" aria-hidden="true"></span>
+      <span class="live__text">{{ liveLabel().text }}</span>
+    </span>
+
+    <button type="button" class="btn btn--primary btn--sm topbar__new" (click)="layout.openUpload()">+ New analysis</button>
+
+    <button
+      type="button"
+      class="btn btn--ghost btn--icon"
+      [attr.aria-label]="theme.isDark() ? 'Switch to light theme' : 'Switch to dark theme'"
+      [attr.aria-pressed]="theme.isDark()"
+      (click)="theme.toggle()"
+    >{{ theme.isDark() ? '☀' : '☾' }}</button>
+
+    <div class="menu">
+      <button
+        type="button"
+        class="btn btn--ghost btn--sm user-button"
+        aria-haspopup="menu"
+        [attr.aria-expanded]="userMenuOpen()"
+        (click)="userMenuOpen.set(!userMenuOpen())"
+      >
+        <span class="avatar" aria-hidden="true">{{ (auth.username() ?? '?').charAt(0).toUpperCase() }}</span>
+        <span class="user-button__name">{{ auth.username() }}</span>
+      </button>
+      @if (userMenuOpen()) {
+        <div class="menu__panel" role="menu" (keydown.escape)="userMenuOpen.set(false)">
+          <p class="menu__caption">Signed in as <strong>{{ auth.username() }}</strong></p>
+          <button type="button" role="menuitem" class="menu__item" (click)="logout()">Sign out</button>
+        </div>
+      }
+    </div>
+  </div>
+</header>
+
+<div class="layout">
+  @if (layout.sidebarOpen()) {
+    <div class="drawer-backdrop" (click)="layout.sidebarOpen.set(false)" aria-hidden="true"></div>
+  }
+  <aside id="dataset-drawer" class="sidebar" [class.sidebar--open]="layout.sidebarOpen()" (keydown.escape)="layout.sidebarOpen.set(false)">
+    <app-dataset-sidebar [now]="now()" />
+  </aside>
+
+  <main id="main-content" class="main" tabindex="-1">
+    <router-outlet />
+  </main>
+</div>
+
+<app-upload-dialog />

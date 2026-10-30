@@ -1,0 +1,120 @@
+.dropzone {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-2);
+  padding: var(--space-6) var(--space-4);
+  border: 2px dashed var(--border-strong);
+  border-radius: var(--radius-lg);
+  background: var(--surface-sunken);
+  text-align: center;
+  transition: border-color 120ms ease, background 120ms ease;
+}
+
+.dropzone--active {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+}
+
+.dropzone p {
+  margin: 0;
+}
+
+.dropzone__icon {
+  font-size: 1.75rem;
+  color: var(--primary);
+}
+
+.dropzone__hint {
+  font-size: var(--text-xs);
+}
+
+.dropzone label:focus-within {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.file-list {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.file-list__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-1) var(--space-2) var(--space-1) var(--space-3);
+  border-bottom: 1px solid var(--border);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.file-list ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.file-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2) var(--space-1) var(--space-3);
+}
+
+.file-row + .file-row {
+  border-top: 1px solid var(--border);
+}
+
+.file-row__icon {
+  color: var(--primary);
+}
+
+.file-row__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-row__size {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.context {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.context summary {
+  display: grid;
+  gap: 2px;
+  padding: var(--space-3);
+  cursor: pointer;
+}
+
+.context__title {
+  font-weight: 600;
+}
+
+.context__hint {
+  font-size: var(--text-sm);
+}
+
+.context__body {
+  display: grid;
+  gap: var(--space-3);
+  padding: 0 var(--space-3) var(--space-3);
+}
+
+.duplicate p {
+  margin: 0 0 var(--space-2);
+}
+
+.callout ul {
+  margin: var(--space-1) 0 0;
+  padding-left: var(--space-4);
+}

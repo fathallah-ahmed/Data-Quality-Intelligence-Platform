@@ -1,0 +1,87 @@
+<div class="dm-toolbar" role="toolbar" aria-label="Diagram controls">
+  <div class="btn-group">
+    <button type="button" class="btn btn--secondary btn--sm" (click)="zoomBy(-10)" aria-label="Zoom out">−</button>
+    <span class="dm-zoom" aria-live="polite">{{ zoom() }}%</span>
+    <button type="button" class="btn btn--secondary btn--sm" (click)="zoomBy(10)" aria-label="Zoom in">+</button>
+  </div>
+  <button type="button" class="btn btn--ghost btn--sm" (click)="reset()">Reset view</button>
+  <button type="button" class="btn btn--ghost btn--sm" [attr.aria-pressed]="showRelations()" (click)="showRelations.set(!showRelations())">
+    {{ showRelations() ? 'Hide relations' : 'Show relations' }}
+  </button>
+  <span class="dm-hint">Drag to pan · Ctrl + wheel to zoom</span>
+  <button type="button" class="btn btn--secondary btn--sm dm-download" (click)="downloadRequested.emit()">Download SVG</button>
+</div>
+
+<div
+  #viewport
+  class="dm-viewport"
+  [class.dm-viewport--panning]="panning()"
+  (pointerdown)="onPointerDown($event)"
+  (pointermove)="onPointerMove($event)"
+  (pointerup)="onPointerUp()"
+  (pointercancel)="onPointerUp()"
+  (wheel)="onWheel($event)"
+>
+  <svg
+    class="dm-svg"
+    role="img"
+    [attr.aria-label]="label()"
+    [attr.viewBox]="'0 0 ' + model().width + ' ' + model().height"
+    [style.width.px]="model().width * zoom() / 100"
+    preserveAspectRatio="xMinYMin meet"
+  >
+    <defs>
+      <marker id="dmArrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+        <path d="M 0 0 L 10 5 L 0 10 z" class="dm-arrow"></path>
+      </marker>
+    </defs>
+
+    @if (showRelations()) {
+      @for (edge of model().edges; track edge.id) {
+        <path class="dm-edge" [class.dm-edge--active]="hovered() && isEdgeActive(edge)" [class.dm-edge--dim]="!isEdgeActive(edge)"
+          [attr.d]="edge.path" marker-end="url(#dmArrow)">
+          <title>{{ edge.reason }}</title>
+        </path>
+      }
+    }
+
+    @for (node of model().nodes; track node.id) {
+      <g
+        class="dm-node"
+        [class.dm-node--hover]="hovered() === node.id"
+        [class.dm-node--dim]="isNodeDimmed(node)"
+        [attr.transform]="'translate(' + node.x + ', ' + node.y + ')'"
+        tabindex="0"
+        role="group"
+        [attr.aria-label]="node.id + ', ' + node.subtitle"
+        (mouseenter)="hovered.set(node.id)"
+        (mouseleave)="hovered.set(null)"
+        (focus)="hovered.set(node.id)"
+        (blur)="hovered.set(null)"
+      >
+        <rect class="dm-node__box" [attr.width]="node.width" [attr.height]="node.height" rx="8"></rect>
+        <rect class="dm-node__header" [attr.width]="node.width" height="42" rx="8"></rect>
+        <text class="dm-node__title" x="14" y="26">{{ node.label }}</text>
+        <text class="dm-node__subtitle" x="14" y="58">{{ node.subtitle }}</text>
+        @for (field of node.fields; track field.y) {
+          <text class="dm-field" x="14" [attr.y]="field.y + 14">
+            <tspan class="dm-field__role" [attr.data-role]="field.role">{{ field.role }}</tspan>
+            <tspan> {{ field.name }}</tspan>
+            <tspan class="dm-field__type"> {{ field.type }}</tspan>
+          </text>
+        }
+      </g>
+    }
+
+    @if (showRelations()) {
+      @for (edge of model().edges; track edge.id) {
+        <g class="dm-label" [class.dm-label--dim]="!isEdgeActive(edge)">
+          <rect [attr.x]="edge.labelX - edge.labelWidth / 2" [attr.y]="edge.labelY - 14" [attr.width]="edge.labelWidth" height="18" rx="9"></rect>
+          <text [attr.x]="edge.labelX" [attr.y]="edge.labelY" text-anchor="middle">{{ edge.label }}</text>
+          <text class="dm-card" [attr.x]="edge.sourceCardinalityX" [attr.y]="edge.sourceCardinalityY" text-anchor="middle">{{ edge.sourceCardinality }}</text>
+          <text class="dm-card" [attr.x]="edge.targetCardinalityX" [attr.y]="edge.targetCardinalityY" text-anchor="middle">{{ edge.targetCardinality }}</text>
+        </g>
+      }
+    }
+  </svg>
+</div>

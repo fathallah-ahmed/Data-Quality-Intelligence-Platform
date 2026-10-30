@@ -1,0 +1,35 @@
+<main class="login">
+  <button
+    type="button"
+    class="btn btn--ghost btn--icon login__theme"
+    [attr.aria-label]="theme.isDark() ? 'Switch to light theme' : 'Switch to dark theme'"
+    (click)="theme.toggle()"
+  >{{ theme.isDark() ? '☀' : '☾' }}</button>
+
+  <section class="login__card card" aria-labelledby="login-title">
+    <div class="login__brand">
+      <span class="brand-mark" aria-hidden="true">DQ</span>
+      <div>
+        <h1 id="login-title">Data Quality</h1>
+        <p class="muted">Profile CSV datasets, track quality across versions and map how tables relate.</p>
+      </div>
+    </div>
+
+    <form class="login__form" (ngSubmit)="submit()" novalidate>
+      <label class="field">
+        <span class="field__label">Username</span>
+        <input class="input" name="username" autocomplete="username" required [ngModel]="username()" (ngModelChange)="username.set($event)" />
+      </label>
+      <label class="field">
+        <span class="field__label">Password</span>
+        <input class="input" name="password" type="password" autocomplete="current-password" required [ngModel]="password()" (ngModelChange)="password.set($event)" />
+      </label>
+      @if (error()) {
+        <div class="callout" data-tone="danger" role="alert">{{ error() }}</div>
+      }
+      <button type="submit" class="btn btn--primary btn--block" [disabled]="submitting()">
+        {{ submitting() ? 'Signing in…' : 'Sign in' }}
+      </button>
+    </form>
+  </section>
+</main>

@@ -1,0 +1,83 @@
+.tables-layout {
+  display: grid;
+  grid-template-columns: minmax(240px, 300px) minmax(0, 1fr);
+  gap: var(--space-4);
+  align-items: start;
+}
+
+.table-list {
+  position: sticky;
+  top: calc(var(--topbar-height) + var(--space-3));
+  display: grid;
+  gap: var(--space-2);
+  max-height: calc(100vh - var(--topbar-height) - var(--space-6));
+  overflow: auto;
+  padding: var(--space-2);
+}
+
+.table-list__items {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.table-list__item {
+  display: grid;
+  gap: var(--space-1);
+  width: 100%;
+  min-height: 44px;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.table-list__item:hover {
+  background: var(--surface-hover);
+}
+
+.table-list__item[aria-selected='true'] {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+}
+
+.table-list__top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.table-list__name {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.table-list__meta {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.table-list__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.table-pane {
+  min-width: 0;
+}
+
+@media (max-width: 900px) {
+  .tables-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .table-list {
+    position: static;
+    max-height: 320px;
+  }
+}

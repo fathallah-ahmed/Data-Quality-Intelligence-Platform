@@ -1,0 +1,115 @@
+<app-modal [open]="layout.uploadOpen()" [title]="title()" [wide]="true" [busy]="uploading()" (closed)="close()">
+  @if (duplicate(); as duplicate) {
+    <div class="duplicate">
+      <p>{{ duplicate.duplicateMessage || 'An existing version has exactly the same files.' }}</p>
+      <p class="muted">Open the existing results, or run the analysis again on those files (for example after changing the LLM context or once Ollama is available).</p>
+    </div>
+  } @else {
+    <div
+      class="dropzone"
+      [class.dropzone--active]="dragging()"
+      (dragover)="onDragOver($event)"
+      (dragleave)="dragging.set(false)"
+      (drop)="onDrop($event)"
+    >
+      <span class="dropzone__icon" aria-hidden="true">⬆</span>
+      <p><strong>Drop CSV files here</strong> or</p>
+      <label class="btn btn--secondary btn--sm">
+        Browse files
+        <input class="sr-only" type="file" accept=".csv,text/csv" multiple (change)="onInputChange($event)" />
+      </label>
+      <p class="muted dropzone__hint">One file per table · .csv only · up to {{ maxLabel }} each · adding files keeps the ones already selected</p>
+    </div>
+
+    @if (problems().length > 0) {
+      <div class="callout" data-tone="warning" role="alert">
+        <strong>Some files were not added:</strong>
+        <ul>
+          @for (problem of problems(); track problem.name) {
+            <li><code>{{ problem.name }}</code>: {{ problem.reason }}</li>
+          }
+        </ul>
+      </div>
+    }
+
+    @if (files().length > 0) {
+      <div class="file-list">
+        <div class="file-list__head">
+          <span>{{ files().length }} {{ files().length === 1 ? 'table' : 'tables' }} · {{ totalSize() }}</span>
+          <button type="button" class="btn btn--ghost btn--sm" (click)="files.set([])">Clear all</button>
+        </div>
+        <ul>
+          @for (file of files(); track file.name) {
+            <li class="file-row">
+              <span class="file-row__icon" aria-hidden="true">▤</span>
+              <span class="file-row__name">{{ file.name }}</span>
+              <span class="file-row__size">{{ size(file) }}</span>
+              <button type="button" class="btn btn--ghost btn--icon btn--sm" [attr.aria-label]="'Remove ' + file.name" (click)="removeFile(file)">✕</button>
+            </li>
+          }
+        </ul>
+      </div>
+    }
+
+    <label class="field">
+      <span class="field__label">Dataset name <span class="muted">(optional)</span></span>
+      <input class="input" type="text" [placeholder]="namePlaceholder()" [ngModel]="datasetName()" (ngModelChange)="datasetName.set($event)" maxlength="255" />
+      <span class="field__hint">Uploading again under the same name creates a new version of that dataset.</span>
+    </label>
+
+    <details class="context" [open]="showContext()" (toggle)="showContext.set($any($event.target).open)">
+      <summary>
+        <span class="context__title">Add business context for the AI <span class="muted">(optional)</span></span>
+        <span class="muted context__hint">Descriptions and a question make the LLM insights more relevant.</span>
+      </summary>
+      <div class="context__body">
+        <label class="field">
+          <span class="field__label">Context</span>
+          <select class="input" [ngModel]="contextScope()" (ngModelChange)="contextScope.set($event)">
+            <option value="none">Question only</option>
+            <option value="global">Describe the whole dataset</option>
+            <option value="per_table">Describe each table</option>
+            <option value="both">Both</option>
+          </select>
+        </label>
+        <label class="field">
+          <span class="field__label">Question to answer</span>
+          <textarea class="input" rows="2" placeholder="e.g. Can these tables be used for monthly revenue reporting?" [ngModel]="globalQuestion()" (ngModelChange)="globalQuestion.set($event)"></textarea>
+        </label>
+        @if (usesGlobal()) {
+          <label class="field">
+            <span class="field__label">Dataset description</span>
+            <textarea class="input" rows="2" placeholder="What this data is and where it comes from" [ngModel]="globalDescription()" (ngModelChange)="globalDescription.set($event)"></textarea>
+          </label>
+        }
+        @if (usesTables()) {
+          @for (file of files(); track file.name) {
+            <label class="field">
+              <span class="field__label">Description of <code>{{ tableName(file) }}</code></span>
+              <textarea class="input" rows="2" [ngModel]="tableDescriptions()[tableName(file)]" (ngModelChange)="setTableDescription(file, $event)"></textarea>
+            </label>
+          } @empty {
+            <p class="muted">Add files to describe each table.</p>
+          }
+        }
+      </div>
+    </details>
+
+    @if (error()) {
+      <div class="callout" data-tone="danger" role="alert">{{ error() }}</div>
+    }
+  }
+
+  <div modal-actions>
+    @if (duplicate()) {
+      <button type="button" class="btn btn--ghost" (click)="duplicate.set(null)">Cancel</button>
+      <button type="button" class="btn btn--secondary" [disabled]="uploading()" (click)="submit(true)">{{ uploading() ? 'Starting…' : 'Run again' }}</button>
+      <button type="button" class="btn btn--primary" (click)="openExisting()">Open existing version</button>
+    } @else {
+      <button type="button" class="btn btn--ghost" [disabled]="uploading()" (click)="close()">Cancel</button>
+      <button type="button" class="btn btn--primary" [disabled]="files().length === 0 || uploading()" (click)="submit()">
+        {{ uploading() ? 'Uploading…' : 'Upload and analyse' }}
+      </button>
+    }
+  </div>
+</app-modal>

@@ -1,0 +1,61 @@
+@if (details().tables.length === 0) {
+  <app-empty-state title="No tables yet" message="Each table shows up here as soon as the pipeline has profiled it." icon="⏳" />
+} @else {
+  <div class="tables-layout">
+    <aside class="card table-list" aria-label="Tables">
+      @if (details().tables.length > 6) {
+        <label class="sr-only" for="table-filter">Filter tables</label>
+        <input id="table-filter" class="input input--sm" type="search" placeholder="Filter tables…" [value]="filter()" (input)="filter.set($any($event.target).value)" />
+      }
+      <div class="table-list__items" role="listbox" aria-label="Tables of this version" (keydown)="onListKeydown($event)">
+        @for (table of tables(); track table.tableVersionId) {
+          <button
+            type="button"
+            role="option"
+            class="table-list__item"
+            [attr.aria-selected]="selected()?.tableName === table.tableName"
+            [attr.tabindex]="selected()?.tableName === table.tableName ? 0 : -1"
+            (click)="selectTable.emit(table.tableName)"
+          >
+            <span class="table-list__top">
+              <span class="table-list__name">{{ table.tableName }}</span>
+              @if (table.qualityScore !== null && table.qualityScore !== undefined) {
+                <span class="score-pill" [attr.data-tone]="tone(table.qualityScore)" title="Quality score">{{ table.qualityScore | dqScore }}</span>
+              }
+            </span>
+            <span class="table-list__meta">
+              @if (table.changeStatus === 'REMOVED') {
+                removed in this version
+              } @else if (table.rowCount === null || table.rowCount === undefined) {
+                waiting for metrics…
+              } @else {
+                {{ table.rowCount | dqNumber }} rows · {{ table.columnCount }} cols
+              }
+            </span>
+            <span class="table-list__badges">
+              <app-status-badge [status]="table.changeStatus" />
+              @if (failedNames().has(table.tableName)) {
+                <span class="badge" data-tone="danger" [attr.title]="failureFor(table.tableName)">Failed</span>
+              }
+              <app-llm-badge [status]="table.llmStatus" [compact]="true" />
+            </span>
+          </button>
+        } @empty {
+          <p class="muted">No table matches “{{ filter() }}”.</p>
+        }
+      </div>
+    </aside>
+
+    <div class="table-pane">
+      @if (selected(); as table) {
+        <app-table-detail
+          [table]="table"
+          [detail]="detail()"
+          [loading]="detailLoading()"
+          [failure]="failureFor(table.tableName)"
+          [versionNumber]="details().version.versionNumber"
+        />
+      }
+    </div>
+  </div>
+}

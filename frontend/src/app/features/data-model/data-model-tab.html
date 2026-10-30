@@ -1,0 +1,81 @@
+@if (tables().length === 0) {
+  <app-empty-state title="No tables yet" message="The data model appears as soon as the first table has been profiled." icon="⬚" />
+} @else {
+  <section class="card">
+    <header class="card__header">
+      <div>
+        <h2 class="card__title">Data model</h2>
+        <p class="card__subtitle">
+          {{ tables().length }} {{ tables().length === 1 ? 'entity' : 'entities' }} ·
+          {{ relations().length }} {{ relations().length === 1 ? 'relationship' : 'relationships' }}
+          @if (inferredOnly()) {
+            · inferred from column names
+          }
+        </p>
+      </div>
+      <app-info-tip text="Relationships come from value overlap computed by the pipeline (a source column whose values exist in a key column of another table). When none is found, they are guessed from identifier column names." />
+    </header>
+    <app-data-model-map [model]="model()" [label]="'Data model of ' + datasetName()" (downloadRequested)="download()" />
+  </section>
+
+  <div class="dm-columns">
+    <section class="card">
+      <header class="card__header">
+        <h2 class="card__title">Relationships</h2>
+      </header>
+      @if (relations().length === 0) {
+        <p class="muted">No relationship was detected between these tables.</p>
+      } @else {
+        <ul class="relation-list">
+          @for (relation of relations(); track relation.sourceTable + relation.sourceColumn + relation.targetTable + relation.targetColumn) {
+            <li class="relation">
+              <div class="relation__path">
+                <code>{{ relation.sourceTable }}.{{ relation.sourceColumn }}</code>
+                <span aria-label="references">→</span>
+                <code>{{ relation.targetTable }}.{{ relation.targetColumn }}</code>
+              </div>
+              <div class="relation__meta">
+                <span class="badge badge--soft" [attr.data-tone]="relation.confidence === 'high' ? 'success' : 'warning'">{{ relation.confidence }} confidence</span>
+                @if (relation.coverage !== undefined) {
+                  <span class="chip">Coverage {{ relation.coverage * 100 | dqPercent }}</span>
+                }
+                @if (relation.overlapCount !== undefined) {
+                  <span class="chip">{{ relation.overlapCount | dqNumber }} shared values</span>
+                }
+                @if (relation.origin === 'names') {
+                  <span class="chip">By name</span>
+                }
+              </div>
+              <p class="relation__reason">{{ relation.reason }}</p>
+            </li>
+          }
+        </ul>
+      }
+    </section>
+
+    <section class="card">
+      <header class="card__header">
+        <h2 class="card__title">Entities</h2>
+      </header>
+      <ul class="entity-list">
+        @for (entity of entities(); track entity.tableName) {
+          <li>
+            <details class="entity">
+              <summary>
+                <strong>{{ entity.tableName }}</strong>
+                <span class="muted">{{ entity.rowCount | dqNumber }} rows · {{ entity.columns.length }} fields</span>
+              </summary>
+              <div class="chip-list">
+                @for (column of entity.columns; track column.name) {
+                  <span class="chip" [attr.data-role]="column.role">
+                    <b>{{ column.role }}</b> {{ column.name }} <span class="muted">{{ column.type }}</span>
+                  </span>
+                }
+              </div>
+            </details>
+          </li>
+        }
+      </ul>
+    </section>
+  </div>
+}

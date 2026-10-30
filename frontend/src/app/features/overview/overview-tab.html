@@ -1,0 +1,99 @@
+<app-pipeline-progress [details]="details()" [now]="now()" [retrying]="retrying()" (retry)="retry.emit()" />
+
+<section class="kpis" aria-label="Key figures">
+  <article class="kpi">
+    <span class="kpi__label">Tables ready</span>
+    <strong class="kpi__value">{{ ready().length }}<small> / {{ expected() }}</small></strong>
+  </article>
+  <article class="kpi">
+    <span class="kpi__label">Rows</span>
+    <strong class="kpi__value">{{ rows() | dqNumber }}</strong>
+  </article>
+  <article class="kpi">
+    <span class="kpi__label">Columns</span>
+    <strong class="kpi__value">{{ columns() | dqNumber }}</strong>
+  </article>
+  <article class="kpi" [attr.data-tone]="scoreTone()">
+    <span class="kpi__label">Quality score <app-info-tip [text]="scoreHelp" label="How is the quality score computed?" /></span>
+    <strong class="kpi__value kpi__value--score">{{ score() | dqScore }}<small>{{ score() === null ? '' : ' / 100' }}</small></strong>
+  </article>
+</section>
+
+@if (ready().length === 0) {
+  <app-empty-state compact title="No table results yet" message="Metrics appear here as soon as the first table has been profiled." icon="⏳" />
+} @else {
+  <div class="overview-grid">
+    <section class="card">
+      <header class="card__header"><h2 class="card__title">Rows by table</h2></header>
+      <ul class="bars">
+        @for (table of ready(); track table.tableVersionId) {
+          <li class="bars__row">
+            <a class="bars__label" [routerLink]="['../tables']" [queryParams]="{ table: table.tableName }">{{ table.tableName }}</a>
+            <span class="bars__track"><span class="bars__fill" [style.width.%]="(table.rowCount ?? 0) / maxRows() * 100"></span></span>
+            <span class="bars__value">{{ table.rowCount | dqNumber }}</span>
+          </li>
+        }
+      </ul>
+    </section>
+
+    <section class="card">
+      <header class="card__header"><h2 class="card__title">Columns by table</h2></header>
+      <ul class="bars">
+        @for (table of ready(); track table.tableVersionId) {
+          <li class="bars__row">
+            <a class="bars__label" [routerLink]="['../tables']" [queryParams]="{ table: table.tableName }">{{ table.tableName }}</a>
+            <span class="bars__track"><span class="bars__fill bars__fill--alt" [style.width.%]="(table.columnCount ?? 0) / maxColumns() * 100"></span></span>
+            <span class="bars__value">{{ table.columnCount | dqNumber }}</span>
+          </li>
+        }
+      </ul>
+    </section>
+
+    <section class="card">
+      <header class="card__header">
+        <h2 class="card__title">Changes since the previous version</h2>
+      </header>
+      @if (!hasPrevious()) {
+        <p class="muted">This is the first version of the dataset: every table is new.</p>
+      }
+      <ul class="bars">
+        @for (change of changes(); track change.status) {
+          <li class="bars__row">
+            <span class="bars__label"><app-status-badge [status]="change.status" /></span>
+            <span class="bars__track"><span class="bars__fill" [attr.data-tone]="change.tone" [style.width.%]="change.count / changeTotal() * 100"></span></span>
+            <span class="bars__value">{{ change.count }}</span>
+          </li>
+        }
+      </ul>
+    </section>
+  </div>
+
+  <section class="card">
+    <header class="card__header">
+      <div>
+        <h2 class="card__title">Global insights</h2>
+        <p class="card__subtitle">Across all tables of this version</p>
+      </div>
+      @if (details().globalAnalysis; as global) {
+        <app-llm-badge [status]="global.llmStatus" />
+      }
+    </header>
+    @if (!details().globalAnalysis) {
+      <p class="muted">The global analysis runs after the last table. Until then, these summaries are computed from the table metrics.</p>
+    }
+    <div class="insights">
+      <article>
+        <h3>Business view</h3>
+        <p>{{ business() }}</p>
+      </article>
+      <article>
+        <h3>Quality posture</h3>
+        <p>{{ posture() }}</p>
+      </article>
+      <article>
+        <h3>Final assessment</h3>
+        <p>{{ assessment() }}</p>
+      </article>
+    </div>
+  </section>
+}

@@ -1,0 +1,83 @@
+@if (tables().length === 0) {
+  <app-empty-state title="No insights yet" message="Insights appear once tables have been analysed." icon="✦" />
+} @else {
+  <section class="card">
+    <header class="card__header insights-head">
+      <div>
+        <h2 class="card__title">Table insights</h2>
+        <p class="card__subtitle">Semantic analysis of one table at a time</p>
+      </div>
+      <label class="field field--inline">
+        <span class="field__label">Table</span>
+        <select class="input input--sm" [value]="selected()?.tableName ?? ''" (change)="selectTable.emit($any($event.target).value)">
+          @for (table of tables(); track table.tableVersionId) {
+            <option [value]="table.tableName">{{ table.tableName }}</option>
+          }
+        </select>
+      </label>
+    </header>
+    @if (selected(); as table) {
+      <div class="insights-meta">
+        <app-llm-badge [status]="table.llmStatus" />
+      </div>
+      @if (executiveSummary()) {
+        <p class="lead">{{ executiveSummary() }}</p>
+      }
+      @if (groups().length === 0) {
+        <p class="muted">No semantic analysis was returned for this table yet.</p>
+      }
+    }
+  </section>
+
+  @for (group of groups(); track group.id; let first = $first) {
+    <details class="group card" [open]="first">
+      <summary class="group__summary">
+        <span>
+          <span class="group__title">{{ group.title }}</span>
+          <span class="group__description">{{ group.description }}</span>
+        </span>
+        <span class="group__count">{{ group.cards.length }}</span>
+      </summary>
+      <div class="group__cards">
+        @for (card of group.cards; track $index) {
+          <article class="insight-card">
+            <header>
+              <strong>{{ card.title }}</strong>
+              @if (card.tag) {
+                <span class="chip chip--xs">{{ card.tag }}</span>
+              }
+            </header>
+            @if (card.text) {
+              <p>{{ card.text }}</p>
+            }
+            @for (note of card.notes ?? []; track note.label) {
+              <p class="insight-card__note"><b>{{ note.label }}</b> {{ note.text }}</p>
+            }
+          </article>
+        }
+      </div>
+    </details>
+  }
+
+  @if (portfolio().length > 0) {
+    <section class="card">
+      <header class="card__header">
+        <div>
+          <h2 class="card__title">Portfolio recommendations</h2>
+          <p class="card__subtitle">From the global analysis across all tables</p>
+        </div>
+        <app-llm-badge [status]="details().globalAnalysis?.llmStatus" />
+      </header>
+      @for (group of portfolio(); track group.id) {
+        <details class="portfolio-group">
+          <summary>{{ group.title }} <span class="group__count">{{ group.items.length }}</span></summary>
+          <ul>
+            @for (item of group.items; track $index) {
+              <li>{{ item }}</li>
+            }
+          </ul>
+        </details>
+      }
+    </section>
+  }
+}
