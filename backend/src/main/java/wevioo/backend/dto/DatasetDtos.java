@@ -54,7 +54,9 @@ public class DatasetDtos {
         Map<String, Object> dataSignature,
         Map<String, Object> rawMetrics,
         Map<String, Object> rawAnalysis,
-        List<ColumnMetricView> columns
+        List<ColumnMetricView> columns,
+        /** Relationship candidates found by the pipeline from value overlap (source = this table). */
+        List<Map<String, Object>> relationships
     ) {}
 
     public record GlobalAnalysisView(

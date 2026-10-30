@@ -46,6 +46,7 @@ public class PipelineDtos {
         String metricsJsonPath,
         String analysisJsonPath,
         Map<String, Object> dataSignature,
+        List<Map<String, Object>> relationships,
         String changeStatus,
         String status
     ) {}

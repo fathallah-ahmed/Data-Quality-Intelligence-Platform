@@ -570,6 +570,7 @@ public class DatasetService {
                 jsonService.toMap(tableVersion.getDataSignatureJson()),
                 Map.of(),
                 Map.of(),
+                List.of(),
                 List.of()
             );
         }
@@ -598,9 +599,10 @@ public class DatasetService {
             analysis.getLlmModel(),
             jsonService.toMap(analysis.getLlmInterpretationJson()),
             jsonService.toMap(tableVersion.getDataSignatureJson()),
-            includeRaw ? readPipelineJson(analysis.getMetricsJsonPath()) : Map.of(),
+            includeRaw ? RawPayloads.trimmed(readPipelineJson(analysis.getMetricsJsonPath())) : Map.of(),
             includeRaw ? readPipelineJson(analysis.getAnalysisJsonPath()) : Map.of(),
-            columns
+            columns,
+            recordList(jsonService.toList(analysis.getRelationshipsJson()))
         );
     }
 

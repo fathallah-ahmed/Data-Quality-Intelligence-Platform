@@ -229,6 +229,7 @@ class ApiIntegrationTest {
         assertThat(details.get("failedTables").get(0).get("tableName").asString()).isEqualTo("b");
         assertThat(details.get("tables").get(0).get("llmStatus").asString()).isEqualTo("unavailable");
         assertThat(details.get("qualityScore").asDouble()).isEqualTo(100.0);
+        assertThat(details.get("tables").get(0).get("relationships").get(0).get("target_table").asString()).isEqualTo("other");
     }
 
     @Test
@@ -307,8 +308,9 @@ class ApiIntegrationTest {
             {"table_name": "%s", "status": "completed", "llm_status": "unavailable",
              "dataset_metrics": {"row_count": %d, "column_count": 1, "duplicate_rows": 0, "duplicate_percent": 0},
              "column_metrics": [{"name": "a", "data_type": "int64", "missing_count": 0, "missing_percent": 0, "distinct_count": 1}],
+             "deterministic_relationships": [{"source_table": "%s", "source_column": "a", "target_table": "other", "target_column": "id", "coverage": 1.0}],
              "data_signature": {"row_count": %d, "column_count": 1, "content_hash": "%s", "schema_hash": "s1"}}
-            """.formatted(table, rows, rows, contentHash);
+            """.formatted(table, rows, table, rows, contentHash);
         mvc.perform(post("/api/pipeline/" + runId + "/table-analysis")
                 .header("X-Pipeline-Token", PIPELINE_TOKEN)
                 .contentType(MediaType.APPLICATION_JSON)

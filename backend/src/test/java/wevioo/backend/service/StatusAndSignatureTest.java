@@ -69,6 +69,6 @@ class StatusAndSignatureTest {
     }
 
     private TableAnalysisView table(String name, Long rows, Double score, String change) {
-        return new TableAnalysisView(1L, name, change, rows, 1, 0L, 0L, score, null, null, null, Map.of(), Map.of(), Map.of(), Map.of(), List.of());
+        return new TableAnalysisView(1L, name, change, rows, 1, 0L, 0L, score, null, null, null, Map.of(), Map.of(), Map.of(), Map.of(), List.of(), List.of());
     }
 }

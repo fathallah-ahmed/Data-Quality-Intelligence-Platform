@@ -91,6 +91,9 @@ public class PipelineIngestionService {
         analysis.setAnalysisJsonPath(request.analysisJsonPath());
         analysis.setLlmModel(request.llmModelUsed());
         analysis.setLlmStatus(request.llmStatus());
+        analysis.setRelationshipsJson(request.relationships() == null || request.relationships().isEmpty()
+            ? null
+            : jsonService.toJson(request.relationships()));
         analysis.setLlmInterpretationJson(jsonService.toJson(request.llmInterpretation()));
         analysis.setLlmSummary(jsonService.summaryFromInterpretation(request.llmInterpretation()));
         analysis.setMissingCount(totalMissing(request.columnMetrics()));

@@ -51,6 +51,10 @@ public class TableAnalysis {
     @Column(name = "llm_status", length = 32)
     private String llmStatus;
 
+    @Lob
+    @Column(name = "relationships_json")
+    private String relationshipsJson;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();
 
@@ -82,6 +86,8 @@ public class TableAnalysis {
     public void setLlmModel(String llmModel) { this.llmModel = llmModel; }
     public String getLlmStatus() { return llmStatus; }
     public void setLlmStatus(String llmStatus) { this.llmStatus = llmStatus; }
+    public String getRelationshipsJson() { return relationshipsJson; }
+    public void setRelationshipsJson(String relationshipsJson) { this.relationshipsJson = relationshipsJson; }
     public Instant getCreatedAt() { return createdAt; }
     public List<ColumnMetric> getColumnMetrics() { return columnMetrics; }
 }

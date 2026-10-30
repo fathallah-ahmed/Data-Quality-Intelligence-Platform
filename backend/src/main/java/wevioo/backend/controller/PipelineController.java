@@ -118,6 +118,10 @@ public class PipelineController {
             stringValue(payload, "metrics_json_path"),
             stringValue(payload, "analysis_json_path"),
             mapValue(payload.get("data_signature")),
+            listValue(payload.get("deterministic_relationships")).stream()
+                .map(this::mapValue)
+                .filter(item -> !item.isEmpty())
+                .toList(),
             stringValue(payload, "change_status"),
             stringValue(payload, "status")
         );
