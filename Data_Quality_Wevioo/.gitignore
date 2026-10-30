@@ -1,0 +1,33 @@
+data/
+venv/
+__pycache__/
+sweetviz_extracted/
+sweetviz_reports/
+*.pyc
+.ipynb_checkpoints/
+heatmap_*.png
+*_UPDATED.pdf
+_tmp_enhanced_viz/
+
+# Environment and secrets
+.env
+
+
+# Python virtualenvs
+.venv/
+
+# IDE
+.idea/
+.vscode/
+
+# Docker
+postgres_data/
+
+# Logs and DB
+logs/
+storage/
+*.db
+*.pid
+airflow.cfg
+*.tar
+

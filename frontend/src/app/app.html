@@ -1,0 +1,600 @@
+<main class="shell">
+  <app-top-bar
+    [refreshing]="refreshing()"
+    [authenticated]="isAuthenticated()"
+    (refresh)="refreshCurrent()"
+    (logout)="logout()"
+  ></app-top-bar>
+
+  @if (message()) {
+    <section class="notice success">{{ message() }}</section>
+  }
+
+  @if (error()) {
+    <section class="notice error">{{ error() }}</section>
+  }
+
+  @if (!isAuthenticated()) {
+    <app-login-panel
+      [(username)]="loginUsername"
+      [(password)]="loginPassword"
+      [loggingIn]="loggingIn()"
+      (signIn)="login()"
+    ></app-login-panel>
+  } @else {
+  <app-upload-panel
+    [(datasetName)]="datasetName"
+    [selectedFiles]="selectedFiles"
+    [(contextScope)]="contextScope"
+    [showUploadContext]="showUploadContext"
+    [(globalDescription)]="globalDescription"
+    [(globalQuestion)]="globalQuestion"
+    [tableDescriptions]="tableDescriptions"
+    [uploading]="uploading()"
+    [duplicatePrompt]="duplicatePrompt()"
+    (filesSelected)="onFilesSelected($event)"
+    (uploadRequested)="upload()"
+    (contextToggled)="toggleUploadContext()"
+    (tableDescriptionChanged)="setTableDescription($event.file, $event.value)"
+    (fileRemoved)="removeSelectedFile($event)"
+    (duplicateOpened)="openDuplicateVersion()"
+    (duplicateRunAgain)="runDuplicateAgain()"
+    (duplicateDismissed)="dismissDuplicatePrompt()"
+  ></app-upload-panel>
+
+  <section class="workspace">
+    <app-dataset-sidebar
+      [datasets]="datasets()"
+      [selectedDatasetId]="selectedDataset()?.id ?? null"
+      [loading]="loading()"
+      [deletingDatasetId]="deletingDatasetId()"
+      (datasetSelected)="selectDataset($event)"
+      (datasetDeleted)="deleteDataset($event.dataset, $event.event)"
+    ></app-dataset-sidebar>
+
+    <section class="analysis-area">
+      @if (selectedDataset()) {
+        <div class="analysis-header">
+          <div>
+            <p class="eyebrow">Selected dataset</p>
+            <h2>{{ selectedDataset()?.name }}</h2>
+          </div>
+          <label>
+            Version
+            <select [ngModel]="selectedVersionId()" (ngModelChange)="loadVersion($event)">
+              @for (version of versions(); track version.id) {
+                <option [value]="version.id">v{{ version.versionNumber }} / {{ version.status }}</option>
+              }
+            </select>
+          </label>
+        </div>
+
+        @if (details(); as details) {
+          <section class="run-strip" [class.running]="isActiveStatus(details.version.status)">
+            <div>
+              <span class="badge" [class]="statusClass(details.version.status)">{{ details.version.status }}</span>
+              <strong>Version {{ details.version.versionNumber }}</strong>
+              <small>{{ details.version.pipelineRunId || 'No run id yet' }}</small>
+            </div>
+            <p>
+              @if (isActiveStatus(details.version.status)) {
+                Results will appear here as each table finishes. No manual refresh needed.
+              } @else {
+                Latest pipeline results are loaded. Auto refresh will keep watching for new versions.
+              }
+            </p>
+          </section>
+
+          <section class="progress-panel">
+            <div class="progress-copy">
+              <span>{{ pipelineProgressLabel(details) }}</span>
+              <b>{{ pipelineProgressPercent(details) }}%</b>
+            </div>
+            <div class="progress-track">
+              <i [style.width.%]="pipelineProgressPercent(details)"></i>
+            </div>
+            <div class="stepper">
+              @for (step of pipelineSteps(details); track step.label) {
+                <span [class]="step.state">{{ step.label }}</span>
+              }
+            </div>
+          </section>
+
+          <section class="dashboard-band">
+            <div class="section-title">
+              <div>
+                <p class="eyebrow">Global portfolio</p>
+                <h3>All tables in this dataset version</h3>
+              </div>
+              <span class="soft-status">{{ details.version.status }}</span>
+            </div>
+
+            <div class="overview-grid">
+              <article class="quality-card">
+                <div class="quality-gauge" [style.background]="qualityGaugeStyle(details)">
+                  <span>{{ portfolioQualityScore(details) }}</span>
+                </div>
+                <div>
+                  <h4>Portfolio quality</h4>
+                  <p>{{ globalQualityPosture(details) }}</p>
+                </div>
+              </article>
+
+              <article class="change-card">
+                <h4>Version comparison</h4>
+                <p>{{ unchangedMessage(details) }}</p>
+                <div class="change-bars">
+                  @for (item of changeSummary(details); track item.label) {
+                    <div class="change-row">
+                      <span class="badge" [class]="item.className">{{ item.label }}</span>
+                      <div class="bar-track"><i [class]="item.className" [style.width.%]="item.percent"></i></div>
+                      <b>{{ item.count }}</b>
+                    </div>
+                  }
+                </div>
+              </article>
+            </div>
+
+            <div class="metrics-grid">
+              <article>
+                <span>Tables</span>
+                <strong>{{ readyTables(details) }} / {{ expectedTables(details) || readyTables(details) }}</strong>
+              </article>
+              <article>
+                <span>Total rows</span>
+                <strong>{{ details.globalAnalysis?.totalRows ?? 0 | number }}</strong>
+              </article>
+              <article>
+                <span>Total columns</span>
+                <strong>{{ details.globalAnalysis?.totalColumns ?? 0 | number }}</strong>
+              </article>
+              <article>
+                <span>Quality score</span>
+                <strong>{{ details.globalAnalysis?.globalQualityScore == null ? '-' : score(details.globalAnalysis?.globalQualityScore) }}</strong>
+              </article>
+            </div>
+
+            <div class="portfolio-grid">
+              <article class="panel">
+                <h4>Rows by table</h4>
+                <div class="bar-list">
+                  @for (table of details.tables; track table.tableVersionId) {
+                    <div class="bar-row">
+                      <span>{{ table.tableName }}</span>
+                      <div class="bar-track"><i [style.width.%]="percent(table.rowCount, maxTableRows(details))"></i></div>
+                      <b>{{ table.rowCount ?? 0 | number }}</b>
+                    </div>
+                  }
+                </div>
+              </article>
+
+              <article class="panel">
+                <h4>Columns by table</h4>
+                <div class="bar-list">
+                  @for (table of details.tables; track table.tableVersionId) {
+                    <div class="bar-row">
+                      <span>{{ table.tableName }}</span>
+                      <div class="bar-track alt"><i [style.width.%]="percent(table.columnCount, maxTableColumns(details))"></i></div>
+                      <b>{{ table.columnCount ?? 0 }}</b>
+                    </div>
+                  }
+                </div>
+              </article>
+            </div>
+
+            <app-data-model-map
+              [details]="details"
+              [scopeLabel]="dataModelScopeLabel(details)"
+              [entities]="classDiagramEntities(details)"
+              [relations]="classDiagramRelations(details)"
+              [model]="dataModelMap(details)"
+              (downloadRequested)="downloadDataModelImage($event)"
+            ></app-data-model-map>
+
+            <article class="panel">
+              <h4>Global LLM insights</h4>
+              <div class="insight-grid">
+                <section>
+                  <span>Business view</span>
+                  <p>{{ globalBusinessView(details) }}</p>
+                </section>
+                <section>
+                  <span>Data quality posture</span>
+                  <p>{{ globalQualityPosture(details) }}</p>
+                </section>
+                <section>
+                  <span>Final assessment</span>
+                  <p>{{ globalFinalAssessment(details) }}</p>
+                </section>
+              </div>
+            </article>
+
+            <article class="panel">
+              <h4>Feature inventory</h4>
+              <div class="columns-table">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Table</th>
+                      <th>Feature</th>
+                      <th>Type</th>
+                      <th>Missing %</th>
+                      <th>Distinct</th>
+                      <th>ID-like</th>
+                      <th>Date-like</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (row of allFeatureRows(details); track row.table + '-' + featureValue(row.feature, 'name', 'column_name')) {
+                      <tr>
+                        <td>{{ row.table }}</td>
+                        <td>{{ featureValue(row.feature, 'name', 'column_name') }}</td>
+                        <td>{{ featureValue(row.feature, 'data_type', 'type') }}</td>
+                        <td>{{ featureValue(row.feature, 'missing_percent', 'missingPercentage') }}</td>
+                        <td>{{ featureValue(row.feature, 'distinct_count', 'uniqueCount') }}</td>
+                        <td>{{ featureValue(row.feature, 'is_id_like', 'id_like') }}</td>
+                        <td>{{ featureValue(row.feature, 'is_date_like', 'date_like') }}</td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            </article>
+          </section>
+
+          <div class="split">
+            <section class="table-list">
+              <div class="section-title">
+                <h3>Tables</h3>
+                <span>{{ details.tables.length }}</span>
+              </div>
+              @if (details.tables.length === 0) {
+                <p class="empty compact-empty">Waiting for table results...</p>
+              }
+              @for (table of details.tables; track table.tableVersionId) {
+                <button
+                  type="button"
+                  class="table-item"
+                  [class.active]="selectedTable()?.tableVersionId === table.tableVersionId"
+                  (click)="selectTable(table)"
+                >
+                  <span>{{ table.tableName }}</span>
+                  <span class="badge" [class]="statusClass(table.changeStatus)">{{ table.changeStatus }}</span>
+                  <small>{{ table.rowCount ?? 0 | number }} rows / {{ table.columnCount ?? 0 }} cols</small>
+                </button>
+              }
+            </section>
+
+            <section class="table-detail">
+              @if (selectedTable(); as table) {
+                <div class="table-heading">
+                  <div>
+                    <p class="eyebrow">Table dashboard</p>
+                    <h3>{{ table.tableName }}</h3>
+                  </div>
+                  <span class="quality">{{ score(table.qualityScore) }}</span>
+                </div>
+
+                <div class="mini-grid">
+                  <span>Rows <strong>{{ table.rowCount ?? 0 | number }}</strong></span>
+                  <span>Columns <strong>{{ table.columnCount ?? 0 }}</strong></span>
+                  <span>Missing <strong>{{ table.missingCount ?? 0 | number }}</strong></span>
+                  <span>Duplicates <strong>{{ table.duplicateCount ?? 0 | number }}</strong></span>
+                </div>
+
+                <section class="panel">
+                  <h4>Type mix</h4>
+                  <div class="type-row">
+                    @for (type of typeBreakdown(table); track type.label) {
+                      <span><b>{{ type.label }}</b>{{ type.count }} ({{ type.percent | number:'1.0-0' }}%)</span>
+                    }
+                  </div>
+                </section>
+
+                <section class="panel">
+                  <h4>Missingness overview</h4>
+                  <div class="bar-list">
+                    @for (column of sortedMissingColumns(table).slice(0, 12); track column.columnName) {
+                      <div class="bar-row">
+                        <span>{{ column.columnName }}</span>
+                        <div class="bar-track warn"><i [style.width.%]="column.missingPercentage"></i></div>
+                        <b>{{ column.missingPercentage | number:'1.0-2' }}%</b>
+                      </div>
+                    }
+                  </div>
+                </section>
+
+                <section class="panel">
+                  <h4>Feature explorer</h4>
+                  <div class="columns-table">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Feature</th>
+                          <th>Type</th>
+                          <th>Missing %</th>
+                          <th>Distinct</th>
+                          <th>Min</th>
+                          <th>Q1</th>
+                          <th>Median</th>
+                          <th>Q3</th>
+                          <th>Max</th>
+                          <th>Mean</th>
+                          <th>Std</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        @for (feature of tableFeatureRows(table); track featureValue(feature, 'name', 'column_name')) {
+                          <tr>
+                            <td>{{ featureValue(feature, 'name', 'column_name') }}</td>
+                            <td>{{ featureValue(feature, 'data_type', 'type') }}</td>
+                            <td>{{ featureValue(feature, 'missing_percent', 'missingPercentage') }}</td>
+                            <td>{{ featureValue(feature, 'distinct_count', 'uniqueCount') }}</td>
+                            <td>{{ featureValue(feature, 'min_value', 'minValue') }}</td>
+                            <td>{{ featureValue(feature, 'q1_value', 'q1') }}</td>
+                            <td>{{ featureValue(feature, 'median_value', 'median') }}</td>
+                            <td>{{ featureValue(feature, 'q3_value', 'q3') }}</td>
+                            <td>{{ featureValue(feature, 'max_value', 'maxValue') }}</td>
+                            <td>{{ featureValue(feature, 'mean_value', 'mean') }}</td>
+                            <td>{{ featureValue(feature, 'std_value', 'std') }}</td>
+                          </tr>
+                        }
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
+
+                <section class="panel">
+                  <h4>Observed top values</h4>
+                  @if (featuresWithTopValues(table).length > 0) {
+                    <div class="insight-columns">
+                      @for (feature of featuresWithTopValues(table); track feature.name) {
+                        <div>
+                          <h5>{{ feature.name }}</h5>
+                          <div class="association-list">
+                            @for (item of feature.values; track item.label) {
+                              <span><b>{{ item.label }}</b>{{ item.value }}</span>
+                            }
+                          </div>
+                        </div>
+                      }
+                    </div>
+                  } @else {
+                    <p class="muted">No observed top values were returned for this table.</p>
+                  }
+                </section>
+
+                <div class="portfolio-grid">
+                  <section class="panel">
+                    <h4>Numeric summary</h4>
+                    @if (numericColumns(table).length > 0) {
+                      <div class="columns-table compact">
+                        <table>
+                          <thead>
+                            <tr><th>Feature</th><th>Min</th><th>Median</th><th>Max</th><th>Mean</th></tr>
+                          </thead>
+                          <tbody>
+                            @for (feature of numericColumns(table); track featureValue(feature, 'name', 'column_name')) {
+                              <tr>
+                                <td>{{ featureValue(feature, 'name', 'column_name') }}</td>
+                                <td>{{ featureValue(feature, 'min_value', 'minValue') }}</td>
+                                <td>{{ featureValue(feature, 'median_value', 'median') }}</td>
+                                <td>{{ featureValue(feature, 'max_value', 'maxValue') }}</td>
+                                <td>{{ featureValue(feature, 'mean_value', 'mean') }}</td>
+                              </tr>
+                            }
+                          </tbody>
+                        </table>
+                      </div>
+                    } @else {
+                      <p class="muted">No numeric columns detected for this table.</p>
+                    }
+                  </section>
+
+                  <section class="panel">
+                    <h4>Associations</h4>
+                    @if (topAssociationPairs(table).length > 0) {
+                      <div class="association-list">
+                        @for (pair of topAssociationPairs(table); track pair.left + '-' + pair.right) {
+                          <span><b>{{ pair.left }}</b> <em>{{ pair.right }}</em> {{ pair.score | number:'1.0-3' }}</span>
+                        }
+                      </div>
+                    } @else {
+                      <p class="muted">No association pairs were returned for this table.</p>
+                    }
+                  </section>
+                </div>
+
+                <section class="panel">
+                  <h4>LLM insights</h4>
+                  <div class="insight-grid">
+                    <section>
+                      <span>Interpretation</span>
+                      <p>{{ insightText(table.llmInterpretation, 'interpretation', 'summary') || table.llmSummary || 'No table-level LLM interpretation yet.' }}</p>
+                    </section>
+                    <section>
+                      <span>Completeness</span>
+                      <p>{{ insightText(table.llmInterpretation, 'quality_assessment', 'completeness') || insightText(table.llmInterpretation, 'quality_assessment') || 'No completeness assessment returned.' }}</p>
+                    </section>
+                    <section>
+                      <span>Consistency</span>
+                      <p>{{ insightText(table.llmInterpretation, 'quality_assessment', 'consistency') || 'No consistency assessment returned.' }}</p>
+                    </section>
+                  </div>
+
+                  <div class="insight-columns">
+                    <div>
+                      <h5>Improvement areas</h5>
+                      @for (item of insightList(table.llmInterpretation, 'improvement_areas'); track item) {
+                        <p>{{ item }}</p>
+                      } @empty {
+                        <p class="muted">No improvement areas returned.</p>
+                      }
+                    </div>
+                    <div>
+                      <h5>Resolution steps</h5>
+                      @for (item of insightList(table.llmInterpretation, 'resolution_steps'); track item) {
+                        <p>{{ item }}</p>
+                      } @empty {
+                        <p class="muted">No resolution steps returned.</p>
+                      }
+                    </div>
+                  </div>
+
+                  <div class="semantic-block">
+                    <h5>Semantic analysis</h5>
+                    <p class="semantic-summary">
+                      {{ insightText(table.llmInterpretation, 'semantic_analysis', 'executive_summary') || 'No semantic summary returned yet.' }}
+                    </p>
+                    <div class="semantic-grid">
+                      <section>
+                        <span>Column roles</span>
+                        <div class="semantic-list">
+                        @for (role of insightRecords(table.llmInterpretation, 'semantic_analysis', 'column_roles'); track recordText(role, 'column') + recordText(role, 'role')) {
+                          <article class="semantic-item">
+                            <div class="semantic-head">
+                              <strong>{{ recordText(role, 'column') || 'Column' }}</strong>
+                              <em>{{ recordText(role, 'role') || 'role' }}</em>
+                            </div>
+                            @if (recordText(role, 'description')) {
+                              <p>{{ recordText(role, 'description') }}</p>
+                            }
+                            @if (recordText(role, 'business_meaning')) {
+                              <small><b>Business</b> {{ recordText(role, 'business_meaning') }}</small>
+                            }
+                            @if (recordText(role, 'usage_notes')) {
+                              <small><b>Usage</b> {{ recordText(role, 'usage_notes') }}</small>
+                            }
+                          </article>
+                        } @empty {
+                          <p class="muted">No column roles returned.</p>
+                        }
+                        </div>
+                      </section>
+                      <section>
+                        <span>Relationships</span>
+                        <div class="semantic-list">
+                        @for (relation of insightRecords(table.llmInterpretation, 'semantic_analysis', 'relationship_hypotheses'); track recordText(relation, 'source_column') + recordText(relation, 'target_table') + recordText(relation, 'target_column')) {
+                          <article class="semantic-item">
+                            <div class="semantic-head">
+                              <strong>{{ recordText(relation, 'source_column') || 'Source' }} -> {{ recordText(relation, 'target_table') || 'table' }}.{{ recordText(relation, 'target_column') || 'column' }}</strong>
+                              <em>{{ recordText(relation, 'confidence') || 'confidence' }}</em>
+                            </div>
+                            <p>{{ recordText(relation, 'reason') || 'No reason returned.' }}</p>
+                          </article>
+                        } @empty {
+                          <p class="muted">No relationship hypotheses returned.</p>
+                        }
+                        </div>
+                      </section>
+                      <section>
+                        <span>Root causes</span>
+                        <div class="semantic-list">
+                        @for (cause of insightRecords(table.llmInterpretation, 'semantic_analysis', 'root_cause_hypotheses'); track recordText(cause, 'field') + recordText(cause, 'priority')) {
+                          <article class="semantic-item">
+                            <div class="semantic-head">
+                              <strong>P{{ recordText(cause, 'priority') || '-' }} {{ recordText(cause, 'field') || 'table' }}</strong>
+                            </div>
+                            <p>{{ recordText(cause, 'hypothesis') || 'No hypothesis returned.' }}</p>
+                            @if (recordText(cause, 'evidence')) {
+                              <small><b>Evidence</b> {{ recordText(cause, 'evidence') }}</small>
+                            }
+                          </article>
+                        } @empty {
+                          <p class="muted">No root-cause hypotheses returned.</p>
+                        }
+                        </div>
+                      </section>
+                      <section>
+                        <span>Downstream impacts</span>
+                        <div class="semantic-list">
+                        @for (impact of insightRecords(table.llmInterpretation, 'semantic_analysis', 'downstream_impacts'); track recordText(impact, 'area') + recordText(impact, 'severity')) {
+                          <article class="semantic-item">
+                            <div class="semantic-head">
+                              <strong>{{ recordText(impact, 'area') || 'Area' }}</strong>
+                              <em>{{ recordText(impact, 'severity') || 'severity' }}</em>
+                            </div>
+                            <p>{{ recordText(impact, 'impact') || 'No impact returned.' }}</p>
+                          </article>
+                        } @empty {
+                          <p class="muted">No downstream impacts returned.</p>
+                        }
+                        </div>
+                      </section>
+                      <section>
+                        <span>Data contract</span>
+                        <div class="semantic-list">
+                        @for (rule of insightRecords(table.llmInterpretation, 'semantic_analysis', 'data_contract_rules'); track recordText(rule, 'field') + recordText(rule, 'rule')) {
+                          <article class="semantic-item">
+                            <div class="semantic-head">
+                              <strong>{{ recordText(rule, 'field') || 'table' }}</strong>
+                              <em>{{ recordText(rule, 'severity') || 'severity' }}</em>
+                            </div>
+                            <p>{{ recordText(rule, 'rule') || 'No rule returned.' }}</p>
+                          </article>
+                        } @empty {
+                          <p class="muted">No data contract rules returned.</p>
+                        }
+                        </div>
+                      </section>
+                      <section>
+                        <span>Monitoring</span>
+                        <div class="semantic-list">
+                        @for (monitor of insightRecords(table.llmInterpretation, 'semantic_analysis', 'monitoring_rules'); track recordText(monitor, 'field') + recordText(monitor, 'check')) {
+                          <article class="semantic-item">
+                            <div class="semantic-head">
+                              <strong>{{ recordText(monitor, 'check') || 'Check' }}</strong>
+                              <em>{{ recordText(monitor, 'field') || 'field' }}</em>
+                            </div>
+                            <p>{{ recordText(monitor, 'threshold') || 'No threshold returned.' }}</p>
+                            @if (recordText(monitor, 'cadence')) {
+                              <small><b>Cadence</b> {{ recordText(monitor, 'cadence') }}</small>
+                            }
+                          </article>
+                        } @empty {
+                          <p class="muted">No monitoring rules returned.</p>
+                        }
+                        </div>
+                      </section>
+                      <section>
+                        <span>Questions</span>
+                        @for (item of insightList(table.llmInterpretation, 'semantic_analysis', 'data_owner_questions'); track item) {
+                          <p class="question-line">{{ item }}</p>
+                        } @empty {
+                          <p class="muted">No data-owner questions returned.</p>
+                        }
+                      </section>
+                      <section>
+                        <span>Use-case readiness</span>
+                        <div class="semantic-list">
+                        @for (readiness of insightRecords(table.llmInterpretation, 'semantic_analysis', 'use_case_readiness'); track recordText(readiness, 'use_case')) {
+                          <article class="semantic-item">
+                            <div class="semantic-head">
+                              <strong>{{ recordText(readiness, 'use_case') || 'Use case' }}</strong>
+                              <em>{{ recordText(readiness, 'status') || 'status' }}</em>
+                            </div>
+                            <p>{{ recordText(readiness, 'rationale') || 'No rationale returned.' }}</p>
+                          </article>
+                        } @empty {
+                          <p class="muted">No readiness assessment returned.</p>
+                        }
+                        </div>
+                      </section>
+                    </div>
+                  </div>
+                </section>
+              } @else {
+                <p class="empty">No table results are available yet.</p>
+              }
+            </section>
+          </div>
+        } @else {
+          <p class="empty">Choose a version to see pipeline results.</p>
+        }
+      } @else {
+        <p class="empty">Upload or select a dataset to begin.</p>
+      }
+    </section>
+  </section>
+  }
+</main>

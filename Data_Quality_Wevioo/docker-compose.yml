@@ -1,0 +1,129 @@
+services:
+  # PostgreSQL database for Airflow metadata
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-airflow}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-airflow}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "airflow"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # One-time metadata DB migration and admin user creation
+  airflow-init:
+    build: .
+    command: >
+      bash -c "airflow db migrate &&
+      airflow users create
+      --username ${AIRFLOW_ADMIN_USERNAME:-admin}
+      --password ${AIRFLOW_ADMIN_PASSWORD:?Set AIRFLOW_ADMIN_PASSWORD in .env}
+      --firstname Admin
+      --lastname User
+      --role Admin
+      --email ${AIRFLOW_ADMIN_EMAIL:-admin@example.com} || true"
+    environment:
+      AIRFLOW_HOME: /opt/airflow
+      AIRFLOW__CORE__DAGS_FOLDER: /opt/airflow/dags
+      AIRFLOW__CORE__LOAD_EXAMPLES: "False"
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__API__AUTH_BACKENDS: airflow.api.auth.backend.basic_auth,airflow.api.auth.backend.session
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER:-airflow}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-airflow}
+      AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW_SECRET_KEY:?Set AIRFLOW_SECRET_KEY in .env}
+      OLLAMA_URL: ${OLLAMA_URL:-http://host.docker.internal:11434}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen3.5:35b}
+      BACKEND_URL: ${BACKEND_URL:-http://host.docker.internal:8081}
+      PIPELINE_API_TOKEN: ${PIPELINE_API_TOKEN:?Set PIPELINE_API_TOKEN in .env}
+      STORAGE_BASE_PATH: ${STORAGE_BASE_PATH:-/opt/airflow/storage}
+      GLOBAL_LLM_ENABLED: ${GLOBAL_LLM_ENABLED:-true}
+      GLOBAL_LLM_TEMPERATURE: ${GLOBAL_LLM_TEMPERATURE:-0.2}
+      GLOBAL_LLM_TOP_P: ${GLOBAL_LLM_TOP_P:-0.9}
+      GLOBAL_LLM_NUM_PREDICT: ${GLOBAL_LLM_NUM_PREDICT:-1800}
+      GLOBAL_LLM_TIMEOUT_SECONDS: ${GLOBAL_LLM_TIMEOUT_SECONDS:-420}
+    volumes:
+      - .:/opt/airflow
+      - airflow_logs:/opt/airflow/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # Airflow Webserver (UI)
+  airflow-webserver:
+    build: .
+    command: webserver
+    environment:
+      AIRFLOW_HOME: /opt/airflow
+      AIRFLOW__CORE__DAGS_FOLDER: /opt/airflow/dags
+      AIRFLOW__CORE__LOAD_EXAMPLES: "False"
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__API__AUTH_BACKENDS: airflow.api.auth.backend.basic_auth,airflow.api.auth.backend.session
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER:-airflow}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-airflow}
+      AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW_SECRET_KEY:?Set AIRFLOW_SECRET_KEY in .env}
+      OLLAMA_URL: ${OLLAMA_URL:-http://host.docker.internal:11434}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen3.5:35b}
+      BACKEND_URL: ${BACKEND_URL:-http://host.docker.internal:8081}
+      PIPELINE_API_TOKEN: ${PIPELINE_API_TOKEN:?Set PIPELINE_API_TOKEN in .env}
+      STORAGE_BASE_PATH: ${STORAGE_BASE_PATH:-/opt/airflow/storage}
+      GLOBAL_LLM_ENABLED: ${GLOBAL_LLM_ENABLED:-true}
+      GLOBAL_LLM_TEMPERATURE: ${GLOBAL_LLM_TEMPERATURE:-0.2}
+      GLOBAL_LLM_TOP_P: ${GLOBAL_LLM_TOP_P:-0.9}
+      GLOBAL_LLM_NUM_PREDICT: ${GLOBAL_LLM_NUM_PREDICT:-1800}
+      GLOBAL_LLM_TIMEOUT_SECONDS: ${GLOBAL_LLM_TIMEOUT_SECONDS:-420}
+    ports:
+      - "8080:8080"
+    volumes:
+      - .:/opt/airflow
+      - airflow_logs:/opt/airflow/logs
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Airflow Scheduler
+  airflow-scheduler:
+    build: .
+    command: scheduler
+    environment:
+      AIRFLOW_HOME: /opt/airflow
+      AIRFLOW__CORE__DAGS_FOLDER: /opt/airflow/dags
+      AIRFLOW__CORE__LOAD_EXAMPLES: "False"
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__API__AUTH_BACKENDS: airflow.api.auth.backend.basic_auth,airflow.api.auth.backend.session
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER:-airflow}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-airflow}
+      AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW_SECRET_KEY:?Set AIRFLOW_SECRET_KEY in .env}
+      OLLAMA_URL: ${OLLAMA_URL:-http://host.docker.internal:11434}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen3.5:35b}
+      BACKEND_URL: ${BACKEND_URL:-http://host.docker.internal:8081}
+      PIPELINE_API_TOKEN: ${PIPELINE_API_TOKEN:?Set PIPELINE_API_TOKEN in .env}
+      STORAGE_BASE_PATH: ${STORAGE_BASE_PATH:-/opt/airflow/storage}
+      GLOBAL_LLM_ENABLED: ${GLOBAL_LLM_ENABLED:-true}
+      GLOBAL_LLM_TEMPERATURE: ${GLOBAL_LLM_TEMPERATURE:-0.2}
+      GLOBAL_LLM_TOP_P: ${GLOBAL_LLM_TOP_P:-0.9}
+      GLOBAL_LLM_NUM_PREDICT: ${GLOBAL_LLM_NUM_PREDICT:-1800}
+      GLOBAL_LLM_TIMEOUT_SECONDS: ${GLOBAL_LLM_TIMEOUT_SECONDS:-420}
+    volumes:
+      - .:/opt/airflow
+      - airflow_logs:/opt/airflow/logs
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      airflow-webserver:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  airflow_logs:

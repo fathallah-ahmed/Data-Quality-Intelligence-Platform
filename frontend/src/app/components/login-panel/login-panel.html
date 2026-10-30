@@ -1,0 +1,26 @@
+<section class="login-panel">
+  <div>
+    <p class="eyebrow">Admin access</p>
+    <h2>Sign in to view datasets</h2>
+    <p>Only the admin role can upload files or open analysis results.</p>
+  </div>
+  <form class="login-form" (ngSubmit)="signIn.emit()">
+    <input
+      type="text"
+      name="username"
+      placeholder="Admin username"
+      [ngModel]="username"
+      (ngModelChange)="usernameChange.emit($event)"
+      autocomplete="username"
+    />
+    <input
+      type="password"
+      name="password"
+      placeholder="Password"
+      [ngModel]="password"
+      (ngModelChange)="passwordChange.emit($event)"
+      autocomplete="current-password"
+    />
+    <button type="submit" [disabled]="loggingIn">{{ loggingIn ? 'Signing in...' : 'Sign in' }}</button>
+  </form>
+</section>

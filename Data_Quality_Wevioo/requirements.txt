@@ -1,0 +1,9 @@
+pandas
+numpy
+sweetviz
+reportlab
+matplotlib
+requests
+pydantic
+langgraph>=1.0,<2.0
+beautifulsoup4

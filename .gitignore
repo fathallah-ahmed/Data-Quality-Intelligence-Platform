@@ -1,0 +1,37 @@
+# Root ignore rules if the full `work` folder becomes the Git repository.
+
+# Editors
+.idea/
+.vscode/
+**/.idea/
+**/.vscode/
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.angular/
+frontend/coverage/
+
+# Backend
+backend/target/
+backend/data/
+
+# Airflow worker local/runtime files
+Data_Quality_Wevioo/.env
+Data_Quality_Wevioo/airflow.cfg
+Data_Quality_Wevioo/*.pid
+Data_Quality_Wevioo/*.db
+Data_Quality_Wevioo/logs/
+Data_Quality_Wevioo/storage/
+Data_Quality_Wevioo/data/
+Data_Quality_Wevioo/postgres_data/
+Data_Quality_Wevioo/venv/
+Data_Quality_Wevioo/.venv/
+Data_Quality_Wevioo/__pycache__/
+Data_Quality_Wevioo/**/*.pyc
+Data_Quality_Wevioo/sweetviz_extracted/
+Data_Quality_Wevioo/sweetviz_reports/
+
+# OS
+Thumbs.db
+.DS_Store

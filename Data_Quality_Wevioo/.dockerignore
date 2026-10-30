@@ -1,0 +1,46 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+
+# Git
+.git
+.gitignore
+.github/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Airflow
+airflow.db
+logs/
+.airflow/
+
+# Large data files (keep data folder but exclude large CSVs if needed)
+*.csv
+*.parquet
+*.pkl
+
+# Documentation
+*.md
+docs/
+
+# Misc
+.env
+.env.local
+*.log

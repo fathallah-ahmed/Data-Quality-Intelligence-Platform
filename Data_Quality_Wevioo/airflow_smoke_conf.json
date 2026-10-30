@@ -1,0 +1,8 @@
+{
+  "dataset_id": "dynamic-pages-smoke",
+  "version_id": "1",
+  "pipeline_run_id": "dynamic-pages-run-001",
+  "file_path": "/opt/airflow/data/airflow_smoke_test.csv",
+  "backend_url": "http://host.docker.internal:8081",
+  "debug": false
+}
