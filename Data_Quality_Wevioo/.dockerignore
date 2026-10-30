@@ -31,6 +31,14 @@ airflow.db
 logs/
 .airflow/
 
+# Runtime data (mounted as a volume at run time, never baked into the image)
+data/
+storage/
+sweetviz_extracted/
+sweetviz_reports/
+postgres_data/
+.venv/
+
 # Large data files (keep data folder but exclude large CSVs if needed)
 *.csv
 *.parquet

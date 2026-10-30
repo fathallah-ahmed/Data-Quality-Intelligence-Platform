@@ -7,8 +7,12 @@ that are sent to the backend via REST API.
 
 from dataclasses import dataclass, asdict, field
 from typing import Any, Dict, List, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 import json
+
+
+def _utc_timestamp() -> str:
+    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
 @dataclass
@@ -22,7 +26,7 @@ class ColumnMetrics:
     distinct_percent: float
     is_id_like: bool = False
     is_date_like: bool = False
-    
+
     # Numeric stats (if applicable)
     min_value: Optional[float] = None
     q1_value: Optional[float] = None
@@ -31,7 +35,7 @@ class ColumnMetrics:
     max_value: Optional[float] = None
     mean_value: Optional[float] = None
     std_value: Optional[float] = None
-    
+
     # Top values for categorical columns
     top_values: List[Dict[str, Any]] = field(default_factory=list)
 
@@ -51,7 +55,7 @@ class DatasetMetrics:
     num_date: int
     duplicate_rows: int
     duplicate_percent: float
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
         return asdict(self)
@@ -64,34 +68,36 @@ class TableAnalysisResult:
     version_id: str
     pipeline_run_id: str
     table_name: str
-    
+
     # Timing
     analysis_timestamp: str  # ISO format datetime
     processing_duration_seconds: float
-    
+
     # Metrics extracted from SweetViz
     dataset_metrics: DatasetMetrics
     column_metrics: List[ColumnMetrics]
-    
+
     # LLM interpretation
     llm_interpretation: Optional[Dict[str, Any]] = None
     llm_model_used: Optional[str] = None
-    
+    # pending (before enrichment), ok, unavailable (Ollama down), invalid (answer rejected), disabled
+    llm_status: Optional[str] = None
+
     # File paths (populated by storage module)
     metrics_json_path: Optional[str] = None
     analysis_json_path: Optional[str] = None
 
-    # Version/change detection support. This is a lightweight, structured
-    # signature for backend comparison, not a full file/table hash.
+    # Version/change detection support: counts plus content/schema hashes the
+    # backend compares with the previous version.
     data_signature: Optional[Dict[str, Any]] = None
     change_status: Optional[str] = None  # NEW, MODIFIED, UNCHANGED, REMOVED, UNKNOWN
 
     # Deterministic relationship hypotheses discovered from column value overlap.
     # This is produced before LLM enrichment so the UI can draw a class diagram early.
     deterministic_relationships: List[Dict[str, Any]] = field(default_factory=list)
-    
+
     # Metadata
-    status: str = "completed"  # completed, failed, skipped
+    status: str = "completed"  # completed, empty, failed
     error_message: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
@@ -111,33 +117,34 @@ class TableAnalysisResult:
 class GlobalAnalysisResult:
     """Result from global (portfolio-level) analysis."""
     pipeline_run_id: str
-    
+
     # Timing
     analysis_timestamp: str  # ISO format datetime
     processing_duration_seconds: float
-    
+
     # Portfolio overview
     dataset_count: int
     total_row_count: int
     total_column_count: int
     avg_row_count: float
     avg_column_count: float
-    
+
     # Table names analyzed
     tables_analyzed: List[str]
-    
+
     # LLM interpretation (portfolio-level insights)
     llm_interpretation: Optional[Dict[str, Any]] = None
     llm_model_used: Optional[str] = None
-    
+    llm_status: Optional[str] = None
+
     # Associations and relationships discovered
     key_entities: List[str] = field(default_factory=list)
     relationships: List[str] = field(default_factory=list)
     semantic_concepts: List[Dict[str, Any]] = field(default_factory=list)
-    
+
     # File paths
     analysis_json_path: Optional[str] = None
-    
+
     # Metadata
     status: str = "completed"  # completed, failed, partial
     error_message: Optional[str] = None
@@ -170,7 +177,7 @@ class ResultBuilder:
             version_id=version_id,
             pipeline_run_id=pipeline_run_id,
             table_name=table_name,
-            analysis_timestamp=datetime.utcnow().isoformat() + "Z",
+            analysis_timestamp=_utc_timestamp(),
             processing_duration_seconds=processing_duration_seconds,
             dataset_metrics=dataset_metrics,
             column_metrics=column_metrics,
@@ -187,10 +194,10 @@ class ResultBuilder:
         """Build a global analysis result."""
         avg_rows = total_rows / len(tables_analyzed) if tables_analyzed else 0
         avg_cols = total_cols / len(tables_analyzed) if tables_analyzed else 0
-        
+
         return GlobalAnalysisResult(
             pipeline_run_id=pipeline_run_id,
-            analysis_timestamp=datetime.utcnow().isoformat() + "Z",
+            analysis_timestamp=_utc_timestamp(),
             processing_duration_seconds=processing_duration_seconds,
             dataset_count=len(tables_analyzed),
             total_row_count=total_rows,

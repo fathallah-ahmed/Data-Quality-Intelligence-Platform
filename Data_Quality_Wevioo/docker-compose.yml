@@ -8,10 +8,9 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-airflow}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
+    # No published port: only the Airflow containers need the metadata database.
     healthcheck:
-      test: ["CMD", "pg_isready", "-U", "airflow"]
+      test: ["CMD", "pg_isready", "-U", "${POSTGRES_USER:-airflow}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -37,7 +36,7 @@ services:
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER:-airflow}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-airflow}
       AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW_SECRET_KEY:?Set AIRFLOW_SECRET_KEY in .env}
       OLLAMA_URL: ${OLLAMA_URL:-http://host.docker.internal:11434}
-      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen3.5:35b}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5:14b-instruct}
       BACKEND_URL: ${BACKEND_URL:-http://host.docker.internal:8081}
       PIPELINE_API_TOKEN: ${PIPELINE_API_TOKEN:?Set PIPELINE_API_TOKEN in .env}
       STORAGE_BASE_PATH: ${STORAGE_BASE_PATH:-/opt/airflow/storage}
@@ -66,7 +65,7 @@ services:
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER:-airflow}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-airflow}
       AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW_SECRET_KEY:?Set AIRFLOW_SECRET_KEY in .env}
       OLLAMA_URL: ${OLLAMA_URL:-http://host.docker.internal:11434}
-      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen3.5:35b}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5:14b-instruct}
       BACKEND_URL: ${BACKEND_URL:-http://host.docker.internal:8081}
       PIPELINE_API_TOKEN: ${PIPELINE_API_TOKEN:?Set PIPELINE_API_TOKEN in .env}
       STORAGE_BASE_PATH: ${STORAGE_BASE_PATH:-/opt/airflow/storage}
@@ -104,7 +103,7 @@ services:
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER:-airflow}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-airflow}
       AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW_SECRET_KEY:?Set AIRFLOW_SECRET_KEY in .env}
       OLLAMA_URL: ${OLLAMA_URL:-http://host.docker.internal:11434}
-      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen3.5:35b}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5:14b-instruct}
       BACKEND_URL: ${BACKEND_URL:-http://host.docker.internal:8081}
       PIPELINE_API_TOKEN: ${PIPELINE_API_TOKEN:?Set PIPELINE_API_TOKEN in .env}
       STORAGE_BASE_PATH: ${STORAGE_BASE_PATH:-/opt/airflow/storage}

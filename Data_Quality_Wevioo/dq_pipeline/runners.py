@@ -1,141 +1,28 @@
-"""Runners: importable callables for pipeline orchestration.
+"""Airflow phase callables.
 
-These wrappers expose clean Python functions suitable for Airflow `PythonOperator`.
+Each ``phase_*`` function is one visible task of the ``data_quality_analysis_pipeline``
+DAG. Phases hand work to each other through small JSON manifests stored in the
+pipeline-run folder, so a phase can be retried on its own.
 """
 from pathlib import Path
-import os
 import json
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from dq_pipeline.config.settings import settings
-from dq_pipeline.pipeline_runner import PipelineRunner, run_pipeline
+
+from dq_pipeline.analyzers.langgraph_analyzer import LLM_STATUS_DISABLED, LLM_STATUS_OK
 from dq_pipeline.backend_client import close_backend_client
+from dq_pipeline.config.settings import settings
 from dq_pipeline.models import (
     ColumnMetrics,
     DatasetMetrics,
-    GlobalAnalysisResult,
     ResultBuilder,
     TableAnalysisResult,
 )
-try:
-    from dq_pipeline.analyzers import llm_analyzer
-except Exception:
-    try:
-        import llm_analyzer as llm_analyzer
-    except Exception:
-        llm_analyzer = None
+from dq_pipeline.pipeline_runner import PipelineRunner
 
-try:
-    from dq_pipeline.analyzers import llm_global_analyzer as global_analyzer
-except Exception:
-    try:
-        import llm_global_analyzer as global_analyzer
-    except Exception:
-        global_analyzer = None
+EMPTY_TABLE_ERROR = "Header-only CSV: the file has columns but no data rows to analyse"
 
-
-def run_local_analysis(skip_existing=True, model="qwen2.5:14b-instruct", dataset_name=None, temperature=0.2, top_p=0.9, num_predict=1400, debug=False, max_workers=None):
-    """Run per-dataset LLM analysis by calling `process_all_datasets` in `llm_analyzer`.
-
-    This function is intended to be invoked by Airflow PythonOperator.
-    """
-    if llm_analyzer is None or not hasattr(llm_analyzer, 'process_all_datasets'):
-        raise RuntimeError("llm_analyzer.process_all_datasets is not importable")
-
-    return llm_analyzer.process_all_datasets(
-        skip_existing=skip_existing,
-        model=model,
-        dataset_name=dataset_name,
-        temperature=temperature,
-        top_p=top_p,
-        num_predict=num_predict,
-        debug=debug,
-        max_workers=max_workers,
-    )
-
-
-def run_global_analysis(root="sweetviz_extracted", ollama_url=None, model="qwen3.5:35b", max_features_per_dataset=0, assoc_limit=0, temperature=0.6, top_p=0.9, num_predict=None, timeout_seconds=420, include_full_llm_dq_report=False, report_char_limit=0, max_detail_values=20, output="sweetviz_extracted/llm_global_analysis.json", max_workers=None):
-    """Run global analysis across all datasets using `llm_global_analyzer` helpers.
-
-    Writes output JSON to `output` path.
-    """
-    if global_analyzer is None:
-        raise RuntimeError("llm_global_analyzer module not importable")
-
-    payload = global_analyzer.build_global_payload(
-        root,
-        max_features_per_dataset=max_features_per_dataset,
-        assoc_limit=assoc_limit,
-        include_full_report=include_full_llm_dq_report,
-        report_char_limit=report_char_limit,
-        max_detail_values=max_detail_values,
-        max_workers=max_workers,
-    )
-
-    dataset_count = (payload.get("portfolio_overview") or {}).get("dataset_count", 0)
-    if dataset_count == 0:
-        raise RuntimeError("No llm_dq_report.json files found under root")
-
-    prompt = global_analyzer.build_global_prompt(payload)
-
-    raw_text = global_analyzer.call_ollama(
-        prompt,
-        ollama_url=ollama_url or (settings.OLLAMA_URL if settings.OLLAMA_URL else "http://host.docker.internal:11434"),
-        model=model,
-        temperature=temperature,
-        top_p=top_p,
-        num_predict=num_predict,
-        timeout_seconds=timeout_seconds,
-    )
-
-    parsed = global_analyzer.parse_json_response(raw_text)
-
-    output_path = Path(output)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(output_path, "w", encoding="utf-8") as handle:
-        json.dump(parsed, handle, indent=2, ensure_ascii=False)
-
-    return str(output_path)
-
-
-def run_data_quality_pipeline(
-    dataset_id: str,
-    version_id: str,
-    pipeline_run_id: str,
-    file_path: str,
-    backend_url: str = None,
-    debug: bool = False,
-) -> bool:
-    """
-    Run the unified data quality analysis pipeline.
-
-    This function orchestrates the complete analysis flow:
-    1. Load dataset
-    2. Run Sweetviz profiling
-    3. Extract metrics and run LLM analysis
-    4. Stream results to backend
-
-    Designed to be invoked from Airflow PythonOperator.
-
-    Args:
-        dataset_id: Unique dataset identifier.
-        version_id: Version identifier for this dataset.
-        pipeline_run_id: Unique pipeline execution ID.
-        file_path: Path to input CSV file.
-        backend_url: Backend API URL (optional).
-        debug: Enable debug logging.
-
-    Returns:
-        True if successful, False otherwise.
-    """
-    return run_pipeline(
-        dataset_id=dataset_id,
-        version_id=version_id,
-        pipeline_run_id=pipeline_run_id,
-        file_path=file_path,
-        backend_url=backend_url,
-        debug=debug,
-    )
+# Manifests in the order the phases write them; the last one present holds the latest failures.
+MANIFESTS = ["tables_manifest.json", "profile_manifest.json", "analysis_manifest.json", "publish_manifest.json"]
 
 
 def _phase_runner(dataset_id, version_id, pipeline_run_id, file_path, backend_url=None, debug=False):
@@ -205,7 +92,7 @@ def phase_discover_tables(dataset_id, version_id, pipeline_run_id, file_path, ba
     try:
         table_files = runner._discover_table_files()
         tables = [{"table_name": path.stem, "file_path": str(path)} for path in table_files]
-        _write_manifest(runner, "tables_manifest.json", {"tables": tables})
+        _write_manifest(runner, "tables_manifest.json", {"tables": tables, "failed": []})
         if not tables:
             raise RuntimeError("No CSV tables found for this pipeline run")
         return tables
@@ -226,16 +113,28 @@ def phase_profile_tables(dataset_id, version_id, pipeline_run_id, file_path, bac
             runner._log(f"Profiling table {table_name}")
             df = runner._load_dataset(table_path)
             if df is None:
-                failed.append({"table_name": table_name, "error": "load_failed"})
+                failed.append({"table_name": table_name, "error": "The CSV file could not be read (encoding or separator problem)"})
+                continue
+            metrics_path = runner.storage.get_metrics_json_path(runner.dataset_id, runner.version_id, table_name)
+            if len(df) == 0:
+                # Sweetviz cannot profile an empty frame; keep a minimal metrics file so the
+                # table is still published (0 rows, its columns) and reported as failed.
+                runner._write_json(str(metrics_path), runner._empty_table_metrics(table_name, df))
+                profiled.append({
+                    "table_name": table_name,
+                    "file_path": str(table_path),
+                    "metrics_json_path": str(metrics_path),
+                    "empty": True,
+                })
                 continue
             sweetviz_data = runner._run_sweetviz(table_name, df)
             if sweetviz_data is None:
-                failed.append({"table_name": table_name, "error": "sweetviz_failed"})
+                failed.append({"table_name": table_name, "error": "Profiling (Sweetviz) failed for this table"})
                 continue
             profiled.append({
                 "table_name": table_name,
                 "file_path": str(table_path),
-                "metrics_json_path": str(runner.storage.get_metrics_json_path(runner.dataset_id, runner.version_id, table_name)),
+                "metrics_json_path": str(metrics_path),
             })
 
         _write_manifest(runner, "profile_manifest.json", {"profiled": profiled, "failed": failed})
@@ -260,11 +159,12 @@ def phase_analyze_tables(dataset_id, version_id, pipeline_run_id, file_path, bac
             table_start = time.time()
             table_name = table["table_name"]
             table_path = Path(table["file_path"])
+            empty_table = bool(table.get("empty"))
             runner._log(f"Analyzing table {table_name}")
             try:
                 df = runner._load_dataset(table_path)
                 if df is None:
-                    raise RuntimeError("load_failed")
+                    raise RuntimeError("The CSV file could not be read")
                 metrics_path = runner.storage.get_metrics_json_path(runner.dataset_id, runner.version_id, table_name)
                 with open(metrics_path, "r", encoding="utf-8") as handle:
                     sweetviz_data = json.load(handle)
@@ -285,7 +185,7 @@ def phase_analyze_tables(dataset_id, version_id, pipeline_run_id, file_path, bac
                 result.analysis_json_path = str(
                     runner.storage.get_analysis_json_path(runner.dataset_id, runner.version_id, table_name)
                 )
-                result.data_signature = runner._build_data_signature(dataset_metrics, column_metrics)
+                result.data_signature = runner._build_data_signature(dataset_metrics, column_metrics, df)
                 try:
                     result.data_signature["source_file_size_bytes"] = table_path.stat().st_size
                 except OSError:
@@ -298,26 +198,39 @@ def phase_analyze_tables(dataset_id, version_id, pipeline_run_id, file_path, bac
                     deterministic_relationships,
                     table_name,
                 )
-                runner._write_json(result.analysis_json_path, result.to_dict())
                 analyzed_table = {
                     "table_name": table_name,
                     "analysis_json_path": result.analysis_json_path,
                     "metrics_json_path": result.metrics_json_path,
                 }
+
+                if empty_table:
+                    result.status = "empty"
+                    result.error_message = EMPTY_TABLE_ERROR
+                    result.llm_status = LLM_STATUS_DISABLED
+                    failed.append({"table_name": table_name, "error": EMPTY_TABLE_ERROR})
+                else:
+                    result.llm_status = "pending"
+                runner._write_json(result.analysis_json_path, result.to_dict())
                 analyzed.append(analyzed_table)
                 if runner.backend_client.post_table_analysis(runner.pipeline_run_id, result, debug=debug):
                     runner._log(f"Published metrics for {table_name} before LLM enrichment")
+                    if empty_table:
+                        published.append(analyzed_table)
                 else:
                     runner._warn(f"Metrics publish failed for {table_name}; final publish will retry")
+                if empty_table:
+                    continue
 
                 llm_result = runner._run_llm_analysis(table_name, sweetviz_data)
-                if llm_result:
+                result.llm_status = llm_result.get("llm_status") or LLM_STATUS_DISABLED
+                if llm_result.get("analysis"):
                     result.llm_interpretation = llm_result.get("analysis")
-                    result.llm_model_used = llm_result.get("model")
+                result.llm_model_used = settings.OLLAMA_MODEL if result.llm_status == LLM_STATUS_OK else None
                 result.processing_duration_seconds = time.time() - table_start
                 runner._write_json(result.analysis_json_path, result.to_dict())
                 if runner.backend_client.post_table_analysis(runner.pipeline_run_id, result, debug=debug):
-                    runner._log(f"Published LLM-enriched result for {table_name}")
+                    runner._log(f"Published LLM-enriched result for {table_name} (llm_status={result.llm_status})")
                     published.append(analyzed_table)
                 else:
                     runner._warn(f"LLM-enriched publish failed for {table_name}; publish phase will retry")
@@ -366,7 +279,7 @@ def phase_publish_table_results(dataset_id, version_id, pipeline_run_id, file_pa
                 if runner.backend_client.post_table_analysis(runner.pipeline_run_id, result, debug=debug):
                     published.append(table)
                 else:
-                    failed.append({"table_name": table_name, "error": "backend_post_failed"})
+                    failed.append({"table_name": table_name, "error": "The result could not be sent to the backend"})
             except Exception as exc:
                 runner._error(f"Publish failed for {table_name}: {exc}")
                 failed.append({"table_name": table_name, "error": str(exc)})
@@ -403,16 +316,14 @@ def phase_global_analysis(dataset_id, version_id, pipeline_run_id, file_path, ba
             total_cols=total_cols,
             processing_duration_seconds=0,
         )
-        deterministic_interpretation = runner._build_portfolio_interpretation(
-            table_results,
-            failed_count=len(manifest.get("failed", [])),
-        )
-        result.llm_interpretation = runner._run_global_llm_analysis(
+        failed_count = len(manifest.get("failed", []))
+        deterministic_interpretation = runner._build_portfolio_interpretation(table_results, failed_count=failed_count)
+        result.llm_interpretation, result.llm_status = runner._run_global_llm_analysis(
             table_results,
             deterministic_interpretation,
-            failed_count=len(manifest.get("failed", [])),
+            failed_count=failed_count,
         )
-        if result.llm_interpretation.get("_analysis_source") == "llm":
+        if result.llm_status == LLM_STATUS_OK:
             result.llm_model_used = settings.OLLAMA_MODEL
         result.analysis_json_path = str(
             runner.storage.get_analysis_json_path(runner.dataset_id, runner.version_id, "global")
@@ -426,48 +337,54 @@ def phase_global_analysis(dataset_id, version_id, pipeline_run_id, file_path, ba
         close_backend_client()
 
 
+def latest_failed_tables(runner):
+    """Failed tables from the most advanced manifest written so far (deduplicated by table)."""
+    failed = []
+    for name in MANIFESTS:
+        manifest = _read_manifest(runner, name)
+        if manifest is not None:
+            failed = manifest.get("failed", []) or []
+    seen = {}
+    for item in failed:
+        table_name = str(item.get("table_name") or "")
+        if table_name and table_name not in seen:
+            seen[table_name] = {"table_name": table_name, "error": str(item.get("error") or "unknown error")}
+    return list(seen.values())
+
+
+def completion_status(published_count, failed_count, forced_status=None):
+    """success when every table was published, partial when some failed, failed when none made it."""
+    if forced_status:
+        return forced_status
+    if published_count == 0:
+        return "failed"
+    if failed_count:
+        return "partial"
+    return "success"
+
+
 def phase_complete_pipeline(dataset_id, version_id, pipeline_run_id, file_path, backend_url=None, debug=False, forced_status=None, error_message=None):
-    """Mark the backend pipeline run complete."""
+    """Mark the backend pipeline run complete with its final status and failed tables."""
     runner = _phase_runner(dataset_id, version_id, pipeline_run_id, file_path, backend_url, debug)
     try:
         manifest = _read_manifest(runner, "publish_manifest.json", {"published": [], "failed": []})
         published_count = len(manifest.get("published", []))
-        failed_count = len(manifest.get("failed", []))
-        if forced_status:
-            status = forced_status
-        elif published_count == 0:
-            status = "failed"
-        elif failed_count:
-            status = "partial"
-        else:
-            status = "success"
+        failed_tables = latest_failed_tables(runner)
+        status = completion_status(published_count, len(failed_tables), forced_status)
+
         detail = error_message
-        if detail is None and failed_count:
-            detail = json.dumps(manifest.get("failed", []), ensure_ascii=False)
+        if detail is None and failed_tables:
+            detail = f"{len(failed_tables)} table(s) could not be analysed: " + "; ".join(
+                f"{item['table_name']} ({item['error']})" for item in failed_tables
+            )
         if not runner.backend_client.post_pipeline_run_completed(
             runner.pipeline_run_id,
             status=status,
             error_message=detail,
+            failed_tables=failed_tables,
             debug=debug,
         ):
             raise RuntimeError("Backend pipeline-completed POST failed")
-        return {"status": status, "published": published_count, "failed": failed_count}
+        return {"status": status, "published": published_count, "failed": len(failed_tables)}
     finally:
         close_backend_client()
-
-
-def run_sweetviz_extraction(data_dir="data", output_dir="sweetviz_extracted", save_html=True, max_workers=None):
-    """Run comprehensive SweetViz extraction using the existing script's function."""
-    try:
-        # Prefer package-local implementation when available
-        from dq_pipeline.extractors import comprehensive_sweetviz_extractor as swe
-    except Exception:
-        try:
-            import comprehensive_sweetviz_extractor as swe
-        except Exception as e:
-            raise RuntimeError("comprehensive_sweetviz_extractor is not importable") from e
-
-    swe.process_folder(data_dir, output_dir, save_html=save_html, max_workers=max_workers)
-    return True
-
-

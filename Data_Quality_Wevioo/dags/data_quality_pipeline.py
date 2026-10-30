@@ -49,15 +49,17 @@ dag = DAG(
 )
 
 
-PHASE_TASK_IDS = [
-    "validate_backend_request",
-    "notify_backend_started",
-    "discover_uploaded_tables",
-    "profile_tables_with_sweetviz",
-    "extract_metrics_and_run_llm",
-    "publish_table_results",
-    "build_global_portfolio_analysis",
-]
+# Phase task id -> label shown to users when the phase fails.
+PHASE_LABELS = {
+    "validate_backend_request": "Validate request",
+    "notify_backend_started": "Notify backend",
+    "discover_uploaded_tables": "Discover tables",
+    "profile_tables_with_sweetviz": "Profile tables",
+    "extract_metrics_and_run_llm": "Analyse tables",
+    "publish_table_results": "Publish results",
+    "build_global_portfolio_analysis": "Global analysis",
+}
+PHASE_TASK_IDS = list(PHASE_LABELS)
 
 
 def _require_conf_value(conf, key):
@@ -121,10 +123,14 @@ def mark_pipeline_completed(**_kwargs):
     failed = []
     if dag_run:
         for task_instance in dag_run.get_task_instances():
-            if task_instance.task_id in PHASE_TASK_IDS and task_instance.state in {"failed", "upstream_failed"}:
-                failed.append(f"{task_instance.task_id}:{task_instance.state}")
+            if task_instance.task_id in PHASE_TASK_IDS and task_instance.state == "failed":
+                failed.append(PHASE_LABELS[task_instance.task_id])
     forced_status = "failed" if failed else None
-    error_message = "; ".join(failed) if failed else None
+    error_message = (
+        f"Pipeline step failed: {', '.join(failed)}. Open the task logs in the Airflow UI for details."
+        if failed
+        else None
+    )
     return phase_complete_pipeline(
         **_pipeline_args(),
         forced_status=forced_status,

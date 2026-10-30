@@ -1,58 +1,39 @@
 """
-Main pipeline orchestrator for data quality analysis.
+Shared logic for the data quality pipeline phases (see ``runners.py``).
 
-Coordinates the complete analysis flow:
-1. Load dataset from file
-2. Run Sweetviz profiling per table as structured metrics
-3. Extract metrics and run LLM analysis
-4. Stream results to backend as they complete
-5. Perform global portfolio analysis
-
-Designed to be called from Airflow or CLI with these parameters:
-- dataset_id: Unique dataset identifier
-- version_id: Version of the dataset
-- pipeline_run_id: Unique pipeline execution ID
-- file_path: Path to input CSV file
-- backend_url: Backend API base URL (optional)
+``PipelineRunner`` holds the context of one pipeline run (dataset, version, run id,
+input path) and the steps the Airflow phases call: table discovery and loading,
+Sweetviz profiling, metric extraction, change signatures, deterministic
+relationship discovery and the table / global LLM analysis.
 """
 
-import argparse
 import csv
+import hashlib
 import json
 import sys
 import time
 from pathlib import Path
-from typing import Optional, List, Dict, Any, Set
+from typing import Optional, List, Dict, Any, Set, Tuple
 import pandas as pd
 
 from dq_pipeline.config.settings import settings
 from dq_pipeline.storage import get_storage_manager
-from dq_pipeline.backend_client import get_backend_client, close_backend_client
+from dq_pipeline.backend_client import get_backend_client
 from dq_pipeline.models import (
-    ResultBuilder,
     ColumnMetrics,
     DatasetMetrics,
     TableAnalysisResult,
-    GlobalAnalysisResult,
 )
-
-
-# Import extractors and analyzers
-try:
-    from dq_pipeline.extractors.comprehensive_sweetviz_extractor import extract_sweetviz_metrics, read_csv_flex
-except ImportError:
-    extract_sweetviz_metrics = None
-    read_csv_flex = None
-
-try:
-    from dq_pipeline.analyzers.llm_analyzer import analyze_table_metrics
-except ImportError:
-    analyze_table_metrics = None
-
-try:
-    from dq_pipeline.analyzers import llm_global_analyzer
-except ImportError:
-    llm_global_analyzer = None
+from dq_pipeline.analyzers.langgraph_analyzer import (
+    LLM_STATUS_DISABLED,
+    LLM_STATUS_INVALID,
+    LLM_STATUS_OK,
+    LLM_STATUS_UNAVAILABLE,
+    LlmUnavailableError,
+)
+from dq_pipeline.analyzers.llm_analyzer import analyze_table_metrics
+from dq_pipeline.analyzers import llm_global_analyzer
+from dq_pipeline.extractors.comprehensive_sweetviz_extractor import extract_sweetviz_metrics, read_csv_flex
 
 
 class PipelineRunner:
@@ -69,7 +50,7 @@ class PipelineRunner:
     ):
         """
         Initialize pipeline runner.
-        
+
         Args:
             dataset_id: Unique dataset identifier.
             version_id: Version identifier for this dataset.
@@ -83,109 +64,16 @@ class PipelineRunner:
         self.pipeline_run_id = pipeline_run_id
         self.file_path = Path(file_path)
         self.debug = debug
-        
+
         # Initialize infrastructure
         self.storage = get_storage_manager()
         self.backend_client = get_backend_client(backend_url=backend_url)
-        
+
         # Ensure storage directories exist
         self.storage.ensure_version_exists(dataset_id, version_id)
-        
-        # State tracking
-        self.start_time = None
-        self.tables_processed = 0
-        self.tables_succeeded = 0
-        self.tables_failed = 0
-        self.errors = []
-        self.table_results: List[TableAnalysisResult] = []
 
-    def run(self) -> bool:
-        """
-        Execute the complete pipeline.
-        
-        Returns:
-            True if successful, False otherwise.
-        """
-        self.start_time = time.time()
-        
-        try:
-            # Step 1: Health check
-            self._log("Checking backend connectivity...")
-            if not self.backend_client.health_check(debug=self.debug):
-                self._warn("Backend health check failed (will continue anyway)")
-            
-            # Step 2: Notify backend that pipeline is starting
-            self._log("Notifying backend: pipeline started")
-            if not self.backend_client.post_pipeline_run_started(
-                self.pipeline_run_id,
-                self.dataset_id,
-                self.version_id,
-                debug=self.debug,
-            ):
-                raise RuntimeError("Backend pipeline-started POST failed")
-            
-            # Step 3: Discover and process one or more CSV tables.
-            table_files = self._discover_table_files()
-            if not table_files:
-                return False
-            deterministic_relationships = self._discover_value_relationships_from_files([
-                {"table_name": table_file.stem, "file_path": str(table_file)}
-                for table_file in table_files
-            ])
+        self.errors: List[str] = []
 
-            for table_file in table_files:
-                table_name = table_file.stem
-                self._log(f"Loading table {table_name} from {table_file}...")
-                df = self._load_dataset(table_file)
-                if df is None:
-                    self.tables_failed += 1
-                    continue
-
-                self._log(f"Processing table: {table_name}")
-                success = self._process_table(
-                    table_name,
-                    df,
-                    table_file,
-                    self._relationships_for_table(deterministic_relationships, table_name),
-                )
-                if not success:
-                    self._error(f"Failed to process table {table_name}")
-                    self.tables_failed += 1
-                    continue
-
-                self.tables_succeeded += 1
-            
-            # Step 6: Global analysis summary
-            self._log("Posting global analysis summary")
-            if self._post_global_analysis() is None:
-                raise RuntimeError("Global analysis summary failed")
-            
-            # Step 7: Notify backend: pipeline completed
-            overall_status = "success" if self.tables_succeeded == self.tables_processed else "partial"
-            if not self.backend_client.post_pipeline_run_completed(
-                self.pipeline_run_id,
-                status=overall_status,
-                error_message=None if self.tables_succeeded == self.tables_processed else "; ".join(self.errors),
-                debug=self.debug,
-            ):
-                raise RuntimeError("Backend pipeline-completed POST failed")
-            
-            elapsed = time.time() - self.start_time
-            self._log(f"Pipeline execution completed in {elapsed:.2f}s")
-            self._log(f"Tables: {self.tables_succeeded} succeeded, {self.tables_failed} failed")
-            
-            return self.tables_succeeded > 0
-            
-        except KeyboardInterrupt:
-            self._error("Pipeline interrupted by user")
-            return False
-        except Exception as e:
-            self._error(f"Unexpected error in pipeline: {e}")
-            import traceback
-            traceback.print_exc()
-            return False
-        finally:
-            close_backend_client()
 
     def _discover_table_files(self) -> List[Path]:
         """Return CSV files to process from a single file or a version directory."""
@@ -215,7 +103,7 @@ class PipelineRunner:
     def _load_dataset(self, table_path: Path) -> Optional[pd.DataFrame]:
         """
         Load dataset from file.
-        
+
         Returns:
             DataFrame if successful, None otherwise.
         """
@@ -224,10 +112,7 @@ class PipelineRunner:
                 self._error(f"File not found: {table_path}")
                 return None
 
-            if read_csv_flex is not None:
-                df = read_csv_flex(table_path)
-            else:
-                df = pd.read_csv(table_path)
+            df = read_csv_flex(table_path)
             encoding = df.attrs.get("csv_encoding")
             separator = df.attrs.get("csv_separator")
             csv_hint = f" using encoding={encoding}, separator={separator!r}" if encoding or separator else ""
@@ -241,137 +126,23 @@ class PipelineRunner:
             self.errors.append(f"Load failed: {table_path}: {e}")
             return None
 
-    def _process_table(
-        self,
-        table_name: str,
-        df: pd.DataFrame,
-        table_path: Optional[Path] = None,
-        deterministic_relationships: Optional[List[Dict[str, Any]]] = None,
-    ) -> bool:
-        """
-        Process a single table through the full pipeline.
-        
-        Args:
-            table_name: Table name.
-            df: DataFrame to process.
-        
-        Returns:
-            True if successful, False otherwise.
-        """
-        table_start = time.time()
-        
-        try:
-            self.tables_processed += 1
-            
-            # Step 1: Sweetviz extraction
-            self._log(f"  [1/3] Running Sweetviz profiling for {table_name}...")
-            sweetviz_data = self._run_sweetviz(table_name, df)
-            if sweetviz_data is None:
-                self._error(f"  Sweetviz extraction failed for {table_name}")
-                self.errors.append(f"Sweetviz failed: {table_name}")
-                return False
-            
-            # Step 2: Metric extraction
-            self._log(f"  [2/3] Extracting metrics from {table_name}...")
-            dataset_metrics, column_metrics = self._extract_metrics(table_name, df, sweetviz_data)
-            self._apply_runtime_quality_overrides(sweetviz_data, dataset_metrics, df)
-            
-            # Step 3: Build deterministic result and POST it before LLM enrichment
-            processing_duration = time.time() - table_start
-            result = ResultBuilder.table_analysis(
-                dataset_id=self.dataset_id,
-                version_id=self.version_id,
-                pipeline_run_id=self.pipeline_run_id,
-                table_name=table_name,
-                dataset_metrics=dataset_metrics,
-                column_metrics=column_metrics,
-                processing_duration_seconds=processing_duration,
-            )
-
-            # Attach file paths
-            result.metrics_json_path = str(
-                self.storage.get_metrics_json_path(self.dataset_id, self.version_id, table_name)
-            )
-            result.analysis_json_path = str(
-                self.storage.get_analysis_json_path(self.dataset_id, self.version_id, table_name)
-            )
-            result.data_signature = self._build_data_signature(dataset_metrics, column_metrics)
-            if table_path is not None:
-                try:
-                    result.data_signature["source_file_size_bytes"] = table_path.stat().st_size
-                except OSError:
-                    pass
-            if df.attrs.get("csv_reader_warning"):
-                result.data_signature["csv_reader_warning"] = df.attrs.get("csv_reader_warning")
-                result.data_signature["csv_bad_line_policy"] = df.attrs.get("csv_bad_line_policy")
-            result.change_status = "UNKNOWN"
-            result.deterministic_relationships = deterministic_relationships or []
-            self._write_json(result.metrics_json_path, sweetviz_data)
-            self._write_json(result.analysis_json_path, result.to_dict())
-
-            self._log(f"  [3/5] POSTing metrics for {table_name} before LLM enrichment...")
-            if self.backend_client.post_table_analysis(
-                self.pipeline_run_id,
-                result,
-                debug=self.debug,
-            ):
-                self._log(f"  Metrics for {table_name} posted successfully")
-            else:
-                self._warn(f"  Metrics for {table_name} failed to POST before LLM (will continue)")
-
-            # Step 4: LLM analysis
-            self._log(f"  [4/5] Running LLM analysis for {table_name}...")
-            llm_result = self._run_llm_analysis(table_name, sweetviz_data)
-
-            # Attach LLM results if available
-            if llm_result:
-                result.llm_interpretation = llm_result.get("analysis")
-                result.llm_model_used = llm_result.get("model")
-
-            result.processing_duration_seconds = time.time() - table_start
-            self._write_json(result.analysis_json_path, result.to_dict())
-
-            # Step 5: Stream enriched result to backend
-            self._log(f"  [5/5] POSTing LLM-enriched results for {table_name} to backend...")
-            if self.backend_client.post_table_analysis(
-                self.pipeline_run_id,
-                result,
-                debug=self.debug,
-            ):
-                self._log(f"  LLM-enriched results for {table_name} posted successfully")
-            else:
-                self._warn(f"  LLM-enriched results for {table_name} failed to POST (will continue)")
-            
-            self.table_results.append(result)
-            return True
-            
-        except Exception as e:
-            self._error(f"Exception processing {table_name}: {e}")
-            self.errors.append(f"Processing error: {e}")
-            import traceback
-            traceback.print_exc()
-            return False
 
     def _run_sweetviz(self, table_name: str, df: pd.DataFrame) -> Optional[Dict[str, Any]]:
         """
         Run Sweetviz profiling on the dataframe.
-        
+
         Args:
             table_name: Table name.
             df: DataFrame to profile.
-        
+
         Returns:
             Sweetviz report data if successful, None otherwise.
         """
         try:
-            if extract_sweetviz_metrics is None:
-                self._warn("Sweetviz metrics extractor not available, skipping profiling")
-                return {}
-            
             # Set up output paths. We save JSON only; Angular will render its own
             # dynamic pages from metrics and interpretations.
             json_path = self.storage.get_metrics_json_path(self.dataset_id, self.version_id, table_name)
-            
+
             # Run Sweetviz extraction
             result = extract_sweetviz_metrics(
                 df,
@@ -380,13 +151,13 @@ class PipelineRunner:
                 output_json_path=str(json_path),
                 debug=self.debug,
             )
-            
+
             if result.get("status") == "failed":
                 self._error(f"Sweetviz profiling failed: {result.get('error')}")
                 return None
-            
+
             return result
-            
+
         except Exception as e:
             self._error(f"Sweetviz profiling failed: {e}")
             import traceback
@@ -401,12 +172,12 @@ class PipelineRunner:
     ) -> tuple[DatasetMetrics, List[ColumnMetrics]]:
         """
         Extract metrics from the dataframe.
-        
+
         Args:
             table_name: Table name.
             df: DataFrame.
             sweetviz_data: SweetViz profiling output.
-        
+
         Returns:
             Tuple of (DatasetMetrics, List[ColumnMetrics]).
         """
@@ -433,7 +204,7 @@ class PipelineRunner:
             )
             duplicate_rows = df.duplicated().sum()
             duplicate_percent = (duplicate_rows / row_count * 100) if row_count > 0 else 0
-            
+
             dataset_metrics = DatasetMetrics(
                 row_count=row_count,
                 column_count=col_count,
@@ -444,7 +215,7 @@ class PipelineRunner:
                 duplicate_rows=int(duplicate_rows),
                 duplicate_percent=float(duplicate_percent),
             )
-            
+
             # Column-level metrics
             column_metrics = []
             for col in df.columns:
@@ -453,7 +224,7 @@ class PipelineRunner:
                 missing_percent = (missing_count / len(df) * 100) if len(df) > 0 else 0
                 distinct_count = col_data.nunique()
                 distinct_percent = (distinct_count / len(df) * 100) if len(df) > 0 else 0
-                
+
                 metric = ColumnMetrics(
                     name=str(col),
                     data_type=str(col_data.dtype),
@@ -461,10 +232,10 @@ class PipelineRunner:
                     missing_percent=float(missing_percent),
                     distinct_count=int(distinct_count),
                     distinct_percent=float(distinct_percent),
-                    is_id_like=distinct_count == len(df),
+                    is_id_like=len(df) > 0 and distinct_count == len(df),
                     is_date_like=False,  # Simplified
                 )
-                
+
                 # Numeric stats. Boolean columns are intentionally excluded:
                 # pandas/numpy quantile interpolates with subtraction, which is
                 # invalid for bool arrays.
@@ -478,11 +249,11 @@ class PipelineRunner:
                         metric.max_value = self._safe_float(non_null.max())
                         metric.mean_value = self._safe_float(non_null.mean())
                         metric.std_value = self._safe_float(non_null.std())
-                
+
                 column_metrics.append(metric)
-            
+
             return dataset_metrics, column_metrics
-            
+
         except Exception as e:
             self._error(f"Metric extraction failed: {e}")
             raise
@@ -775,22 +546,16 @@ class PipelineRunner:
                 parts.append(part)
         return "_".join(parts)
 
-    def _run_llm_analysis(self, table_name: str, sweetviz_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    def _run_llm_analysis(self, table_name: str, sweetviz_data: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Run LLM analysis on the profiling data.
-        
-        Args:
-            table_name: Table name.
-            sweetviz_data: SweetViz profiling output.
-        
-        Returns:
-            Analysis result dictionary if successful, None otherwise.
-        """
-        try:
-            if analyze_table_metrics is None:
-                self._warn("LLM analyzer not available, skipping analysis")
-                return None
+        Run the table LLM analysis on the profiling data.
 
+        Always returns a dict with ``llm_status`` (ok / unavailable / invalid / disabled)
+        and, when available, ``analysis`` (an LLM or deterministic interpretation).
+        """
+        if not settings.TABLE_LLM_ENABLED:
+            return {"llm_status": LLM_STATUS_DISABLED}
+        try:
             dataset_config_path = self._dataset_config_path()
             return analyze_table_metrics(
                 table_name=table_name,
@@ -800,11 +565,14 @@ class PipelineRunner:
                 debug=self.debug,
                 dataset_config_path=str(dataset_config_path) if dataset_config_path else None,
             )
-            
+
+        except LlmUnavailableError as e:
+            self._warn(f"LLM unavailable for {table_name}: {e}")
+            return {"llm_status": LLM_STATUS_UNAVAILABLE}
         except Exception as e:
-            self._error(f"LLM analysis failed: {e}")
+            self._error(f"LLM analysis failed for {table_name}: {e}")
             self.errors.append(f"LLM analysis error: {e}")
-            return None
+            return {"llm_status": LLM_STATUS_INVALID}
 
     def _dataset_config_path(self) -> Optional[Path]:
         """Return the optional context config stored with uploaded table files."""
@@ -825,19 +593,56 @@ class PipelineRunner:
             return None
         return value
 
+    def _empty_table_metrics(self, table_name: str, df: pd.DataFrame) -> Dict[str, Any]:
+        """Minimal metrics document for a header-only table (Sweetviz cannot profile 0 rows)."""
+        return {
+            "status": "empty",
+            "table_name": table_name,
+            "summary_source": {
+                "num_rows": 0,
+                "num_columns": len(df.columns),
+                "duplicates": {"number": 0, "perc": 0.0},
+            },
+            "features": {
+                str(column): {"name": str(column), "type": str(df[column].dtype), "base_stats": {}}
+                for column in df.columns
+            },
+        }
+
+    @staticmethod
+    def _content_hash(df: pd.DataFrame) -> str:
+        """SHA-256 over the table values (row order included), independent of the file encoding."""
+        digest = hashlib.sha256()
+        if len(df) == 0:
+            return digest.hexdigest()
+        try:
+            row_hashes = pd.util.hash_pandas_object(df, index=False)
+            digest.update(row_hashes.to_numpy().tobytes())
+        except TypeError:
+            # Unhashable cell values (lists, dicts): fall back to the CSV text of the frame.
+            digest.update(df.to_csv(index=False).encode("utf-8"))
+        return digest.hexdigest()
+
+    @staticmethod
+    def _schema_hash(df: pd.DataFrame) -> str:
+        schema = [[str(column), str(dtype)] for column, dtype in df.dtypes.items()]
+        return hashlib.sha256(json.dumps(schema).encode("utf-8")).hexdigest()
+
     def _build_data_signature(
         self,
         dataset_metrics: DatasetMetrics,
         column_metrics: List[ColumnMetrics],
+        df: Optional[pd.DataFrame] = None,
     ) -> Dict[str, Any]:
         """
-        Build a lightweight change-detection signature.
+        Build the change-detection signature the backend compares with the previous
+        version to decide whether a table is NEW, MODIFIED or UNCHANGED.
 
-        This intentionally avoids hashing full files/tables. The backend can
-        compare this object with the previous version to decide whether a table
-        is NEW, MODIFIED, or UNCHANGED.
+        ``content_hash`` covers every value, so editing a single cell is detected;
+        ``schema_hash`` covers column names and types. The count fields are kept so
+        signatures from older versions (counts only) can still be compared.
         """
-        return {
+        signature = {
             "row_count": dataset_metrics.row_count,
             "column_count": dataset_metrics.column_count,
             "duplicate_rows": dataset_metrics.duplicate_rows,
@@ -851,54 +656,10 @@ class PipelineRunner:
                 for column in column_metrics
             ],
         }
-
-    def _post_global_analysis(self) -> Optional[GlobalAnalysisResult]:
-        """
-        Build and stream a run-level summary after table processing.
-
-        The backend can enrich this later with a deeper portfolio-level LLM
-        interpretation when multiple related tables are present.
-        """
-        try:
-            total_rows = sum(result.dataset_metrics.row_count for result in self.table_results)
-            total_cols = sum(result.dataset_metrics.column_count for result in self.table_results)
-            tables = [result.table_name for result in self.table_results]
-            duration = time.time() - self.start_time if self.start_time else 0
-
-            result = ResultBuilder.global_analysis(
-                pipeline_run_id=self.pipeline_run_id,
-                tables_analyzed=tables,
-                total_rows=total_rows,
-                total_cols=total_cols,
-                processing_duration_seconds=duration,
-            )
-            deterministic_interpretation = self._build_portfolio_interpretation(
-                self.table_results,
-                failed_count=self.tables_failed,
-            )
-            result.llm_interpretation = self._run_global_llm_analysis(
-                self.table_results,
-                deterministic_interpretation,
-                failed_count=self.tables_failed,
-            )
-            if result.llm_interpretation.get("_analysis_source") == "llm":
-                result.llm_model_used = settings.OLLAMA_MODEL
-            result.analysis_json_path = str(
-                self.storage.get_analysis_json_path(self.dataset_id, self.version_id, "global")
-            )
-            self._write_json(result.analysis_json_path, result.to_dict())
-
-            if not self.backend_client.post_global_analysis(
-                self.pipeline_run_id,
-                result,
-                debug=self.debug,
-            ):
-                raise RuntimeError("Backend global-analysis POST failed")
-            return result
-        except Exception as e:
-            self._warn(f"Global analysis summary failed: {e}")
-            self.errors.append(f"Global analysis error: {e}")
-            return None
+        if df is not None:
+            signature["content_hash"] = self._content_hash(df)
+            signature["schema_hash"] = self._schema_hash(df)
+        return signature
 
     def _build_portfolio_interpretation(
         self,
@@ -1018,12 +779,10 @@ class PipelineRunner:
         table_results: List[TableAnalysisResult],
         fallback_interpretation: Dict[str, Any],
         failed_count: int = 0,
-    ) -> Dict[str, Any]:
-        if not getattr(settings, "GLOBAL_LLM_ENABLED", True):
-            return fallback_interpretation
-        if llm_global_analyzer is None or not hasattr(llm_global_analyzer, "analyze_pipeline_global_payload"):
-            self._warn("Global LLM analyzer not available; using deterministic global analysis")
-            return fallback_interpretation
+    ) -> Tuple[Dict[str, Any], str]:
+        """Return (interpretation, llm_status) for the global analysis."""
+        if not settings.GLOBAL_LLM_ENABLED:
+            return fallback_interpretation, LLM_STATUS_DISABLED
 
         try:
             dataset_config = self._load_dataset_context_config()
@@ -1032,19 +791,22 @@ class PipelineRunner:
                 payload,
                 ollama_url=str(settings.OLLAMA_URL) if settings.OLLAMA_URL else None,
                 model=settings.OLLAMA_MODEL,
-                temperature=getattr(settings, "GLOBAL_LLM_TEMPERATURE", 0.2),
-                top_p=getattr(settings, "GLOBAL_LLM_TOP_P", 0.9),
-                num_predict=getattr(settings, "GLOBAL_LLM_NUM_PREDICT", 1800),
-                timeout_seconds=getattr(settings, "GLOBAL_LLM_TIMEOUT_SECONDS", 420),
+                temperature=settings.GLOBAL_LLM_TEMPERATURE,
+                top_p=settings.GLOBAL_LLM_TOP_P,
+                num_predict=settings.GLOBAL_LLM_NUM_PREDICT,
+                timeout_seconds=settings.GLOBAL_LLM_TIMEOUT_SECONDS,
             )
+            if not isinstance(analysis, dict):
+                raise ValueError("The global LLM answer is not a JSON object")
             analysis["_analysis_source"] = "llm"
-            return analysis
+            return analysis, LLM_STATUS_OK
         except Exception as exc:
-            self._warn(f"Global LLM analysis failed; using deterministic fallback: {exc}")
+            unavailable = isinstance(exc, LlmUnavailableError)
+            self._warn(f"Global LLM analysis {'unavailable' if unavailable else 'rejected'}; using deterministic fallback: {exc}")
             fallback = dict(fallback_interpretation)
             fallback["_analysis_source"] = "deterministic"
             fallback["_fallback_reason"] = str(exc)
-            return fallback
+            return fallback, (LLM_STATUS_UNAVAILABLE if unavailable else LLM_STATUS_INVALID)
 
     def _build_global_llm_payload(
         self,
@@ -1154,71 +916,3 @@ class PipelineRunner:
         """Log error message."""
         timestamp = time.strftime("%H:%M:%S")
         print(f"[{timestamp}] [ERROR] {message}", file=sys.stderr)
-
-
-def run_pipeline(
-    dataset_id: str,
-    version_id: str,
-    pipeline_run_id: str,
-    file_path: str,
-    backend_url: Optional[str] = None,
-    debug: bool = False,
-) -> bool:
-    """
-    Run the pipeline (Airflow-callable wrapper).
-    
-    This function is designed to be invoked from Airflow PythonOperator.
-    
-    Args:
-        dataset_id: Unique dataset identifier.
-        version_id: Version identifier.
-        pipeline_run_id: Unique pipeline execution ID.
-        file_path: Path to input CSV file.
-        backend_url: Backend API URL (optional).
-        debug: Enable debug logging.
-    
-    Returns:
-        True if pipeline succeeded, False otherwise.
-    """
-    runner = PipelineRunner(
-        dataset_id=dataset_id,
-        version_id=version_id,
-        pipeline_run_id=pipeline_run_id,
-        file_path=file_path,
-        backend_url=backend_url,
-        debug=debug,
-    )
-    return runner.run()
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Data quality analysis pipeline orchestrator."
-    )
-    parser.add_argument("dataset_id", help="Unique dataset identifier")
-    parser.add_argument("version_id", help="Version identifier")
-    parser.add_argument("pipeline_run_id", help="Unique pipeline execution ID")
-    parser.add_argument("file_path", help="Path to input CSV file")
-    parser.add_argument(
-        "--backend-url",
-        default=None,
-        help="Backend API URL (defaults to BACKEND_URL env var)",
-    )
-    parser.add_argument(
-        "--debug",
-        action="store_true",
-        help="Enable debug logging",
-    )
-    
-    args = parser.parse_args()
-    
-    success = run_pipeline(
-        dataset_id=args.dataset_id,
-        version_id=args.version_id,
-        pipeline_run_id=args.pipeline_run_id,
-        file_path=args.file_path,
-        backend_url=args.backend_url,
-        debug=args.debug,
-    )
-    
-    sys.exit(0 if success else 1)

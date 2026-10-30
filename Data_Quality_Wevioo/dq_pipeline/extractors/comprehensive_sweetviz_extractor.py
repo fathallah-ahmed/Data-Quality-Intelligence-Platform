@@ -1,17 +1,12 @@
 import os
-import glob
 import json
-import traceback
 import html
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from pprint import pprint
 from enum import Enum
 
 import pandas as pd
 import sweetviz as sv
 import sweetviz.dataframe_report as df_report
 import numpy as np
-from dq_pipeline.config.settings import settings
 
 # Compatibility patch for sweetviz
 if not hasattr(np, "VisibleDeprecationWarning"):
@@ -457,84 +452,3 @@ def extract_sweetviz_metrics(df, table_name, output_html_path=None, output_json_
             "table_name": table_name,
             "error": str(e),
         }
-
-
-def process_file(file_path, output_dir, save_html=True):
-    os.makedirs(output_dir, exist_ok=True)
-    print(f"\nProcessing: {file_path}")
-    df = read_csv_flex(file_path)
-    if df.empty:
-        print("Skipped because dataframe is empty.")
-        return
-    report = sv.analyze(df)
-    extracted = extract_report_data(report)
-    base_name = os.path.splitext(os.path.basename(file_path))[0]
-    dataset_dir = os.path.join(output_dir, base_name)
-    os.makedirs(dataset_dir, exist_ok=True)
-    json_path = os.path.join(dataset_dir, "dataset_summary.json")
-    with open(json_path, "w", encoding="utf-8") as f:
-        json.dump(extracted, f, ensure_ascii=False, indent=2, default=str)
-    ds_df = flatten_dataset_summary(extracted)
-    ds_csv_path = os.path.join(dataset_dir, "dataset_summary.csv")
-    ds_df.to_csv(ds_csv_path, index=False, encoding="utf-8")
-    feature_df = flatten_feature_summary(extracted)
-    feature_csv_path = os.path.join(dataset_dir, "feature_summary.csv")
-    feature_df.to_csv(feature_csv_path, index=False, encoding="utf-8")
-    details_df = flatten_feature_details(extracted)
-    details_csv_path = os.path.join(dataset_dir, "feature_details.csv")
-    details_df.to_csv(details_csv_path, index=False, encoding="utf-8")
-    assoc_df = flatten_associations(extracted)
-    assoc_csv_path = os.path.join(dataset_dir, "associations.csv")
-    assoc_df.to_csv(assoc_csv_path, index=False, encoding="utf-8")
-    if save_html:
-        html_path = os.path.join(dataset_dir, f"{base_name}.html")
-        report.show_html(filepath=html_path, open_browser=False)
-        print(f"HTML report saved to: {html_path}")
-    print(f"JSON saved to: {json_path}")
-    print(f"Dataset CSV saved to: {ds_csv_path}")
-    print(f"Feature CSV saved to: {feature_csv_path}")
-    print(f"Details CSV saved to: {details_csv_path}")
-    print(f"Associations CSV saved to: {assoc_csv_path}")
-
-def process_folder(data_dir, output_dir, save_html=True, max_workers=None):
-    csv_files = glob.glob(os.path.join(data_dir, "**", "*.csv"), recursive=True)
-    if not csv_files:
-        print(f"No CSV files found in: {data_dir}")
-        return
-
-    if max_workers is None:
-        max_workers = settings.SWEETVIZ_MAX_WORKERS
-    max_workers = max(1, int(max_workers))
-
-    if max_workers == 1:
-        for file_path in csv_files:
-            try:
-                process_file(file_path, output_dir, save_html=save_html)
-            except Exception as e:
-                print(f"Error processing {file_path}: {e}")
-                traceback.print_exc()
-        return
-
-    print(f"Parallel extraction workers: {max_workers}")
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = {
-            executor.submit(process_file, file_path, output_dir, save_html): file_path
-            for file_path in csv_files
-        }
-        for future in as_completed(futures):
-            file_path = futures[future]
-            try:
-                future.result()
-            except Exception as e:
-                print(f"Error processing {file_path}: {e}")
-                traceback.print_exc()
-
-if __name__ == "__main__":
-    base_dir = os.getcwd()
-    data_directory = os.path.join(base_dir, "data")
-    output_directory = os.path.join(base_dir, "sweetviz_extracted")
-    print("Starting comprehensive extraction...")
-    print(f"Data directory: {data_directory}")
-    print(f"Output directory: {output_directory}")
-    process_folder(data_directory, output_directory, save_html=True, max_workers=settings.SWEETVIZ_MAX_WORKERS)
-    print("\nDone.")

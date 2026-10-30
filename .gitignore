@@ -35,3 +35,6 @@ Data_Quality_Wevioo/sweetviz_reports/
 # OS
 Thumbs.db
 .DS_Store
+
+# Python test cache
+**/.pytest_cache/

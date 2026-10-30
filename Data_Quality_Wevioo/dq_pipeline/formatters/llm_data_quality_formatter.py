@@ -5,6 +5,8 @@ import traceback
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dq_pipeline.config.settings import settings
 
+DEFAULT_MAX_WORKERS = 6
+
 
 def _safe_ratio(numerator, denominator):
     if denominator in (None, 0):
@@ -181,7 +183,7 @@ def process_all_extracted_folders(extracted_dir, max_workers=None):
     print(f"Found {len(json_files)} dataset(s) to process\n")
 
     if max_workers is None:
-        max_workers = settings.FORMATTER_MAX_WORKERS
+        max_workers = DEFAULT_MAX_WORKERS
     max_workers = max(1, int(max_workers))
 
     if max_workers == 1:
@@ -219,5 +221,5 @@ if __name__ == "__main__":
     print("=" * 60)
     print("🔄 SweetViz Data Extractor (Pure Data - No Calculations)")
     print("=" * 60)
-    process_all_extracted_folders(extracted_directory, max_workers=settings.FORMATTER_MAX_WORKERS)
+    process_all_extracted_folders(extracted_directory, max_workers=DEFAULT_MAX_WORKERS)
     print("✅ Done!")

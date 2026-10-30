@@ -25,6 +25,17 @@ except Exception:  # pragma: no cover - exercised only before dependency install
 LlmCaller = Callable[..., Optional[str]]
 ResponseParser = Callable[[str], Optional[Dict[str, Any]]]
 
+
+class LlmUnavailableError(RuntimeError):
+    """Raised by an ``LlmCaller`` when the LLM service cannot be reached (not a bad answer)."""
+
+
+# Values of the ``llm_status`` field returned with every analysis.
+LLM_STATUS_OK = "ok"                    # validated LLM answer
+LLM_STATUS_UNAVAILABLE = "unavailable"  # Ollama unreachable / HTTP error / timeout
+LLM_STATUS_INVALID = "invalid"          # LLM answered but the answer was rejected
+LLM_STATUS_DISABLED = "disabled"        # LLM not called (empty table, feature off)
+
 ALLOWED_TABLE_FIELDS = {
     "table",
     "dataset",
@@ -353,6 +364,7 @@ class TableGraphState(TypedDict, total=False):
     validation_errors: List[str]
     validation_warnings: List[str]
     llm_response_valid: bool
+    llm_unavailable: bool
     fallback_used: bool
     fallback_reason: str
 
@@ -364,7 +376,7 @@ def analyze_table_with_langgraph(
     llm_call: LlmCaller,
     response_parser: ResponseParser,
     ollama_url: Optional[str] = None,
-    model: str = "qwen2.5:14b-instruct",
+    model: Optional[str] = None,
     temperature: float = 0.2,
     top_p: float = 0.9,
     num_predict: Optional[int] = 1400,
@@ -392,6 +404,7 @@ def analyze_table_with_langgraph(
         "validation_warnings": [],
         "fallback_used": False,
         "llm_response_valid": False,
+        "llm_unavailable": False,
     }
 
     if LANGGRAPH_AVAILABLE:
@@ -411,11 +424,19 @@ def analyze_table_with_langgraph(
         reason="analysis_missing",
     )
 
+    if final_state.get("llm_unavailable"):
+        llm_status = LLM_STATUS_UNAVAILABLE
+    elif final_state.get("llm_response_valid"):
+        llm_status = LLM_STATUS_OK
+    else:
+        llm_status = LLM_STATUS_INVALID
+
     return {
         "status": "completed",
         "table_name": table_name,
         "model": model,
         "analysis": analysis,
+        "llm_status": llm_status,
     }
 
 
@@ -488,8 +509,17 @@ def _build_context_node(state: TableGraphState) -> Dict[str, Any]:
     }
 
 
+def _call_llm(llm_call: LlmCaller, prompt: str, **kwargs: Any) -> Dict[str, Any]:
+    """Call the LLM and record whether the service itself was unavailable."""
+    try:
+        return {"raw_response": llm_call(prompt, **kwargs), "llm_unavailable": False}
+    except LlmUnavailableError as exc:
+        return {"raw_response": None, "llm_unavailable": True, "fallback_reason": str(exc)}
+
+
 def _generate_node(state: TableGraphState, llm_call: LlmCaller) -> Dict[str, Any]:
-    raw_response = llm_call(
+    result = _call_llm(
+        llm_call,
         state["prompt"],
         model=state["model"],
         temperature=state.get("temperature", 0.2),
@@ -500,10 +530,8 @@ def _generate_node(state: TableGraphState, llm_call: LlmCaller) -> Dict[str, Any
         system=ANALYSIS_SYSTEM_PROMPT,
         format_schema=ANALYSIS_RESPONSE_SCHEMA,
     )
-    return {
-        "raw_response": raw_response,
-        "attempts": int(state.get("attempts") or 0) + 1,
-    }
+    result["attempts"] = int(state.get("attempts") or 0) + 1
+    return result
 
 
 def _validate_node(
@@ -550,7 +578,8 @@ def _validate_node(
 
 def _repair_node(state: TableGraphState, llm_call: LlmCaller) -> Dict[str, Any]:
     repair_prompt = _build_repair_prompt(state)
-    raw_response = llm_call(
+    result = _call_llm(
+        llm_call,
         repair_prompt,
         model=state["model"],
         temperature=0.1,
@@ -561,19 +590,21 @@ def _repair_node(state: TableGraphState, llm_call: LlmCaller) -> Dict[str, Any]:
         system=ANALYSIS_SYSTEM_PROMPT,
         format_schema=ANALYSIS_RESPONSE_SCHEMA,
     )
-    return {
-        "raw_response": raw_response,
-        "attempts": int(state.get("attempts") or 0) + 1,
-    }
+    result["attempts"] = int(state.get("attempts") or 0) + 1
+    return result
 
 
 def _fallback_node(state: TableGraphState) -> Dict[str, Any]:
-    reason = "; ".join(state.get("validation_errors") or ["validation_failed"])
+    if state.get("llm_unavailable"):
+        reason = state.get("fallback_reason") or "LLM service unavailable"
+    else:
+        reason = "; ".join(state.get("validation_errors") or ["validation_failed"])
     analysis = _fallback_analysis_from_evidence(
         state["evidence"],
         description=state.get("description") or "",
         custom_question=state.get("custom_question") or "",
         reason=reason,
+        llm_unavailable=bool(state.get("llm_unavailable")),
     )
     return {
         "analysis": analysis,
@@ -588,6 +619,7 @@ def _finalize_node(state: TableGraphState) -> Dict[str, Any]:
     analysis["_validation"] = {
         "workflow": "langgraph" if LANGGRAPH_AVAILABLE else "python_controlled_graph",
         "llm_response_valid": bool(state.get("llm_response_valid")),
+        "llm_unavailable": bool(state.get("llm_unavailable")),
         "fallback_used": bool(state.get("fallback_used")),
         "attempts": int(state.get("attempts") or 0),
         "errors": state.get("validation_errors") or [],
@@ -600,6 +632,9 @@ def _finalize_node(state: TableGraphState) -> Dict[str, Any]:
 
 
 def _route_after_validation(state: TableGraphState) -> str:
+    if state.get("llm_unavailable"):
+        # Retrying a repair prompt against a service that is down only adds latency.
+        return "fallback"
     if not state.get("validation_errors"):
         return "finalize"
     if int(state.get("attempts") or 0) < int(state.get("max_attempts") or 2):
@@ -1814,10 +1849,31 @@ def _deterministic_consistency_text(evidence: Dict[str, Any]) -> str:
         if duplicate_percent > 0
         else "No duplicate rows detected."
     )
+    type_mix = _format_type_mix(evidence.get("type_counts") or {})
+    type_text = f" Column types: {type_mix}." if type_mix else ""
     return (
-        f"{duplicate_text} Type mix: {json.dumps(evidence.get('type_counts') or {}, ensure_ascii=True)}. "
+        f"{duplicate_text}{type_text} "
         "Confirm ID-like and date-like columns before downstream joins or reporting."
     )
+
+
+_TYPE_LABELS = {
+    "TYPE_NUM": "numerical",
+    "TYPE_CAT": "categorical",
+    "TYPE_TEXT": "text",
+    "TYPE_BOOL": "boolean",
+    "TYPE_DATE": "date",
+}
+
+
+def _format_type_mix(type_counts: Dict[str, Any]) -> str:
+    """Human-readable type mix, e.g. "3 numerical, 2 categorical" (never a raw dict)."""
+    parts = []
+    for raw_type, count in sorted(type_counts.items(), key=lambda item: (-_safe_int(item[1]), str(item[0]))):
+        key = str(raw_type)
+        label = _TYPE_LABELS.get(key.upper(), key.replace("TYPE_", "").replace("_", " ").lower())
+        parts.append(f"{_safe_int(count)} {label}")
+    return ", ".join(parts)
 
 
 def _deterministic_supporting_evidence(
@@ -1840,8 +1896,14 @@ def _fallback_analysis_from_evidence(
     description: str,
     custom_question: str,
     reason: str,
+    llm_unavailable: bool = False,
 ) -> Dict[str, Any]:
     table_name = evidence.get("table_name") or "table"
+    why = (
+        "the LLM service (Ollama) was unavailable"
+        if llm_unavailable
+        else "the LLM answer did not pass validation"
+    )
     overview = evidence.get("overview") or {}
     columns = evidence.get("columns") or []
     id_like = evidence.get("id_like_columns") or []
@@ -1853,7 +1915,7 @@ def _fallback_analysis_from_evidence(
             "summary": (
                 f"{table_name} contains {overview.get('rows') or 0} rows and "
                 f"{len(columns)} columns. The interpretation is generated from deterministic metrics "
-                f"because the LLM answer did not pass validation."
+                f"because {why}."
             ),
             "key_entities": id_like[:8] or [column["name"] for column in columns[:5]],
             "relationships": [
@@ -1866,7 +1928,7 @@ def _fallback_analysis_from_evidence(
         "resolution_steps": deepcopy(deterministic.get("resolution_steps") or []),
         "custom_analysis": {
             "question": custom_question or "Describe the table structure, risks, and next actions.",
-            "answer": "The validated answer is based on extracted metrics because the LLM output needed correction.",
+            "answer": f"This answer is based on the extracted metrics only, because {why}.",
             "reasoning": f"Fallback reason: {reason}",
             "supporting_evidence": deepcopy(deterministic.get("supporting_evidence") or []),
         },

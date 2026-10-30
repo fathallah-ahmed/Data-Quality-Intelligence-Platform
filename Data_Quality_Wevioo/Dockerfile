@@ -12,9 +12,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Switch back to airflow user
 USER airflow
 
-# Copy requirements and install additional Python dependencies
+# Copy requirements and install additional Python dependencies, pinned to the
+# versions Airflow itself was tested with.
+ARG AIRFLOW_CONSTRAINTS=https://raw.githubusercontent.com/apache/airflow/constraints-2.10.0/constraints-3.12.txt
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt --constraint "${AIRFLOW_CONSTRAINTS}"
 
 # Copy project files
 COPY . /opt/airflow/
