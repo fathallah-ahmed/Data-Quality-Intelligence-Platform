@@ -1,0 +1,50 @@
+# The whole platform in one command (Ollama stays on the host):
+#
+#   docker compose --env-file Data_Quality_Wevioo/.env up --build
+#
+# Then open http://localhost:4200 (Airflow UI: http://localhost:8080).
+# The worker stack (Postgres + Airflow) is defined in Data_Quality_Wevioo/docker-compose.yml and
+# included here, so backend, frontend and Airflow share one network and one set of secrets.
+name: data-quality
+
+include:
+  - path: ./Data_Quality_Wevioo/docker-compose.yml
+    env_file: ./Data_Quality_Wevioo/.env
+
+services:
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    environment:
+      # Airflow is reached by its service name, and calls the backend back by its own.
+      AIRFLOW_BASE_URL: http://airflow-webserver:8080
+      AIRFLOW_USERNAME: ${AIRFLOW_ADMIN_USERNAME:-admin}
+      AIRFLOW_PASSWORD: ${AIRFLOW_ADMIN_PASSWORD:?Set AIRFLOW_ADMIN_PASSWORD in Data_Quality_Wevioo/.env}
+      PIPELINE_API_TOKEN: ${PIPELINE_API_TOKEN:?Set PIPELINE_API_TOKEN in Data_Quality_Wevioo/.env}
+      PIPELINE_BACKEND_URL: http://backend:8081
+      # Uploads go to the shared worker folder, which Airflow mounts as /opt/airflow.
+      APP_STORAGE_ROOT: /workspace/Data_Quality_Wevioo/data/uploads
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin123}
+      JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-change-me-at-least-32-bytes!!}
+      STRICT_SECRETS: ${STRICT_SECRETS:-false}
+      CORS_ALLOWED_ORIGINS: http://localhost:4200,http://127.0.0.1:4200
+    volumes:
+      - ./Data_Quality_Wevioo:/workspace/Data_Quality_Wevioo
+      - backend_data:/workspace/backend/data
+    ports:
+      - "8081:8081"
+    depends_on:
+      airflow-webserver:
+        condition: service_started
+
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+    ports:
+      - "4200:80"
+    depends_on:
+      - backend
+
+volumes:
+  backend_data:

@@ -1,0 +1,83 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend (Spring Boot)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+      - name: Test
+        run: ./mvnw -B test
+
+  frontend:
+    name: Frontend (Angular)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - name: Build
+        run: npm run build
+      - name: Test
+        run: npm test
+
+  pipeline:
+    name: Pipeline (Python)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Data_Quality_Wevioo
+    env:
+      # The versions Airflow 2.10.0 on Python 3.12 was tested with (same as the Dockerfile).
+      AIRFLOW_CONSTRAINTS: https://raw.githubusercontent.com/apache/airflow/constraints-2.10.0/constraints-3.12.txt
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: |
+            Data_Quality_Wevioo/requirements.txt
+            Data_Quality_Wevioo/requirements-dev.txt
+      - name: Install
+        # setuptools provides pkg_resources, which Sweetviz imports.
+        run: pip install -r requirements-dev.txt setuptools --constraint "$AIRFLOW_CONSTRAINTS"
+      - name: Test
+        run: python -m pytest
+
+  compose:
+    name: Compose file
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate the full-stack compose file
+        run: |
+          cp Data_Quality_Wevioo/.env.example Data_Quality_Wevioo/.env
+          docker compose --env-file Data_Quality_Wevioo/.env config --quiet
