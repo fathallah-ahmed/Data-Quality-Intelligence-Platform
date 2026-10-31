@@ -4,6 +4,7 @@ import { VersionDetails } from '../../core/models';
 import { isActiveStatus } from '../../shared/format';
 import { DQ_PIPES } from '../../shared/pipes';
 import { StatusBadge } from '../../shared/components';
+import { Icon } from '../../shared/icon';
 import { expectedTables, readyTables } from './version-metrics';
 
 type StepState = 'done' | 'active' | 'pending' | 'failed' | 'warning';
@@ -19,7 +20,7 @@ const PENDING_HINT_AFTER_MS = 2 * 60 * 1000;
 /** Upload → Airflow → Tables x/y → Global → Done, with errors, failed tables and Retry. */
 @Component({
   selector: 'app-pipeline-progress',
-  imports: [StatusBadge, ...DQ_PIPES],
+  imports: [StatusBadge, Icon, ...DQ_PIPES],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './pipeline-progress.html',
   styleUrl: './pipeline-progress.css'

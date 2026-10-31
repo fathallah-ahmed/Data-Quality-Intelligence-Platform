@@ -9,11 +9,12 @@ import { ToastService } from '../../core/toast.service';
 import { WorkspaceStore } from '../../core/workspace.store';
 import { Modal } from '../../shared/components';
 import { formatBytes } from '../../shared/format';
+import { Icon } from '../../shared/icon';
 import { FileProblem, mergeSelection, tableNameFromFile } from './upload-validation';
 
 @Component({
   selector: 'app-upload-dialog',
-  imports: [Modal, FormsModule],
+  imports: [Modal, FormsModule, Icon],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './upload-dialog.html',
   styleUrl: './upload-dialog.css'

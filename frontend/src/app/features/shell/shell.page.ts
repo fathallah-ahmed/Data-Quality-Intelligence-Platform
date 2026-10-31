@@ -1,17 +1,20 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, HostListener, OnInit, computed, inject, signal } from '@angular/core';
 import { RouterLink, RouterOutlet } from '@angular/router';
 import { AuthService } from '../../core/auth.service';
 import { LayoutService } from '../../core/layout.service';
 import { LiveEventsService } from '../../core/live-events.service';
 import { ThemeService } from '../../core/theme.service';
 import { WorkspaceStore } from '../../core/workspace.store';
+import { Icon } from '../../shared/icon';
+import { ignoreShortcut } from '../../shared/keyboard';
 import { DatasetSidebar } from '../datasets/dataset-sidebar';
 import { UploadDialog } from '../upload/upload-dialog';
+import { CommandPalette } from './command-palette';
 
-/** Signed-in layout: top bar, dataset sidebar (a drawer on small screens) and the routed page. */
+/** Signed-in layout: brand sidebar (rail / drawer), top bar and the routed page. */
 @Component({
   selector: 'app-shell',
-  imports: [RouterOutlet, RouterLink, DatasetSidebar, UploadDialog],
+  imports: [RouterOutlet, RouterLink, DatasetSidebar, UploadDialog, CommandPalette, Icon],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './shell.page.html',
   styleUrl: './shell.page.css'
@@ -25,6 +28,7 @@ export class ShellPage implements OnInit {
   private readonly destroyRef = inject(DestroyRef);
   readonly userMenuOpen = signal(false);
   readonly now = signal(Date.now());
+  readonly isMac = /Mac|iPhone|iPad/.test(globalThis.navigator?.platform ?? '');
 
   readonly liveLabel = computed(() => {
     switch (this.live.transport()) {
@@ -49,6 +53,26 @@ export class ShellPage implements OnInit {
       this.live.stop();
       this.store.reset();
     });
+  }
+
+  /** Global shortcuts: Ctrl/⌘ K or / opens the palette, N starts a new analysis. */
+  @HostListener('document:keydown', ['$event'])
+  onKeydown(event: KeyboardEvent): void {
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
+      event.preventDefault();
+      this.layout.paletteOpen.update((open) => !open);
+      return;
+    }
+    if (ignoreShortcut(event)) {
+      return;
+    }
+    if (event.key === '/') {
+      event.preventDefault();
+      this.layout.paletteOpen.set(true);
+    } else if (event.key.toLowerCase() === 'n') {
+      event.preventDefault();
+      this.layout.openUpload();
+    }
   }
 
   logout(): void {

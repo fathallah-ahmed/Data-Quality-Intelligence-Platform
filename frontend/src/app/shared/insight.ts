@@ -20,11 +20,37 @@ export function pathValue(source: unknown, ...path: string[]): unknown {
   return current;
 }
 
+const TYPE_NAMES: Record<string, string> = {
+  TYPE_NUM: 'numerical',
+  TYPE_CAT: 'categorical',
+  TYPE_TEXT: 'text',
+  TYPE_BOOL: 'boolean',
+  TYPE_DATE: 'date'
+};
+
+/**
+ * Results stored by older pipeline versions embed a JSON type count in the text
+ * (`Type mix: {"TYPE_NUM": 2}`). Rewrite it as words so no raw JSON reaches the screen.
+ */
+export function cleanLegacyText(text: string): string {
+  return text.replace(/Type mix: (\{[^{}]*\})/g, (match, json: string) => {
+    try {
+      const counts = JSON.parse(json) as Record<string, number>;
+      const parts = Object.entries(counts)
+        .sort((a, b) => b[1] - a[1])
+        .map(([type, count]) => `${count} ${TYPE_NAMES[type] ?? type.replace('TYPE_', '').toLowerCase()}`);
+      return parts.length ? `Column types: ${parts.join(', ')}` : '';
+    } catch {
+      return match;
+    }
+  });
+}
+
 /** Text at a path; arrays and objects are turned into readable sentences, never JSON. */
 export function insightText(source: unknown, ...path: string[]): string {
   const value = pathValue(source, ...path);
   if (typeof value === 'string') {
-    return value.trim();
+    return cleanLegacyText(value.trim());
   }
   if (Array.isArray(value)) {
     return value.map(formatInsightItem).filter(Boolean).join('\n');
@@ -66,7 +92,7 @@ export function recordText(record: Record<string, unknown>, ...keys: string[]): 
 /** One readable line for an issue / recommendation / step object returned by the LLM. */
 export function formatInsightItem(item: unknown): string {
   if (typeof item === 'string') {
-    return item.trim();
+    return cleanLegacyText(item.trim());
   }
   if (typeof item === 'number' || typeof item === 'boolean') {
     return String(item);

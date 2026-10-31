@@ -1,9 +1,11 @@
 import { ChangeDetectionStrategy, Component, ElementRef, computed, input, output, signal, viewChild } from '@angular/core';
 import { DataModelEdge, DataModelMap, DataModelNode } from '../../core/models';
+import { Icon } from '../../shared/icon';
 
 /** Interactive SVG data model: zoom, drag to pan, hover/focus a table to highlight its relations. */
 @Component({
   selector: 'app-data-model-map',
+  imports: [Icon],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './data-model-map.html',
   styleUrl: './data-model-map.css'

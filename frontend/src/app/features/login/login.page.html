@@ -1,35 +1,72 @@
 <main class="login">
-  <button
-    type="button"
-    class="btn btn--ghost btn--icon login__theme"
-    [attr.aria-label]="theme.isDark() ? 'Switch to light theme' : 'Switch to dark theme'"
-    (click)="theme.toggle()"
-  >{{ theme.isDark() ? '☀' : '☾' }}</button>
-
-  <section class="login__card card" aria-labelledby="login-title">
-    <div class="login__brand">
-      <span class="brand-mark" aria-hidden="true">DQ</span>
-      <div>
-        <h1 id="login-title">Data Quality</h1>
-        <p class="muted">Profile CSV datasets, track quality across versions and map how tables relate.</p>
-      </div>
+  <section class="login__brand" aria-hidden="true">
+    <div class="login__logo">
+      <span class="login__mark">
+        <svg viewBox="0 0 32 32" width="26" height="26"><rect x="5" y="17" width="5" height="10" rx="1.5" /><rect x="13.5" y="11" width="5" height="16" rx="1.5" /><rect x="22" y="5" width="5" height="22" rx="1.5" /></svg>
+      </span>
+      <span>Data Quality <small>Wevioo</small></span>
     </div>
 
-    <form class="login__form" (ngSubmit)="submit()" novalidate>
-      <label class="field">
-        <span class="field__label">Username</span>
-        <input class="input" name="username" autocomplete="username" required [ngModel]="username()" (ngModelChange)="username.set($event)" />
-      </label>
-      <label class="field">
-        <span class="field__label">Password</span>
-        <input class="input" name="password" type="password" autocomplete="current-password" required [ngModel]="password()" (ngModelChange)="password.set($event)" />
-      </label>
-      @if (error()) {
-        <div class="callout" data-tone="danger" role="alert">{{ error() }}</div>
-      }
-      <button type="submit" class="btn btn--primary btn--block" [disabled]="submitting()">
-        {{ submitting() ? 'Signing in…' : 'Sign in' }}
-      </button>
-    </form>
+    <div class="login__pitch">
+      <h2>Trust every table you ship.</h2>
+      <p>Profile CSV datasets, score their quality, compare versions and map how your tables relate — with an AI reviewer that explains what to fix.</p>
+      <ul>
+        <li><app-icon name="gauge" [size]="18" /> Quality score and grade for every table and version</li>
+        <li><app-icon name="layers" [size]="18" /> Version history with value-level change detection</li>
+        <li><app-icon name="network" [size]="18" /> Automatic data-model map from real value overlap</li>
+        <li><app-icon name="sparkles" [size]="18" /> AI insights, validated against the measured metrics</li>
+      </ul>
+    </div>
+
+    <div class="login__preview">
+      <div class="preview-card">
+        <span class="preview-card__ring"></span>
+        <span class="preview-card__lines"><i></i><i></i><i></i></span>
+      </div>
+      <div class="preview-card preview-card--offset">
+        <span class="preview-card__bars"><i></i><i></i><i></i><i></i><i></i></span>
+      </div>
+    </div>
+  </section>
+
+  <section class="login__panel">
+    <button
+      type="button"
+      class="btn btn--ghost btn--icon login__theme"
+      [attr.aria-label]="theme.isDark() ? 'Switch to light theme' : 'Switch to dark theme'"
+      (click)="theme.toggle()"
+    ><app-icon [name]="theme.isDark() ? 'sun' : 'moon'" /></button>
+
+    <div class="login__form-wrap">
+      <h1>Sign in</h1>
+      <p class="muted">Use your administrator account to continue.</p>
+
+      <form class="login__form" (ngSubmit)="submit()" novalidate>
+        <label class="field">
+          <span class="field__label">Username</span>
+          <span class="input-with-icon">
+            <app-icon name="user" [size]="16" />
+            <input class="input" name="username" autocomplete="username" required [ngModel]="username()" (ngModelChange)="username.set($event)" />
+          </span>
+        </label>
+        <label class="field">
+          <span class="field__label">Password</span>
+          <span class="input-with-icon">
+            <app-icon name="key" [size]="16" />
+            <input class="input" name="password" type="password" autocomplete="current-password" required [ngModel]="password()" (ngModelChange)="password.set($event)" />
+          </span>
+        </label>
+        @if (error()) {
+          <div class="callout" data-tone="danger" role="alert"><app-icon name="xCircle" /><span>{{ error() }}</span></div>
+        }
+        <button type="submit" class="btn btn--primary btn--block login__submit" [disabled]="submitting()">
+          {{ submitting() ? 'Signing in…' : 'Sign in' }}
+          @if (!submitting()) {
+            <app-icon name="arrowRight" [size]="16" />
+          }
+        </button>
+      </form>
+      <p class="login__note subtle">Your session lasts 8 hours and ends when you close this tab.</p>
+    </div>
   </section>
 </main>

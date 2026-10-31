@@ -1,74 +1,105 @@
-<section class="card progress" [attr.data-status]="status()" aria-labelledby="progress-title">
-  <header class="card__header">
-    <div>
-      <h2 class="card__title" id="progress-title">Pipeline run</h2>
-      <p class="card__subtitle">
-        @if (active()) {
-          Running for {{ elapsedMs() | duration }} · results appear here as each table finishes
-        } @else {
-          Took {{ elapsedMs() | duration }}
-          @if (details().version.finishedAt) {
-            · finished {{ details().version.finishedAt | relativeTime: now() }}
-          }
+@if (status() === 'COMPLETED') {
+  <section class="run-strip" aria-label="Pipeline run">
+    <span class="run-strip__icon"><app-icon name="checkCircle" [size]="18" /></span>
+    <p>
+      <strong>Analysis complete</strong>
+      <span class="muted"> · {{ ready() }} {{ ready() === 1 ? 'table' : 'tables' }} · analysed in {{ elapsedMs() | duration }}
+        @if (details().version.finishedAt) {
+          · {{ details().version.finishedAt | relativeTime: now() }}
         }
-      </p>
-    </div>
-    <div class="progress__actions">
-      <app-status-badge [status]="status()" />
-      @if (canRetry()) {
-        <button type="button" class="btn btn--primary btn--sm" [disabled]="retrying()" (click)="retry.emit()">
-          {{ retrying() ? 'Starting…' : 'Retry' }}
-        </button>
-      }
-    </div>
-  </header>
-
-  <ol class="stepper" aria-label="Pipeline steps">
-    @for (step of steps(); track step.label) {
-      <li class="stepper__step" [attr.data-state]="step.state" [attr.aria-current]="step.state === 'active' ? 'step' : null">
-        <span class="stepper__dot" aria-hidden="true">
-          @switch (step.state) {
-            @case ('done') { ✓ }
-            @case ('failed') { ✕ }
-            @case ('warning') { ! }
-            @default { {{ $index + 1 }} }
-          }
-        </span>
-        <span class="stepper__label">{{ step.label }}@if (step.detail) { <span class="stepper__detail">{{ step.detail }}</span> }</span>
-      </li>
+      </span>
+    </p>
+    @if (details().version.pipelineRunId) {
+      <code class="run-strip__id" [attr.title]="'Airflow run ' + details().version.pipelineRunId">{{ details().version.pipelineRunId }}</code>
     }
-  </ol>
-
-  @if (active()) {
-    <div class="progress-bar" role="progressbar" aria-label="Pipeline progress" [attr.aria-valuenow]="percent()" aria-valuemin="0" aria-valuemax="100">
-      <span [style.width.%]="percent()"></span>
-    </div>
-  }
-
-  @if (showPendingHint()) {
-    <div class="callout" data-tone="warning" role="note">
-      <strong>Still queued after 2 minutes.</strong>
-      Airflow may be down or the DAG paused.
-      <a [href]="airflowUiUrl" target="_blank" rel="noopener">Open the Airflow UI</a> to check the
-      <code>data_quality_analysis_pipeline</code> DAG.
-    </div>
-  }
-
-  @if (!active() && details().version.errorMessage) {
-    <div class="callout" [attr.data-tone]="status() === 'FAILED' ? 'danger' : 'warning'" role="alert">
-      <strong>{{ status() === 'FAILED' ? 'The run failed.' : 'Some tables could not be analysed.' }}</strong>
-      {{ details().version.errorMessage }}
-    </div>
-  }
-
-  @if (failedTables().length > 0) {
-    <div class="failed-tables">
-      <h3>Failed tables</h3>
-      <ul>
-        @for (failure of failedTables(); track failure.tableName) {
-          <li><code>{{ failure.tableName }}</code> <span>{{ failure.error }}</span></li>
+  </section>
+} @else {
+  <section class="card progress" [attr.data-status]="status()" aria-labelledby="progress-title">
+    <header class="card__header">
+      <div class="card__heading">
+        <span class="card__icon" [attr.data-tone]="active() ? 'running' : status() === 'FAILED' ? 'danger' : 'warning'">
+          <app-icon [name]="active() ? 'activity' : status() === 'FAILED' ? 'xCircle' : 'alert'" />
+        </span>
+        <div>
+          <h2 class="card__title" id="progress-title">
+            @if (active()) {
+              {{ status() === 'PENDING' ? 'Waiting for Airflow' : 'Analysing your tables' }}
+            } @else if (status() === 'FAILED') {
+              The analysis failed
+            } @else {
+              Analysis finished with issues
+            }
+          </h2>
+          <p class="card__subtitle">
+            @if (active()) {
+              Running for {{ elapsedMs() | duration }} · results appear as each table finishes
+            } @else {
+              Took {{ elapsedMs() | duration }}
+              @if (details().version.finishedAt) {
+                · finished {{ details().version.finishedAt | relativeTime: now() }}
+              }
+            }
+          </p>
+        </div>
+      </div>
+      <div class="progress__actions">
+        <app-status-badge [status]="status()" />
+        @if (canRetry()) {
+          <button type="button" class="btn btn--primary btn--sm" [disabled]="retrying()" (click)="retry.emit()">
+            <app-icon name="refresh" [size]="16" /> {{ retrying() ? 'Starting…' : 'Retry' }}
+          </button>
         }
-      </ul>
-    </div>
-  }
-</section>
+      </div>
+    </header>
+
+    <ol class="stepper" aria-label="Pipeline steps">
+      @for (step of steps(); track step.label) {
+        <li class="stepper__step" [attr.data-state]="step.state" [attr.aria-current]="step.state === 'active' ? 'step' : null">
+          <span class="stepper__dot" aria-hidden="true">
+            @switch (step.state) {
+              @case ('done') { <app-icon name="check" [size]="16" [stroke]="2.6" /> }
+              @case ('failed') { <app-icon name="x" [size]="16" [stroke]="2.6" /> }
+              @case ('warning') { <app-icon name="alert" [size]="15" [stroke]="2.4" /> }
+              @default { {{ $index + 1 }} }
+            }
+          </span>
+          <span class="stepper__label">{{ step.label }}@if (step.detail) { <span class="stepper__detail">{{ step.detail }}</span> }</span>
+        </li>
+      }
+    </ol>
+
+    @if (active()) {
+      <div class="progress-bar" role="progressbar" aria-label="Pipeline progress" [attr.aria-valuenow]="percent()" aria-valuemin="0" aria-valuemax="100">
+        <span [style.width.%]="percent()"></span>
+      </div>
+    }
+
+    @if (showPendingHint()) {
+      <div class="callout" data-tone="warning" role="note">
+        <app-icon name="clock" />
+        <span>
+          <strong>Still queued after 2 minutes.</strong> Airflow may be down or the DAG paused.
+          <a [href]="airflowUiUrl" target="_blank" rel="noopener">Open the Airflow UI</a> and check <code>data_quality_analysis_pipeline</code>.
+        </span>
+      </div>
+    }
+
+    @if (!active() && details().version.errorMessage) {
+      <div class="callout" [attr.data-tone]="status() === 'FAILED' ? 'danger' : 'warning'" role="alert">
+        <app-icon [name]="status() === 'FAILED' ? 'xCircle' : 'alert'" />
+        <span><strong>{{ status() === 'FAILED' ? 'What happened:' : 'Some tables could not be analysed:' }}</strong> {{ details().version.errorMessage }}</span>
+      </div>
+    }
+
+    @if (failedTables().length > 0) {
+      <div class="failed-tables">
+        <h3>Failed tables</h3>
+        <ul>
+          @for (failure of failedTables(); track failure.tableName) {
+            <li><app-icon name="table" [size]="15" /><code>{{ failure.tableName }}</code><span>{{ failure.error }}</span></li>
+          }
+        </ul>
+      </div>
+    }
+  </section>
+}

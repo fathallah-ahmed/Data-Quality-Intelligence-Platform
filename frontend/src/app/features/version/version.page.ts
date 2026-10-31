@@ -1,12 +1,14 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, computed, effect, inject, input, signal, untracked } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, HostListener, computed, effect, inject, input, signal, untracked } from '@angular/core';
 import { Title } from '@angular/platform-browser';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { ApiService, apiErrorMessage } from '../../core/api.service';
 import { ToastService } from '../../core/toast.service';
 import { WorkspaceStore } from '../../core/workspace.store';
 import { ConfirmDialog, EmptyState, Skeleton, StatusBadge, TabItem, Tabs } from '../../shared/components';
 import { formatDuration, isActiveStatus, sourceTypeLabel } from '../../shared/format';
+import { Icon } from '../../shared/icon';
 import { DQ_PIPES } from '../../shared/pipes';
+import { ignoreShortcut } from '../../shared/keyboard';
 import { DataModelTab } from '../data-model/data-model-tab';
 import { InsightsTab } from '../insights/insights-tab';
 import { OverviewTab } from '../overview/overview-tab';
@@ -18,7 +20,7 @@ export type VersionTab = (typeof VERSION_TABS)[number];
 /** /datasets/:datasetId/versions/:versionId/:tab?table=name — the URL holds the whole selection. */
 @Component({
   selector: 'app-version-page',
-  imports: [Tabs, StatusBadge, EmptyState, Skeleton, ConfirmDialog, OverviewTab, TablesTab, DataModelTab, InsightsTab, ...DQ_PIPES],
+  imports: [RouterLink, Icon, Tabs, StatusBadge, EmptyState, Skeleton, ConfirmDialog, OverviewTab, TablesTab, DataModelTab, InsightsTab, ...DQ_PIPES],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './version.page.html',
   styleUrl: './version.page.css'
@@ -65,10 +67,10 @@ export class VersionPage {
     const base = ['/datasets', this.datasetId(), 'versions', this.versionId()];
     const tableCount = this.details()?.tables.filter((table) => table.changeStatus !== 'REMOVED').length ?? null;
     return [
-      { id: 'overview', label: 'Overview', link: [...base, 'overview'] },
-      { id: 'tables', label: 'Tables', link: [...base, 'tables'], count: tableCount },
-      { id: 'model', label: 'Data model', link: [...base, 'model'] },
-      { id: 'insights', label: 'Insights', link: [...base, 'insights'] }
+      { id: 'overview', label: 'Overview', icon: 'overview', link: [...base, 'overview'], shortcut: '1' },
+      { id: 'tables', label: 'Tables', icon: 'table', link: [...base, 'tables'], count: tableCount, shortcut: '2' },
+      { id: 'model', label: 'Data model', icon: 'network', link: [...base, 'model'], shortcut: '3' },
+      { id: 'insights', label: 'Insights', icon: 'lightbulb', link: [...base, 'insights'], shortcut: '4' }
     ];
   });
 
@@ -109,6 +111,21 @@ export class VersionPage {
       timer = setInterval(() => this.now.set(Date.now()), period);
     });
     destroyRef.onDestroy(() => clearInterval(timer));
+  }
+
+  readonly tableCount = computed(() => this.details()?.tables.filter((table) => table.changeStatus !== 'REMOVED').length ?? 0);
+
+  /** Keys 1–4 switch tabs (ignored while typing or when a dialog is open). */
+  @HostListener('document:keydown', ['$event'])
+  onKeydown(event: KeyboardEvent): void {
+    if (ignoreShortcut(event)) {
+      return;
+    }
+    const tab = VERSION_TABS[Number(event.key) - 1];
+    if (tab) {
+      event.preventDefault();
+      this.router.navigate(['/datasets', this.datasetId(), 'versions', this.versionId(), tab], { queryParamsHandling: 'preserve' });
+    }
   }
 
   selectVersion(versionId: string): void {

@@ -1,45 +1,48 @@
-<header class="detail-header">
-  <div class="detail-header__title">
+<header class="detail-head card">
+  <div class="detail-head__main">
+    <p class="eyebrow">Table</p>
     <h2>{{ table().tableName }}</h2>
-    <div class="detail-header__badges">
+    <div class="detail-head__badges">
       <app-status-badge [status]="table().changeStatus" />
       <app-llm-badge [status]="table().llmStatus" />
     </div>
   </div>
   @if (table().qualityScore !== null && table().qualityScore !== undefined) {
-    <div class="score-ring" [attr.data-tone]="scoreTone()" [style.--score]="table().qualityScore">
-      <span>{{ table().qualityScore | dqScore }}</span>
-      <small>quality</small>
+    <div class="detail-head__score" [attr.data-tone]="scoreTone()">
+      <app-score-ring [value]="table().qualityScore" [size]="84" [stroke]="10" caption="score" />
+      <span class="detail-head__grade">Grade {{ grade().grade }}<small>{{ grade().label }}</small></span>
     </div>
   }
 </header>
 
 @if (removed()) {
-  <div class="callout" data-tone="info">This table was part of version {{ versionNumber() - 1 }} but is not in this upload.</div>
+  <div class="callout" data-tone="info"><app-icon name="info" /><span>This table was part of version {{ versionNumber() - 1 }} but is not in this upload.</span></div>
 } @else if (pending()) {
   <div class="card"><app-skeleton [count]="4" [height]="18" /></div>
 } @else {
   @if (failure()) {
-    <div class="callout" [attr.data-tone]="empty() ? 'warning' : 'danger'" role="note"><strong>Not fully analysed.</strong> {{ failure() }}</div>
+    <div class="callout" [attr.data-tone]="empty() ? 'warning' : 'danger'" role="note">
+      <app-icon name="alert" /><span><strong>Not fully analysed.</strong> {{ failure() }}</span>
+    </div>
   }
 
   <nav class="section-nav" aria-label="Table sections">
     @for (section of sections(); track section.id) {
-      <button type="button" class="chip chip--button" (click)="scrollTo(section.id)">{{ section.label }}</button>
+      <button type="button" class="chip chip--button" (click)="scrollTo(section.id)"><app-icon [name]="section.icon" [size]="14" /> {{ section.label }}</button>
     }
   </nav>
 
   <section class="card" id="table-section-summary" aria-labelledby="summary-title">
-    <header class="card__header"><h3 class="card__title" id="summary-title">Summary</h3></header>
+    <h3 class="sr-only" id="summary-title">Summary</h3>
     <dl class="facts">
-      <div><dt>Rows</dt><dd>{{ table().rowCount | dqNumber }}</dd></div>
-      <div><dt>Columns</dt><dd>{{ table().columnCount | dqNumber }}</dd></div>
-      <div><dt>Missing cells</dt><dd>{{ table().missingCount | dqNumber }}</dd></div>
-      <div><dt>Duplicate rows</dt><dd>{{ table().duplicateCount | dqNumber }}</dd></div>
+      <div><dt><app-icon name="list" [size]="15" /> Rows</dt><dd>{{ table().rowCount | dqNumber }}</dd></div>
+      <div><dt><app-icon name="columns" [size]="15" /> Columns</dt><dd>{{ table().columnCount | dqNumber }}</dd></div>
+      <div><dt><app-icon name="alert" [size]="15" /> Missing cells</dt><dd>{{ table().missingCount | dqNumber }}</dd></div>
+      <div><dt><app-icon name="layers" [size]="15" /> Duplicate rows</dt><dd>{{ table().duplicateCount | dqNumber }}</dd></div>
     </dl>
-    <div class="chip-list" aria-label="Column types">
+    <div class="type-mix" aria-label="Column types">
       @for (type of types(); track type.label) {
-        <span class="chip"><b>{{ type.count }}</b> {{ type.label }}</span>
+        <span class="chip"><app-icon [name]="typeIcon(type.label)" [size]="13" /><b>{{ type.count }}</b> {{ type.label }}</span>
       }
     </div>
     @if (summaryText()) {
@@ -49,9 +52,12 @@
 
   <section class="card" id="table-section-columns" aria-labelledby="columns-title">
     <header class="card__header">
-      <div>
-        <h3 class="card__title" id="columns-title">Columns</h3>
-        <p class="card__subtitle">Select a row to see its most frequent values.</p>
+      <div class="card__heading">
+        <span class="card__icon"><app-icon name="columns" /></span>
+        <div>
+          <h3 class="card__title" id="columns-title">Columns</h3>
+          <p class="card__subtitle">Select a row to see its most frequent values</p>
+        </div>
       </div>
       @if (loading() && !rawLoaded()) {
         <span class="muted">Loading profile…</span>
@@ -63,7 +69,7 @@
           <tr>
             <th scope="col">Column</th>
             <th scope="col">Type</th>
-            <th scope="col" class="num">Missing</th>
+            <th scope="col">Missing</th>
             <th scope="col" class="num">Distinct</th>
             <th scope="col" class="num">Min</th>
             <th scope="col" class="num">Q1</th>
@@ -76,18 +82,22 @@
         </thead>
         <tbody>
           @for (column of profiles(); track column.name) {
-            <tr class="data-table__row--clickable" [class.data-table__row--open]="expanded() === column.name">
+            <tr [class.data-table__row--open]="expanded() === column.name">
               <th scope="row">
                 <button type="button" class="row-toggle" [attr.aria-expanded]="expanded() === column.name" (click)="toggle(column.name)">
-                  <span class="row-toggle__chevron" aria-hidden="true">›</span>{{ column.name }}
+                  <app-icon class="row-toggle__chevron" name="chevronRight" [size]="14" />
+                  <span class="mono">{{ column.name }}</span>
                   @if (column.idLike) {
-                    <span class="chip chip--xs">ID</span>
+                    <span class="tag" data-tone="info" title="Unique for every row">key</span>
                   }
                 </button>
               </th>
-              <td><span [attr.title]="column.dtype">{{ column.type }}</span></td>
-              <td class="num" [class.text-danger]="(column.missingPercent ?? 0) >= 50" [class.text-warning]="(column.missingPercent ?? 0) > 0 && (column.missingPercent ?? 0) < 50">
-                {{ column.missingPercent | dqPercent }}
+              <td><span class="type" [attr.title]="column.dtype"><app-icon [name]="typeIcon(column.type)" [size]="14" />{{ column.type }}</span></td>
+              <td>
+                <span class="missing" [attr.data-tone]="(column.missingPercent ?? 0) >= 50 ? 'danger' : (column.missingPercent ?? 0) > 0 ? 'warning' : 'success'">
+                  <span class="meter"><span [style.width.%]="column.missingPercent ?? 0"></span></span>
+                  {{ column.missingPercent | dqPercent }}
+                </span>
               </td>
               <td class="num">{{ column.distinct | dqNumber }}</td>
               <td class="num">{{ column.min | dqNumber }}</td>
@@ -101,25 +111,25 @@
             @if (expanded() === column.name) {
               <tr class="data-table__expansion">
                 <td colspan="11">
-                  @if (column.topValues.length > 0) {
-                    <p class="expansion__title">Most frequent values</p>
-                    <ul class="top-values">
-                      @for (value of column.topValues; track $index) {
-                        <li>
-                          <span class="top-values__label" [attr.title]="value.value">{{ value.value }}</span>
-                          <span class="bars__track"><span class="bars__fill" [style.width.%]="value.percent ?? 0"></span></span>
-                          <span class="top-values__count">{{ value.count | dqNumber }} · {{ value.percent | dqPercent }}</span>
-                        </li>
-                      }
-                    </ul>
-                  } @else if (rawLoaded()) {
-                    <p class="muted">No value distribution was recorded for this column.</p>
-                  } @else {
-                    <app-skeleton [count]="3" />
-                  }
-                  <p class="muted expansion__note">
-                    {{ column.missingCount | dqNumber }} missing · {{ column.distinctPercent | dqPercent }} distinct
-                  </p>
+                  <div class="expansion">
+                    @if (column.topValues.length > 0) {
+                      <p class="eyebrow">Most frequent values</p>
+                      <ul class="top-values">
+                        @for (value of column.topValues; track $index) {
+                          <li>
+                            <span class="top-values__label mono" [attr.title]="value.value">{{ value.value }}</span>
+                            <span class="bars__track"><span class="bars__fill" [style.width.%]="value.percent ?? 0"></span></span>
+                            <span class="top-values__count">{{ value.count | dqNumber }} · {{ value.percent | dqPercent }}</span>
+                          </li>
+                        }
+                      </ul>
+                    } @else if (rawLoaded()) {
+                      <p class="muted">No value distribution was recorded for this column.</p>
+                    } @else {
+                      <app-skeleton [count]="3" />
+                    }
+                    <p class="expansion__note">{{ column.missingCount | dqNumber }} missing · {{ column.distinctPercent | dqPercent }} distinct · <span class="mono">{{ column.dtype }}</span></p>
+                  </div>
                 </td>
               </tr>
             }
@@ -129,47 +139,66 @@
     </div>
   </section>
 
-  @if (missingColumns().length > 0) {
-    <section class="card" id="table-section-missing" aria-labelledby="missing-title">
-      <header class="card__header">
-        <h3 class="card__title" id="missing-title">Missing values</h3>
-        <span class="muted">{{ missingColumns().length }} column(s) with gaps</span>
-      </header>
-      <ul class="bars">
-        @for (column of missingColumns(); track column.name) {
-          <li class="bars__row">
-            <span class="bars__label">{{ column.name }}</span>
-            <span class="bars__track">
-              <span class="bars__fill" [attr.data-tone]="(column.missingPercent ?? 0) >= 50 ? 'danger' : 'warning'" [style.width.%]="column.missingPercent ?? 0"></span>
-            </span>
-            <span class="bars__value">{{ column.missingPercent | dqPercent }}</span>
-          </li>
-        }
-      </ul>
-    </section>
-  }
+  <div class="duo">
+    @if (missingColumns().length > 0) {
+      <section class="card" id="table-section-missing" aria-labelledby="missing-title">
+        <header class="card__header">
+          <div class="card__heading">
+            <span class="card__icon card__icon--warn"><app-icon name="alert" /></span>
+            <div>
+              <h3 class="card__title" id="missing-title">Missing values</h3>
+              <p class="card__subtitle">{{ missingColumns().length }} column(s) with gaps</p>
+            </div>
+          </div>
+        </header>
+        <ul class="bars">
+          @for (column of missingColumns(); track column.name) {
+            <li class="bars__row">
+              <span class="bars__label mono">{{ column.name }}</span>
+              <span class="bars__track">
+                <span class="bars__fill" [attr.data-tone]="(column.missingPercent ?? 0) >= 50 ? 'danger' : 'warning'" [style.width.%]="column.missingPercent ?? 0"></span>
+              </span>
+              <span class="bars__value">{{ column.missingPercent | dqPercent }}</span>
+            </li>
+          }
+        </ul>
+      </section>
+    }
 
-  @if (associations().length > 0) {
-    <section class="card" id="table-section-associations" aria-labelledby="assoc-title">
-      <header class="card__header">
-        <h3 class="card__title" id="assoc-title">Strongest associations</h3>
-        <app-info-tip text="From Sweetviz: correlation for two numerical columns (−1 to 1), uncertainty coefficient or correlation ratio when a categorical column is involved (0 to 1). Values close to 1 mean one column largely predicts the other." />
-      </header>
-      <ul class="assoc-list">
-        @for (pair of associations(); track pair.left + pair.right) {
-          <li>
-            <span class="assoc-list__pair"><code>{{ pair.left }}</code> ↔ <code>{{ pair.right }}</code></span>
-            <span class="bars__track"><span class="bars__fill" [attr.data-tone]="pair.score < 0 ? 'info' : null" [style.width.%]="barWidth(pair.score)"></span></span>
-            <span class="assoc-list__score">{{ pair.score | dqNumber: 2 }}</span>
-          </li>
-        }
-      </ul>
-    </section>
-  }
+    @if (associations().length > 0) {
+      <section class="card" id="table-section-associations" aria-labelledby="assoc-title">
+        <header class="card__header">
+          <div class="card__heading">
+            <span class="card__icon"><app-icon name="link" /></span>
+            <div>
+              <h3 class="card__title" id="assoc-title">Strongest associations</h3>
+              <p class="card__subtitle">Columns that move together</p>
+            </div>
+          </div>
+          <app-info-tip text="From Sweetviz: correlation for two numerical columns (−1 to 1), uncertainty coefficient or correlation ratio when a categorical column is involved (0 to 1). Values close to 1 mean one column largely predicts the other." />
+        </header>
+        <ul class="assoc-list">
+          @for (pair of associations(); track pair.left + pair.right) {
+            <li>
+              <span class="assoc-list__pair"><span class="mono">{{ pair.left }}</span> <app-icon name="link" [size]="12" /> <span class="mono">{{ pair.right }}</span></span>
+              <span class="bars__track"><span class="bars__fill" [attr.data-tone]="pair.score < 0 ? 'info' : null" [style.width.%]="barWidth(pair.score)"></span></span>
+              <span class="assoc-list__score">{{ pair.score | dqNumber: 2 }}</span>
+            </li>
+          }
+        </ul>
+      </section>
+    }
+  </div>
 
   <section class="card" id="table-section-insights" aria-labelledby="insights-title">
     <header class="card__header">
-      <h3 class="card__title" id="insights-title">Quality insights</h3>
+      <div class="card__heading">
+        <span class="card__icon"><app-icon name="sparkles" /></span>
+        <div>
+          <h3 class="card__title" id="insights-title">Quality insights</h3>
+          <p class="card__subtitle">Interpretation of this table's metrics</p>
+        </div>
+      </div>
       <app-llm-badge [status]="table().llmStatus" />
     </header>
     @if (!interpretation() || !summaryText()) {
@@ -183,28 +212,34 @@
           <article><h4>Consistency</h4><p>{{ consistency() }}</p></article>
         }
       </div>
-      @if (issues().length > 0) {
-        <h4>Issues</h4>
-        <ul class="insight-list">
-          @for (item of issues(); track $index) {<li>{{ item }}</li>}
-        </ul>
-      }
-      @if (improvements().length > 0) {
-        <h4>Improvement areas</h4>
-        <ul class="insight-list">
-          @for (item of improvements(); track $index) {<li>{{ item }}</li>}
-        </ul>
-      }
+      <div class="insight-columns">
+        @if (issues().length > 0) {
+          <div>
+            <h4><app-icon name="alert" [size]="14" /> Issues</h4>
+            <ul class="insight-list">
+              @for (item of issues(); track $index) {<li>{{ item }}</li>}
+            </ul>
+          </div>
+        }
+        @if (improvements().length > 0) {
+          <div>
+            <h4><app-icon name="activity" [size]="14" /> Improvement areas</h4>
+            <ul class="insight-list">
+              @for (item of improvements(); track $index) {<li>{{ item }}</li>}
+            </ul>
+          </div>
+        }
+      </div>
       @if (steps().length > 0) {
-        <h4>Resolution steps</h4>
-        <ol class="insight-list">
+        <h4><app-icon name="checkCircle" [size]="14" /> Resolution steps</h4>
+        <ol class="steps-list">
           @for (item of steps(); track $index) {<li>{{ item }}</li>}
         </ol>
       }
       @if (customAnswer()) {
         <div class="callout" data-tone="info">
-          <strong>{{ customQuestion() || 'Your question' }}</strong>
-          <p>{{ customAnswer() }}</p>
+          <app-icon name="lightbulb" />
+          <span><strong>{{ customQuestion() || 'Your question' }}</strong><p>{{ customAnswer() }}</p></span>
         </div>
       }
     }

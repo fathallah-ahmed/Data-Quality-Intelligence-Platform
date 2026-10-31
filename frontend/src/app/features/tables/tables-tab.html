@@ -1,43 +1,53 @@
 @if (details().tables.length === 0) {
-  <app-empty-state title="No tables yet" message="Each table shows up here as soon as the pipeline has profiled it." icon="⏳" />
+  <app-empty-state title="No tables yet" message="Each table shows up here as soon as the pipeline has profiled it." icon="table" />
 } @else {
   <div class="tables-layout">
     <aside class="card table-list" aria-label="Tables">
-      @if (details().tables.length > 6) {
-        <label class="sr-only" for="table-filter">Filter tables</label>
-        <input id="table-filter" class="input input--sm" type="search" placeholder="Filter tables…" [value]="filter()" (input)="filter.set($any($event.target).value)" />
+      <div class="table-list__head">
+        <span class="eyebrow">{{ details().tables.length }} {{ details().tables.length === 1 ? 'table' : 'tables' }}</span>
+      </div>
+      @if (details().tables.length > 5) {
+        <div class="input-with-icon">
+          <app-icon name="search" [size]="15" />
+          <label class="sr-only" for="table-filter">Filter tables</label>
+          <input id="table-filter" class="input input--sm" type="search" placeholder="Filter tables" [value]="filter()" (input)="filter.set($any($event.target).value)" />
+        </div>
       }
       <div class="table-list__items" role="listbox" aria-label="Tables of this version" (keydown)="onListKeydown($event)">
         @for (table of tables(); track table.tableVersionId) {
           <button
             type="button"
             role="option"
-            class="table-list__item"
+            class="table-item"
             [attr.aria-selected]="selected()?.tableName === table.tableName"
             [attr.tabindex]="selected()?.tableName === table.tableName ? 0 : -1"
             (click)="selectTable.emit(table.tableName)"
           >
-            <span class="table-list__top">
-              <span class="table-list__name">{{ table.tableName }}</span>
-              @if (table.qualityScore !== null && table.qualityScore !== undefined) {
-                <span class="score-pill" [attr.data-tone]="tone(table.qualityScore)" title="Quality score">{{ table.qualityScore | dqScore }}</span>
-              }
-            </span>
-            <span class="table-list__meta">
-              @if (table.changeStatus === 'REMOVED') {
-                removed in this version
-              } @else if (table.rowCount === null || table.rowCount === undefined) {
-                waiting for metrics…
-              } @else {
-                {{ table.rowCount | dqNumber }} rows · {{ table.columnCount }} cols
-              }
-            </span>
-            <span class="table-list__badges">
-              <app-status-badge [status]="table.changeStatus" />
-              @if (failedNames().has(table.tableName)) {
-                <span class="badge" data-tone="danger" [attr.title]="failureFor(table.tableName)">Failed</span>
-              }
-              <app-llm-badge [status]="table.llmStatus" [compact]="true" />
+            @if (table.qualityScore !== null && table.qualityScore !== undefined) {
+              <app-score-ring [value]="table.qualityScore" [size]="40" [stroke]="11" />
+            } @else {
+              <span class="table-item__placeholder" [class.table-item__placeholder--removed]="table.changeStatus === 'REMOVED'">
+                <app-icon [name]="table.changeStatus === 'REMOVED' ? 'trash' : 'clock'" [size]="16" />
+              </span>
+            }
+            <span class="table-item__body">
+              <span class="table-item__name">{{ table.tableName }}</span>
+              <span class="table-item__meta">
+                @if (table.changeStatus === 'REMOVED') {
+                  Removed in this version
+                } @else if (table.rowCount === null || table.rowCount === undefined) {
+                  Waiting for metrics…
+                } @else {
+                  {{ table.rowCount | dqNumber }} rows · {{ table.columnCount }} cols
+                }
+              </span>
+              <span class="table-item__badges">
+                <app-status-badge [status]="table.changeStatus" />
+                @if (failedNames().has(table.tableName)) {
+                  <span class="badge" data-tone="danger" [attr.title]="failureFor(table.tableName)">Failed</span>
+                }
+                <app-llm-badge [status]="table.llmStatus" [compact]="true" />
+              </span>
             </span>
           </button>
         } @empty {

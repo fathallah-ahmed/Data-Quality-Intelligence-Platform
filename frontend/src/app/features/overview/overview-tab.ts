@@ -1,24 +1,30 @@
 import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { VersionDetails } from '../../core/models';
-import { EmptyState, InfoTip, LlmBadge, StatusBadge } from '../../shared/components';
-import { isActiveStatus, scoreTone, statusTone } from '../../shared/format';
+import { EmptyState, InfoTip, LlmBadge, ScoreRing, StatusBadge } from '../../shared/components';
+import { isActiveStatus, qualityGrade, scoreTone, statusLabel, statusTone } from '../../shared/format';
+import { Icon } from '../../shared/icon';
 import { DQ_PIPES } from '../../shared/pipes';
 import { PipelineProgress } from './pipeline-progress';
 import {
+  aiCoverage,
   businessView,
   changeCounts,
+  columnsToReview,
+  completeness,
   expectedTables,
   finalAssessment,
   qualityPosture,
   readyTables,
+  tableMissingPercent,
   totalColumns,
-  totalRows
+  totalRows,
+  uniqueness
 } from './version-metrics';
 
 @Component({
   selector: 'app-overview-tab',
-  imports: [PipelineProgress, StatusBadge, LlmBadge, InfoTip, EmptyState, RouterLink, ...DQ_PIPES],
+  imports: [PipelineProgress, StatusBadge, LlmBadge, InfoTip, EmptyState, ScoreRing, RouterLink, Icon, ...DQ_PIPES],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './overview-tab.html',
   styleUrl: './overview-tab.css'
@@ -34,17 +40,45 @@ export class OverviewTab {
   readonly expected = computed(() => Math.max(expectedTables(this.details()), this.ready().length));
   readonly rows = computed(() => totalRows(this.details()));
   readonly columns = computed(() => totalColumns(this.details()));
+  readonly missingCells = computed(() => this.ready().reduce((sum, table) => sum + (table.missingCount ?? 0), 0));
+  readonly duplicateRows = computed(() => this.ready().reduce((sum, table) => sum + (table.duplicateCount ?? 0), 0));
   readonly score = computed(() => this.details().qualityScore ?? null);
+  readonly grade = computed(() => qualityGrade(this.score()));
   readonly scoreTone = computed(() => scoreTone(this.score()));
-  readonly maxRows = computed(() => Math.max(1, ...this.ready().map((table) => table.rowCount ?? 0)));
-  readonly maxColumns = computed(() => Math.max(1, ...this.ready().map((table) => table.columnCount ?? 0)));
-  readonly changes = computed(() => changeCounts(this.details()).map((item) => ({ ...item, tone: statusTone(item.status) })));
+
+  readonly dimensions = computed(() => [
+    {
+      label: 'Completeness',
+      value: completeness(this.details()),
+      hint: 'Share of filled cells across all tables.'
+    },
+    {
+      label: 'Uniqueness',
+      value: uniqueness(this.details()),
+      hint: 'Share of rows that are not exact duplicates.'
+    },
+    {
+      label: 'AI coverage',
+      value: aiCoverage(this.details()),
+      hint: 'Share of tables whose insights come from a validated LLM answer.'
+    }
+  ].map((dimension) => ({ ...dimension, tone: scoreTone(dimension.value) })));
+
+  readonly health = computed(() => this.details().tables.map((table) => ({
+    table,
+    missing: tableMissingPercent(table),
+    tone: scoreTone(table.qualityScore),
+    ready: table.rowCount !== null && table.rowCount !== undefined
+  })));
+
+  readonly changes = computed(() => changeCounts(this.details()).map((item) => ({ ...item, tone: statusTone(item.status), label: statusLabel(item.status) })));
   readonly changeTotal = computed(() => Math.max(1, this.details().tables.length));
   readonly hasPrevious = computed(() => this.details().version.versionNumber > 1);
+  readonly review = computed(() => columnsToReview(this.details()));
   readonly business = computed(() => businessView(this.details()));
   readonly posture = computed(() => qualityPosture(this.details()));
   readonly assessment = computed(() => finalAssessment(this.details()));
 
   readonly scoreHelp = 'Each table scores 100 minus its average missing-value % across columns minus its duplicate-row %. '
-    + 'The version score is the average of the table scores weighted by row count. 90+ is good, 70–90 needs review, below 70 is poor.';
+    + 'The version score is the average of the table scores weighted by row count. A: 90+, B: 75–90, C: 60–75, D: below 60.';
 }

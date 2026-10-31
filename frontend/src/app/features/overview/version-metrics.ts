@@ -82,3 +82,47 @@ export function finalAssessment(details: VersionDetails): string {
     ? `Usable for exploration, but ${highMissing} column(s) are more than half empty and should be reviewed before reporting or model training.`
     : 'The tables look structurally consistent from the available metrics. Confirm key columns and business rules with the data owners.';
 }
+
+/** Share of filled cells across all ready tables (cell-weighted), 0–100. */
+export function completeness(details: VersionDetails): number | null {
+  const tables = readyTables(details);
+  const cells = tables.reduce((sum, table) => sum + (table.rowCount ?? 0) * (table.columnCount ?? 0), 0);
+  if (cells === 0) {
+    return null;
+  }
+  const missing = tables.reduce((sum, table) => sum + (table.missingCount ?? 0), 0);
+  return Math.max(0, 100 - (missing / cells) * 100);
+}
+
+/** Share of rows that are not exact duplicates, 0–100. */
+export function uniqueness(details: VersionDetails): number | null {
+  const rows = totalRows(details);
+  if (rows === 0) {
+    return null;
+  }
+  const duplicates = readyTables(details).reduce((sum, table) => sum + (table.duplicateCount ?? 0), 0);
+  return Math.max(0, 100 - (duplicates / rows) * 100);
+}
+
+/** Share of tables whose insights come from a validated LLM answer, 0–100. */
+export function aiCoverage(details: VersionDetails): number | null {
+  const tables = readyTables(details).filter((table) => table.llmStatus && table.llmStatus !== 'pending' && table.llmStatus !== 'disabled');
+  if (tables.length === 0) {
+    return null;
+  }
+  return (tables.filter((table) => table.llmStatus === 'ok').length / tables.length) * 100;
+}
+
+export function tableMissingPercent(table: TableAnalysisView): number | null {
+  const cells = (table.rowCount ?? 0) * (table.columnCount ?? 0);
+  return cells > 0 ? ((table.missingCount ?? 0) / cells) * 100 : null;
+}
+
+/** Columns with the most missing values across the version, worst first. */
+export function columnsToReview(details: VersionDetails, limit = 6): { table: string; column: string; missing: number }[] {
+  return readyTables(details)
+    .flatMap((table) => table.columns.map((column) => ({ table: table.tableName, column: column.columnName, missing: column.missingPercentage ?? 0 })))
+    .filter((item) => item.missing > 0)
+    .sort((a, b) => b.missing - a.missing)
+    .slice(0, limit);
+}

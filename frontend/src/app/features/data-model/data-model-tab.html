@@ -1,9 +1,11 @@
 @if (tables().length === 0) {
-  <app-empty-state title="No tables yet" message="The data model appears as soon as the first table has been profiled." icon="⬚" />
+  <app-empty-state title="No tables yet" message="The data model appears as soon as the first table has been profiled." icon="network" />
 } @else {
   <section class="card">
     <header class="card__header">
-      <div>
+      <div class="card__heading">
+        <span class="card__icon"><app-icon name="network" /></span>
+        <div>
         <h2 class="card__title">Data model</h2>
         <p class="card__subtitle">
           {{ tables().length }} {{ tables().length === 1 ? 'entity' : 'entities' }} ·
@@ -12,6 +14,7 @@
             · inferred from column names
           }
         </p>
+        </div>
       </div>
       <app-info-tip text="Relationships come from value overlap computed by the pipeline (a source column whose values exist in a key column of another table). When none is found, they are guessed from identifier column names." />
     </header>
@@ -21,7 +24,10 @@
   <div class="dm-columns">
     <section class="card">
       <header class="card__header">
-        <h2 class="card__title">Relationships</h2>
+        <div class="card__heading">
+          <span class="card__icon"><app-icon name="link" /></span>
+          <h2 class="card__title">Relationships</h2>
+        </div>
       </header>
       @if (relations().length === 0) {
         <p class="muted">No relationship was detected between these tables.</p>
@@ -31,7 +37,7 @@
             <li class="relation">
               <div class="relation__path">
                 <code>{{ relation.sourceTable }}.{{ relation.sourceColumn }}</code>
-                <span aria-label="references">→</span>
+                <app-icon name="arrowRight" [size]="14" />
                 <code>{{ relation.targetTable }}.{{ relation.targetColumn }}</code>
               </div>
               <div class="relation__meta">
@@ -55,7 +61,10 @@
 
     <section class="card">
       <header class="card__header">
-        <h2 class="card__title">Entities</h2>
+        <div class="card__heading">
+          <span class="card__icon"><app-icon name="table" /></span>
+          <h2 class="card__title">Entities</h2>
+        </div>
       </header>
       <ul class="entity-list">
         @for (entity of entities(); track entity.tableName) {

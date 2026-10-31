@@ -13,14 +13,15 @@ import {
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { ToastService } from '../core/toast.service';
-import { Tone, llmStatusInfo, statusLabel, statusTone } from './format';
+import { ToastService, ToastTone } from '../core/toast.service';
+import { formatScore, llmStatusInfo, qualityGrade, scoreTone, statusLabel, statusTone } from './format';
+import { Icon, IconName } from './icon';
 
 /** Run / change status as a coloured badge with a human label. */
 @Component({
   selector: 'app-status-badge',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  template: `<span class="badge" [attr.data-tone]="tone()" [attr.title]="title() || null">{{ label() }}</span>`
+  template: `<span class="badge" [attr.data-tone]="tone()" [attr.title]="title() || null"><span class="badge__dot" aria-hidden="true"></span>{{ label() }}</span>`
 })
 export class StatusBadge {
   readonly status = input<string | null | undefined>(null);
@@ -32,11 +33,12 @@ export class StatusBadge {
 /** "AI insights" / "Deterministic only – Ollama unavailable" / "AI answer rejected". */
 @Component({
   selector: 'app-llm-badge',
+  imports: [Icon],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (info(); as info) {
-      <span class="badge badge--soft" [attr.data-tone]="info.tone" [attr.title]="info.hint">
-        <span class="badge__dot" aria-hidden="true"></span>{{ compact() ? shortLabel() : info.label }}
+      <span class="badge" [attr.data-tone]="info.tone" [attr.title]="info.hint">
+        <app-icon name="sparkles" [size]="13" />{{ compact() ? shortLabel() : info.label }}
       </span>
     }
   `
@@ -47,16 +49,69 @@ export class LlmBadge {
   readonly info = computed(() => llmStatusInfo(this.status()));
   readonly shortLabel = computed(() => {
     const status = (this.status() ?? '').toLowerCase();
-    return status === 'unavailable' ? 'No AI' : status === 'invalid' ? 'AI rejected' : this.info()?.label ?? '';
+    return status === 'unavailable' ? 'No AI' : status === 'invalid' ? 'AI rejected' : status === 'ok' ? 'AI' : this.info()?.label ?? '';
   });
+}
+
+/** Circular score gauge (0–100) coloured by the quality scale. */
+@Component({
+  selector: 'app-score-ring',
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  template: `
+    <svg [attr.width]="size()" [attr.height]="size()" viewBox="0 0 100 100" role="img" [attr.aria-label]="ariaLabel()">
+      <circle cx="50" cy="50" [attr.r]="radius" fill="none" class="ring__track" [attr.stroke-width]="stroke()" />
+      @if (value() !== null && value() !== undefined) {
+        <circle cx="50" cy="50" [attr.r]="radius" fill="none" class="ring__value" [attr.stroke-width]="stroke()"
+          stroke-linecap="round" [attr.stroke-dasharray]="circumference" [attr.stroke-dashoffset]="offset()" transform="rotate(-90 50 50)" />
+      }
+    </svg>
+    <span class="ring__label">
+      <strong>{{ display() }}</strong>
+      @if (caption()) {
+        <small>{{ caption() }}</small>
+      }
+    </span>
+  `,
+  styles: `
+    :host { position: relative; display: inline-grid; place-items: center; flex: none; }
+    svg { display: block; }
+    .ring__track { stroke: var(--surface-sunken); }
+    .ring__value { stroke: var(--tone-fg, var(--primary)); transition: stroke-dashoffset 700ms var(--ease); }
+    .ring__label { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; line-height: 1.05; }
+    strong { font-size: var(--ring-font, 1rem); font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+    small { margin-top: 2px; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-subtle); }
+  `,
+  host: { '[attr.data-tone]': 'tone()', '[style.--ring-font]': 'fontSize()' }
+})
+export class ScoreRing {
+  readonly value = input<number | null | undefined>(null);
+  readonly size = input(64);
+  readonly stroke = input(9);
+  readonly caption = input('');
+  readonly showGrade = input(false);
+  readonly radius = 42;
+  readonly circumference = 2 * Math.PI * 42;
+  readonly tone = computed(() => scoreTone(this.value()));
+  readonly offset = computed(() => this.circumference * (1 - Math.max(0, Math.min(100, this.value() ?? 0)) / 100));
+  // Small rings have no room for a decimal: show whole numbers below 56 px.
+  readonly display = computed(() => {
+    if (this.showGrade()) {
+      return qualityGrade(this.value()).grade;
+    }
+    const value = this.value();
+    return this.size() < 56 && value !== null && value !== undefined ? String(Math.round(value)) : formatScore(value);
+  });
+  readonly fontSize = computed(() => `${Math.round(this.size() * (this.showGrade() ? 0.34 : 0.24))}px`);
+  readonly ariaLabel = computed(() => `Quality score ${formatScore(this.value())} out of 100`);
 }
 
 @Component({
   selector: 'app-empty-state',
+  imports: [Icon],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="empty-state" [class.empty-state--compact]="compact()">
-      <div class="empty-state__icon" aria-hidden="true">{{ icon() }}</div>
+      <div class="empty-state__art"><app-icon [name]="icon()" [size]="28" /></div>
       <h3>{{ title() }}</h3>
       @if (message()) {
         <p>{{ message() }}</p>
@@ -68,7 +123,7 @@ export class LlmBadge {
 export class EmptyState {
   readonly title = input.required<string>();
   readonly message = input<string>('');
-  readonly icon = input<string>('◇');
+  readonly icon = input<IconName>('database');
   readonly compact = input(false, { transform: booleanAttribute });
 }
 
@@ -88,13 +143,14 @@ export class Skeleton {
   readonly lines = computed(() => Array.from({ length: this.count() }));
 }
 
-/** Small "?" button that shows an explanation on hover or keyboard focus. */
+/** Small info button that shows an explanation on hover or keyboard focus. */
 @Component({
   selector: 'app-info-tip',
+  imports: [Icon],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <span class="info-tip">
-      <button type="button" class="info-tip__button" [attr.aria-label]="label()" [attr.aria-describedby]="id">?</button>
+      <button type="button" class="info-tip__button" [attr.aria-label]="label()" [attr.aria-describedby]="id"><app-icon name="info" [size]="15" /></button>
       <span class="info-tip__bubble" role="tooltip" [id]="id">{{ text() }}</span>
     </span>
   `
@@ -109,13 +165,14 @@ export class InfoTip {
 /** Native <dialog>: focus trap, Escape to close and inert background for free. */
 @Component({
   selector: 'app-modal',
+  imports: [Icon],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <dialog #dialog class="modal" [class.modal--wide]="wide()" [attr.aria-labelledby]="titleId" (cancel)="onCancel($event)" (click)="onBackdrop($event)">
       <div class="modal__panel">
         <header class="modal__header">
           <h2 [id]="titleId">{{ title() }}</h2>
-          <button type="button" class="btn btn--ghost btn--icon" aria-label="Close" (click)="closed.emit()">✕</button>
+          <button type="button" class="btn btn--ghost btn--icon btn--sm" aria-label="Close" (click)="closed.emit()"><app-icon name="x" /></button>
         </header>
         <div class="modal__body"><ng-content /></div>
         <footer class="modal__footer"><ng-content select="[modal-actions]" /></footer>
@@ -162,14 +219,18 @@ export class Modal {
 /** Confirmation, optionally requiring the user to type a word (e.g. the dataset name). */
 @Component({
   selector: 'app-confirm-dialog',
-  imports: [Modal, FormsModule],
+  imports: [Modal, FormsModule, Icon],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <app-modal [open]="open()" [title]="title()" [busy]="busy()" (closed)="cancelled.emit()">
-      <p class="confirm__message">{{ message() }}</p>
+      @if (danger()) {
+        <div class="callout" data-tone="danger"><app-icon name="alert" /><span>{{ message() }}</span></div>
+      } @else {
+        <p class="confirm__message">{{ message() }}</p>
+      }
       @if (requireText()) {
         <label class="field">
-          <span class="field__label">Type <strong>{{ requireText() }}</strong> to confirm</span>
+          <span class="field__label">Type <code>{{ requireText() }}</code> to confirm</span>
           <input class="input" type="text" autocomplete="off" [ngModel]="typed()" (ngModelChange)="typed.set($event)" />
         </label>
       }
@@ -208,13 +269,15 @@ export interface TabItem {
   id: string;
   label: string;
   link: unknown[];
+  icon?: IconName;
   count?: number | null;
+  shortcut?: string;
 }
 
 /** Router-driven tabs with arrow-key navigation (WAI-ARIA tabs pattern). */
 @Component({
   selector: 'app-tabs',
-  imports: [RouterLink],
+  imports: [RouterLink, Icon],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <nav class="tabs" role="tablist" [attr.aria-label]="label()" (keydown)="onKeydown($event)">
@@ -226,8 +289,13 @@ export interface TabItem {
           queryParamsHandling="preserve"
           [attr.aria-selected]="tab.id === active()"
           [attr.tabindex]="tab.id === active() ? 0 : -1"
+          [attr.aria-keyshortcuts]="tab.shortcut || null"
+          [attr.title]="tab.shortcut ? tab.label + ' (' + tab.shortcut + ')' : null"
           [class.tabs__tab--active]="tab.id === active()"
         >
+          @if (tab.icon) {
+            <app-icon [name]="tab.icon" [size]="16" />
+          }
           {{ tab.label }}
           @if (tab.count !== null && tab.count !== undefined) {
             <span class="tabs__count">{{ tab.count }}</span>
@@ -262,14 +330,15 @@ export class Tabs {
 
 @Component({
   selector: 'app-toast-host',
+  imports: [Icon],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="toasts" role="status" aria-live="polite" aria-relevant="additions">
       @for (toast of toasts.toasts(); track toast.id) {
-        <div class="toast" [attr.data-tone]="toast.tone">
-          <span class="toast__icon" aria-hidden="true">{{ icon(toast.tone) }}</span>
+        <div class="toast" [attr.data-tone]="toast.tone === 'error' ? 'danger' : toast.tone">
+          <app-icon [name]="icon(toast.tone)" [size]="20" />
           <p>{{ toast.message }}</p>
-          <button type="button" class="btn btn--ghost btn--icon" aria-label="Dismiss" (click)="toasts.dismiss(toast.id)">✕</button>
+          <button type="button" class="btn btn--ghost btn--icon btn--sm" aria-label="Dismiss" (click)="toasts.dismiss(toast.id)"><app-icon name="x" [size]="16" /></button>
         </div>
       }
     </div>
@@ -278,7 +347,7 @@ export class Tabs {
 export class ToastHost {
   readonly toasts = inject(ToastService);
 
-  icon(tone: Tone | string): string {
-    return tone === 'success' ? '✓' : tone === 'error' ? '!' : tone === 'warning' ? '⚠' : 'i';
+  icon(tone: ToastTone): IconName {
+    return tone === 'success' ? 'checkCircle' : tone === 'error' ? 'xCircle' : tone === 'warning' ? 'alert' : 'info';
   }
 }

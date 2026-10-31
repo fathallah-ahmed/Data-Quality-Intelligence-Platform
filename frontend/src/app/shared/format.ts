@@ -228,3 +228,34 @@ export function humanize(key: string): string {
   const text = key.replace(/[_-]+/g, ' ').trim().toLowerCase();
   return text ? text.charAt(0).toUpperCase() + text.slice(1) : '';
 }
+
+/** Letter grade for a quality score, used by the score hero and the table list. */
+export function qualityGrade(value: number | null | undefined): { grade: string; label: string } {
+  if (!isNumber(value)) {
+    return { grade: '–', label: 'Not scored yet' };
+  }
+  if (value >= 90) {
+    return { grade: 'A', label: 'Healthy' };
+  }
+  if (value >= 75) {
+    return { grade: 'B', label: 'Good, minor gaps' };
+  }
+  if (value >= 60) {
+    return { grade: 'C', label: 'Needs attention' };
+  }
+  return { grade: 'D', label: 'Poor quality' };
+}
+
+/** Icon for a column type label from {@link typeLabel}. */
+export function typeIcon(label: string): 'hash' | 'calendar' | 'boolean' | 'text' {
+  switch (label) {
+    case 'Numerical':
+      return 'hash';
+    case 'Date':
+      return 'calendar';
+    case 'Boolean':
+      return 'boolean';
+    default:
+      return 'text';
+  }
+}

@@ -1,54 +1,67 @@
 @if (store.detailsError()) {
-  <app-empty-state title="This version could not be loaded" [message]="store.detailsError() ?? ''" icon="!" />
+  <app-empty-state title="This version could not be loaded" [message]="store.detailsError() ?? ''" icon="alert">
+    <a class="btn btn--secondary" routerLink="/datasets"><app-icon name="chevronLeft" [size]="16" /> Back to datasets</a>
+  </app-empty-state>
 } @else {
-  <header class="dataset-header">
-    <div class="dataset-header__main">
-      @if (dataset(); as dataset) {
-        <h1 class="dataset-header__title">{{ dataset.name }}</h1>
-        <p class="dataset-header__meta">
-          <span>{{ sourceLabel() }}</span>
-          @if (details(); as details) {
-            <span aria-hidden="true">·</span>
-            <span [attr.title]="details.version.uploadedAt | absoluteTime">uploaded {{ details.version.uploadedAt | relativeTime: now() }}</span>
-            @if (duration()) {
-              <span aria-hidden="true">·</span>
-              <span>{{ active() ? 'running for' : 'run took' }} {{ duration() }}</span>
-            }
-          }
-        </p>
-      } @else {
-        <app-skeleton [height]="28" />
-      }
-    </div>
+  <header class="page-head">
+    <nav class="crumbs" aria-label="Breadcrumb">
+      <a routerLink="/datasets">Datasets</a>
+      <app-icon name="chevronRight" [size]="14" />
+      <span aria-current="page">{{ dataset()?.name ?? '…' }}</span>
+    </nav>
 
-    <div class="dataset-header__controls">
-      <label class="field field--inline">
-        <span class="field__label">Version</span>
-        <select class="input input--sm" (change)="selectVersion($any($event.target).value)" aria-label="Version">
-          @for (version of store.versions(); track version.id) {
-            <option [value]="version.id" [selected]="version.id === +versionId()">v{{ version.versionNumber }} · {{ version.status | statusLabel }}</option>
-          } @empty {
-            <option [value]="versionId()">Loading…</option>
-          }
-        </select>
-      </label>
-      @if (status()) {
-        <app-status-badge [status]="status()" />
-      }
-      <div class="menu">
-        <button type="button" class="btn btn--ghost btn--icon" aria-label="Dataset actions" aria-haspopup="menu" [attr.aria-expanded]="menuOpen()" (click)="toggleMenu()">⋯</button>
-        @if (menuOpen()) {
-          <div class="menu__panel" role="menu" (keydown.escape)="menuOpen.set(false)">
-            <button
-              type="button"
-              role="menuitem"
-              class="menu__item menu__item--danger"
-              [disabled]="active()"
-              [attr.title]="active() ? 'Wait for the running analysis to finish' : null"
-              (click)="askDelete()"
-            >Delete dataset…</button>
+    <div class="page-head__row">
+      <div class="page-head__main">
+        @if (dataset(); as dataset) {
+          <div class="page-head__title">
+            <h1>{{ dataset.name }}</h1>
+            @if (status()) {
+              <app-status-badge [status]="status()" />
+            }
           </div>
+          <ul class="facts-inline">
+            <li><app-icon name="table" [size]="15" /> {{ sourceLabel() }}</li>
+            @if (details(); as details) {
+              <li [attr.title]="details.version.uploadedAt | absoluteTime"><app-icon name="upload" [size]="15" /> Uploaded {{ details.version.uploadedAt | relativeTime: now() }}</li>
+              @if (duration()) {
+                <li><app-icon name="clock" [size]="15" /> {{ active() ? 'Running for' : 'Analysed in' }} {{ duration() }}</li>
+              }
+            }
+          </ul>
+        } @else {
+          <app-skeleton [count]="2" [height]="24" />
         }
+      </div>
+
+      <div class="page-head__controls">
+        <label class="version-select">
+          <app-icon name="layers" [size]="16" />
+          <span class="sr-only">Version</span>
+          <select (change)="selectVersion($any($event.target).value)" aria-label="Version">
+            @for (version of store.versions(); track version.id) {
+              <option [value]="version.id" [selected]="version.id === +versionId()">Version {{ version.versionNumber }} · {{ version.status | statusLabel }}</option>
+            } @empty {
+              <option [value]="versionId()">Loading…</option>
+            }
+          </select>
+        </label>
+        <div class="menu">
+          <button type="button" class="btn btn--secondary btn--icon" aria-label="Dataset actions" aria-haspopup="menu" [attr.aria-expanded]="menuOpen()" (click)="toggleMenu()">
+            <app-icon name="more" [size]="20" [stroke]="2.6" />
+          </button>
+          @if (menuOpen()) {
+            <div class="menu__panel" role="menu" (keydown.escape)="menuOpen.set(false)">
+              <button
+                type="button"
+                role="menuitem"
+                class="menu__item menu__item--danger"
+                [disabled]="active()"
+                [attr.title]="active() ? 'Wait for the running analysis to finish' : null"
+                (click)="askDelete()"
+              ><app-icon name="trash" [size]="16" /> Delete dataset…</button>
+            </div>
+          }
+        </div>
       </div>
     </div>
   </header>
@@ -79,7 +92,12 @@
       }
     } @else {
       <div class="loading-grid" aria-busy="true" aria-label="Loading version">
-        <div class="card"><app-skeleton [count]="3" [height]="20" /></div>
+        <div class="card"><app-skeleton [count]="3" [height]="22" /></div>
+        <div class="loading-grid__row">
+          @for (i of [1, 2, 3, 4]; track i) {
+            <div class="card"><app-skeleton [count]="2" [height]="18" /></div>
+          }
+        </div>
         <div class="card"><app-skeleton [count]="5" /></div>
       </div>
     }

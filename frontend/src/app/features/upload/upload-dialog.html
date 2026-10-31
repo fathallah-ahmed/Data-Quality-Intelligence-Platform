@@ -1,7 +1,7 @@
 <app-modal [open]="layout.uploadOpen()" [title]="title()" [wide]="true" [busy]="uploading()" (closed)="close()">
   @if (duplicate(); as duplicate) {
     <div class="duplicate">
-      <p>{{ duplicate.duplicateMessage || 'An existing version has exactly the same files.' }}</p>
+      <div class="callout" data-tone="info"><app-icon name="layers" /><span>{{ duplicate.duplicateMessage || 'An existing version has exactly the same files.' }}</span></div>
       <p class="muted">Open the existing results, or run the analysis again on those files (for example after changing the LLM context or once Ollama is available).</p>
     </div>
   } @else {
@@ -12,10 +12,11 @@
       (dragleave)="dragging.set(false)"
       (drop)="onDrop($event)"
     >
-      <span class="dropzone__icon" aria-hidden="true">⬆</span>
-      <p><strong>Drop CSV files here</strong> or</p>
+      <span class="dropzone__icon" aria-hidden="true"><app-icon name="upload" [size]="26" /></span>
+      <p class="dropzone__title"><strong>Drop CSV files here</strong></p>
+      <p class="muted">or</p>
       <label class="btn btn--secondary btn--sm">
-        Browse files
+        <app-icon name="file" [size]="16" /> Browse files
         <input class="sr-only" type="file" accept=".csv,text/csv" multiple (change)="onInputChange($event)" />
       </label>
       <p class="muted dropzone__hint">One file per table · .csv only · up to {{ maxLabel }} each · adding files keeps the ones already selected</p>
@@ -23,12 +24,15 @@
 
     @if (problems().length > 0) {
       <div class="callout" data-tone="warning" role="alert">
+        <app-icon name="alert" />
+        <div>
         <strong>Some files were not added:</strong>
         <ul>
           @for (problem of problems(); track problem.name) {
             <li><code>{{ problem.name }}</code>: {{ problem.reason }}</li>
           }
         </ul>
+        </div>
       </div>
     }
 
@@ -41,10 +45,10 @@
         <ul>
           @for (file of files(); track file.name) {
             <li class="file-row">
-              <span class="file-row__icon" aria-hidden="true">▤</span>
+              <span class="file-row__icon" aria-hidden="true"><app-icon name="file" [size]="16" /></span>
               <span class="file-row__name">{{ file.name }}</span>
               <span class="file-row__size">{{ size(file) }}</span>
-              <button type="button" class="btn btn--ghost btn--icon btn--sm" [attr.aria-label]="'Remove ' + file.name" (click)="removeFile(file)">✕</button>
+              <button type="button" class="btn btn--ghost btn--icon btn--sm" [attr.aria-label]="'Remove ' + file.name" (click)="removeFile(file)"><app-icon name="x" [size]="15" /></button>
             </li>
           }
         </ul>
@@ -59,7 +63,7 @@
 
     <details class="context" [open]="showContext()" (toggle)="showContext.set($any($event.target).open)">
       <summary>
-        <span class="context__title">Add business context for the AI <span class="muted">(optional)</span></span>
+        <span class="context__title"><app-icon name="sparkles" [size]="16" /> Add business context for the AI <span class="muted">(optional)</span></span>
         <span class="muted context__hint">Descriptions and a question make the LLM insights more relevant.</span>
       </summary>
       <div class="context__body">
@@ -96,19 +100,19 @@
     </details>
 
     @if (error()) {
-      <div class="callout" data-tone="danger" role="alert">{{ error() }}</div>
+      <div class="callout" data-tone="danger" role="alert"><app-icon name="xCircle" /><span>{{ error() }}</span></div>
     }
   }
 
   <div modal-actions>
     @if (duplicate()) {
       <button type="button" class="btn btn--ghost" (click)="duplicate.set(null)">Cancel</button>
-      <button type="button" class="btn btn--secondary" [disabled]="uploading()" (click)="submit(true)">{{ uploading() ? 'Starting…' : 'Run again' }}</button>
-      <button type="button" class="btn btn--primary" (click)="openExisting()">Open existing version</button>
+      <button type="button" class="btn btn--secondary" [disabled]="uploading()" (click)="submit(true)"><app-icon name="refresh" [size]="16" /> {{ uploading() ? 'Starting…' : 'Run again' }}</button>
+      <button type="button" class="btn btn--primary" (click)="openExisting()"><app-icon name="arrowRight" [size]="16" /> Open existing version</button>
     } @else {
       <button type="button" class="btn btn--ghost" [disabled]="uploading()" (click)="close()">Cancel</button>
       <button type="button" class="btn btn--primary" [disabled]="files().length === 0 || uploading()" (click)="submit()">
-        {{ uploading() ? 'Uploading…' : 'Upload and analyse' }}
+        <app-icon name="upload" [size]="16" /> {{ uploading() ? 'Uploading…' : 'Upload and analyse' }}
       </button>
     }
   </div>

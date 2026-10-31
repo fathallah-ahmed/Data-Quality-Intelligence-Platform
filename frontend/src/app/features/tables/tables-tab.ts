@@ -1,13 +1,14 @@
 import { ChangeDetectionStrategy, Component, ElementRef, computed, inject, input, output, signal } from '@angular/core';
 import { TableAnalysisView, VersionDetails } from '../../core/models';
-import { EmptyState, LlmBadge, StatusBadge } from '../../shared/components';
+import { EmptyState, LlmBadge, ScoreRing, StatusBadge } from '../../shared/components';
+import { Icon } from '../../shared/icon';
 import { scoreTone } from '../../shared/format';
 import { DQ_PIPES } from '../../shared/pipes';
 import { TableDetail } from './table-detail';
 
 @Component({
   selector: 'app-tables-tab',
-  imports: [TableDetail, StatusBadge, LlmBadge, EmptyState, ...DQ_PIPES],
+  imports: [TableDetail, StatusBadge, LlmBadge, EmptyState, ScoreRing, Icon, ...DQ_PIPES],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './tables-tab.html',
   styleUrl: './tables-tab.css'
@@ -40,7 +41,7 @@ export class TablesTab {
     if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
       return;
     }
-    const options = Array.from(this.host.nativeElement.querySelectorAll<HTMLButtonElement>('.table-list__item'));
+    const options = Array.from(this.host.nativeElement.querySelectorAll<HTMLButtonElement>('.table-item'));
     const current = options.indexOf(document.activeElement as HTMLButtonElement);
     const last = options.length - 1;
     const next = event.key === 'Home' ? 0 : event.key === 'End' ? last

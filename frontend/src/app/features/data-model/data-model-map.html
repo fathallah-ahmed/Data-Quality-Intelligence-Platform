@@ -1,15 +1,15 @@
 <div class="dm-toolbar" role="toolbar" aria-label="Diagram controls">
   <div class="btn-group">
-    <button type="button" class="btn btn--secondary btn--sm" (click)="zoomBy(-10)" aria-label="Zoom out">−</button>
+    <button type="button" class="btn btn--secondary btn--sm btn--icon" (click)="zoomBy(-10)" aria-label="Zoom out"><app-icon name="zoomOut" [size]="16" /></button>
     <span class="dm-zoom" aria-live="polite">{{ zoom() }}%</span>
-    <button type="button" class="btn btn--secondary btn--sm" (click)="zoomBy(10)" aria-label="Zoom in">+</button>
+    <button type="button" class="btn btn--secondary btn--sm btn--icon" (click)="zoomBy(10)" aria-label="Zoom in"><app-icon name="zoomIn" [size]="16" /></button>
   </div>
-  <button type="button" class="btn btn--ghost btn--sm" (click)="reset()">Reset view</button>
+  <button type="button" class="btn btn--ghost btn--sm" (click)="reset()"><app-icon name="maximize" [size]="15" /> Reset</button>
   <button type="button" class="btn btn--ghost btn--sm" [attr.aria-pressed]="showRelations()" (click)="showRelations.set(!showRelations())">
-    {{ showRelations() ? 'Hide relations' : 'Show relations' }}
+    <app-icon name="link" [size]="15" /> {{ showRelations() ? 'Hide relations' : 'Show relations' }}
   </button>
   <span class="dm-hint">Drag to pan · Ctrl + wheel to zoom</span>
-  <button type="button" class="btn btn--secondary btn--sm dm-download" (click)="downloadRequested.emit()">Download SVG</button>
+  <button type="button" class="btn btn--secondary btn--sm dm-download" (click)="downloadRequested.emit()"><app-icon name="download" [size]="15" /> Download SVG</button>
 </div>
 
 <div

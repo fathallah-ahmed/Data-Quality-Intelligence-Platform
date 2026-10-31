@@ -1,50 +1,65 @@
-<div class="sidebar__head">
-  <h2 class="sidebar__title">Datasets <span class="sidebar__count">{{ store.datasets().length }}</span></h2>
-  <button type="button" class="btn btn--primary btn--sm" (click)="layout.openUpload()">+ New analysis</button>
-</div>
-
-<div class="sidebar__filters">
-  <label class="sr-only" for="dataset-search">Search datasets</label>
-  <input id="dataset-search" class="input input--sm" type="search" placeholder="Search datasets…" [value]="query()" (input)="query.set($any($event.target).value)" />
-  <div class="segmented" role="radiogroup" aria-label="Filter by status">
-    <button type="button" role="radio" [attr.aria-checked]="statusFilter() === 'all'" (click)="statusFilter.set('all')">All</button>
-    <button type="button" role="radio" [attr.aria-checked]="statusFilter() === 'active'" (click)="statusFilter.set('active')">Running</button>
-    <button type="button" role="radio" [attr.aria-checked]="statusFilter() === 'issues'" (click)="statusFilter.set('issues')">Issues</button>
+@if (!collapsed()) {
+  <div class="side__head">
+    <span class="side__title">Datasets</span>
+    <span class="side__count">{{ store.datasets().length }}</span>
   </div>
-</div>
 
-<nav class="sidebar__list" aria-label="Datasets">
+  <div class="side__filters">
+    <div class="side__search">
+      <app-icon name="search" [size]="15" />
+      <label class="sr-only" for="dataset-search">Search datasets</label>
+      <input id="dataset-search" type="search" placeholder="Filter datasets" [value]="query()" (input)="query.set($any($event.target).value)" />
+    </div>
+    <div class="side__segmented" role="radiogroup" aria-label="Filter by status">
+      <button type="button" role="radio" [attr.aria-checked]="statusFilter() === 'all'" (click)="statusFilter.set('all')">All <span>{{ counts().all }}</span></button>
+      <button type="button" role="radio" [attr.aria-checked]="statusFilter() === 'active'" (click)="statusFilter.set('active')">Running <span>{{ counts().active }}</span></button>
+      <button type="button" role="radio" [attr.aria-checked]="statusFilter() === 'issues'" (click)="statusFilter.set('issues')">Issues <span>{{ counts().issues }}</span></button>
+    </div>
+  </div>
+}
+
+<nav class="side__list" aria-label="Datasets">
   @if (!store.datasetsLoaded()) {
-    <app-skeleton [count]="4" [height]="44" />
+    <app-skeleton [count]="5" [height]="40" />
   } @else {
     @for (dataset of filtered(); track dataset.id) {
       <a
-        class="dataset-item"
+        class="item"
         [routerLink]="link(dataset)"
-        [class.dataset-item--active]="isSelected(dataset)"
+        [class.item--active]="isSelected(dataset)"
         [attr.aria-current]="isSelected(dataset) ? 'page' : null"
+        [attr.title]="collapsed() ? dataset.name + ' · ' + statusText(dataset) : null"
         (click)="layout.sidebarOpen.set(false)"
       >
-        <span class="dataset-item__top">
-          <span class="dataset-item__name">{{ dataset.name }}</span>
-          <app-status-badge [status]="dataset.latestVersion?.status ?? 'UNKNOWN'" />
+        <span class="item__avatar" [style.--hue]="hue(dataset.name)">
+          {{ initials(dataset.name) }}
+          <span class="item__dot" [attr.data-tone]="tone(dataset)" aria-hidden="true"></span>
         </span>
-        <span class="dataset-item__meta">
-          <span>{{ source(dataset) }}</span>
-          <span aria-hidden="true">·</span>
-          <span>{{ dataset.versionCount ?? 1 }} {{ dataset.versionCount === 1 ? 'version' : 'versions' }}</span>
-          <span aria-hidden="true">·</span>
-          <span [attr.title]="dataset.updatedAt | absoluteTime">{{ dataset.updatedAt | relativeTime: now() }}</span>
-        </span>
+        @if (!collapsed()) {
+          <span class="item__body">
+            <span class="item__name">{{ dataset.name }}</span>
+            <span class="item__meta">
+              {{ source(dataset) }} · v{{ dataset.latestVersion?.versionNumber ?? 1 }} ·
+              <span [attr.title]="dataset.updatedAt | absoluteTime">{{ dataset.updatedAt | relativeTime: now() }}</span>
+            </span>
+          </span>
+          @if (dataset.latestVersion?.status !== 'COMPLETED') {
+            <span class="item__status" [attr.data-tone]="tone(dataset)">{{ statusText(dataset) }}</span>
+          }
+        } @else {
+          <span class="sr-only">{{ dataset.name }}, {{ statusText(dataset) }}</span>
+        }
       </a>
     } @empty {
-      <p class="muted sidebar__empty">
-        @if (store.datasets().length === 0) {
-          No datasets yet.
-        } @else {
-          No dataset matches this filter.
-        }
-      </p>
+      @if (!collapsed()) {
+        <p class="side__empty">
+          @if (store.datasets().length === 0) {
+            No datasets yet. Start with a new analysis.
+          } @else {
+            Nothing matches this filter.
+          }
+        </p>
+      }
     }
   }
 </nav>

@@ -1,68 +1,107 @@
 <a class="skip-link" href="#main-content">Skip to content</a>
 
-<header class="topbar">
-  <button
-    type="button"
-    class="btn btn--ghost btn--icon topbar__menu"
-    aria-label="Show datasets"
-    aria-controls="dataset-drawer"
-    [attr.aria-expanded]="layout.sidebarOpen()"
-    (click)="layout.sidebarOpen.set(!layout.sidebarOpen())"
-  >☰</button>
-
-  <a class="brand" routerLink="/datasets">
-    <span class="brand__mark" aria-hidden="true">DQ</span>
-    <span class="brand__name">Data Quality <span class="brand__sub">Wevioo</span></span>
-  </a>
-
-  <div class="topbar__actions">
-    <span class="live" [attr.data-state]="live.transport()" [attr.title]="liveLabel().hint" role="status" aria-live="polite">
-      <span class="live__dot" aria-hidden="true"></span>
-      <span class="live__text">{{ liveLabel().text }}</span>
-    </span>
-
-    <button type="button" class="btn btn--primary btn--sm topbar__new" (click)="layout.openUpload()">+ New analysis</button>
-
-    <button
-      type="button"
-      class="btn btn--ghost btn--icon"
-      [attr.aria-label]="theme.isDark() ? 'Switch to light theme' : 'Switch to dark theme'"
-      [attr.aria-pressed]="theme.isDark()"
-      (click)="theme.toggle()"
-    >{{ theme.isDark() ? '☀' : '☾' }}</button>
-
-    <div class="menu">
-      <button
-        type="button"
-        class="btn btn--ghost btn--sm user-button"
-        aria-haspopup="menu"
-        [attr.aria-expanded]="userMenuOpen()"
-        (click)="userMenuOpen.set(!userMenuOpen())"
-      >
-        <span class="avatar" aria-hidden="true">{{ (auth.username() ?? '?').charAt(0).toUpperCase() }}</span>
-        <span class="user-button__name">{{ auth.username() }}</span>
-      </button>
-      @if (userMenuOpen()) {
-        <div class="menu__panel" role="menu" (keydown.escape)="userMenuOpen.set(false)">
-          <p class="menu__caption">Signed in as <strong>{{ auth.username() }}</strong></p>
-          <button type="button" role="menuitem" class="menu__item" (click)="logout()">Sign out</button>
-        </div>
-      }
-    </div>
-  </div>
-</header>
-
-<div class="layout">
+<div class="app" [class.app--collapsed]="layout.railCollapsed()">
   @if (layout.sidebarOpen()) {
     <div class="drawer-backdrop" (click)="layout.sidebarOpen.set(false)" aria-hidden="true"></div>
   }
-  <aside id="dataset-drawer" class="sidebar" [class.sidebar--open]="layout.sidebarOpen()" (keydown.escape)="layout.sidebarOpen.set(false)">
-    <app-dataset-sidebar [now]="now()" />
+
+  <aside id="dataset-drawer" class="sidebar" [class.sidebar--open]="layout.sidebarOpen()" (keydown.escape)="layout.sidebarOpen.set(false)" aria-label="Navigation">
+    <div class="sidebar__brand">
+      <a class="brand" routerLink="/datasets" aria-label="Data Quality home">
+        <span class="brand__mark" aria-hidden="true">
+          <svg viewBox="0 0 32 32" width="22" height="22"><rect x="5" y="17" width="5" height="10" rx="1.5" /><rect x="13.5" y="11" width="5" height="16" rx="1.5" /><rect x="22" y="5" width="5" height="22" rx="1.5" /></svg>
+        </span>
+        @if (!layout.railCollapsed()) {
+          <span class="brand__text"><strong>Data Quality</strong><small>Wevioo</small></span>
+        }
+      </a>
+    </div>
+
+    <div class="sidebar__cta">
+      <button type="button" class="new-btn" [class.new-btn--icon]="layout.railCollapsed()" (click)="layout.openUpload()" aria-keyshortcuts="N" title="New analysis (N)">
+        <app-icon name="plus" [size]="18" />
+        @if (!layout.railCollapsed()) {
+          <span>New analysis</span>
+          <span class="kbd kbd--dark">N</span>
+        }
+      </button>
+    </div>
+
+    <app-dataset-sidebar [now]="now()" [collapsed]="layout.railCollapsed()" />
+
+    <div class="sidebar__footer">
+      <button type="button" class="side-btn collapse-btn" (click)="layout.toggleCollapsed()" [attr.aria-label]="layout.railCollapsed() ? 'Expand sidebar' : 'Collapse sidebar'">
+        <app-icon [name]="layout.railCollapsed() ? 'chevronRight' : 'chevronLeft'" [size]="16" />
+        @if (!layout.railCollapsed()) {
+          <span>Collapse</span>
+        }
+      </button>
+    </div>
   </aside>
 
-  <main id="main-content" class="main" tabindex="-1">
-    <router-outlet />
-  </main>
+  <div class="workspace">
+    <header class="topbar">
+      <button
+        type="button"
+        class="btn btn--ghost btn--icon topbar__menu"
+        aria-label="Show datasets"
+        aria-controls="dataset-drawer"
+        [attr.aria-expanded]="layout.sidebarOpen()"
+        (click)="layout.sidebarOpen.set(!layout.sidebarOpen())"
+      ><app-icon name="menu" /></button>
+
+      <button type="button" class="search-trigger" (click)="layout.paletteOpen.set(true)" aria-keyshortcuts="Control+K Meta+K">
+        <app-icon name="search" [size]="16" />
+        <span class="search-trigger__text">Search datasets, tables, actions…</span>
+        <span class="search-trigger__keys"><span class="kbd">{{ isMac ? '⌘' : 'Ctrl' }}</span><span class="kbd">K</span></span>
+      </button>
+
+      <div class="topbar__actions">
+        <span class="live" [attr.data-state]="live.transport()" [attr.title]="liveLabel().hint" role="status" aria-live="polite">
+          <span class="live__dot" aria-hidden="true"></span>
+          <span class="live__text">{{ liveLabel().text }}</span>
+        </span>
+
+        <button
+          type="button"
+          class="btn btn--ghost btn--icon"
+          [attr.aria-label]="theme.isDark() ? 'Switch to light theme' : 'Switch to dark theme'"
+          [attr.aria-pressed]="theme.isDark()"
+          (click)="theme.toggle()"
+        ><app-icon [name]="theme.isDark() ? 'sun' : 'moon'" /></button>
+
+        <div class="menu">
+          <button
+            type="button"
+            class="user-button"
+            aria-haspopup="menu"
+            [attr.aria-expanded]="userMenuOpen()"
+            (click)="userMenuOpen.set(!userMenuOpen())"
+          >
+            <span class="avatar" aria-hidden="true">{{ (auth.username() ?? '?').charAt(0).toUpperCase() }}</span>
+            <span class="user-button__name">{{ auth.username() }}</span>
+            <app-icon name="chevronDown" [size]="14" />
+          </button>
+          @if (userMenuOpen()) {
+            <div class="menu__panel" role="menu" (keydown.escape)="userMenuOpen.set(false)">
+              <p class="menu__caption">Signed in as <strong>{{ auth.username() }}</strong> · Administrator</p>
+              <button type="button" role="menuitem" class="menu__item" (click)="userMenuOpen.set(false); layout.paletteOpen.set(true)">
+                <app-icon name="keyboard" [size]="16" /> Shortcuts & search
+              </button>
+              <button type="button" role="menuitem" class="menu__item" (click)="logout()">
+                <app-icon name="logout" [size]="16" /> Sign out
+              </button>
+            </div>
+          }
+        </div>
+      </div>
+    </header>
+
+    <main id="main-content" class="main" tabindex="-1">
+      <router-outlet />
+    </main>
+  </div>
 </div>
 
 <app-upload-dialog />
+<app-command-palette (signOut)="logout()" />

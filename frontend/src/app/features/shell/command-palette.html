@@ -1,0 +1,56 @@
+<dialog #dialog class="palette" aria-label="Command palette" (cancel)="$event.preventDefault(); close()" (click)="onBackdrop($event)">
+  <div class="palette__search">
+    <app-icon name="search" [size]="18" />
+    <input
+      #input
+      type="text"
+      role="combobox"
+      aria-expanded="true"
+      aria-controls="palette-results"
+      [attr.aria-activedescendant]="'palette-item-' + activeIndex()"
+      placeholder="Search datasets, tables and actions…"
+      autocomplete="off"
+      spellcheck="false"
+      [value]="query()"
+      (input)="setQuery($any($event.target).value)"
+      (keydown)="onKeydown($event)"
+    />
+    <span class="kbd">Esc</span>
+  </div>
+
+  <div class="palette__results" id="palette-results" role="listbox" aria-label="Results">
+    @for (group of groups(); track group.name) {
+      <div class="palette__group" role="presentation">{{ group.name }}</div>
+      @for (item of group.items; track item.command.id) {
+        <button
+          type="button"
+          role="option"
+          class="palette__item"
+          [id]="'palette-item-' + item.index"
+          [attr.data-index]="item.index"
+          [attr.aria-selected]="item.index === activeIndex()"
+          (mousemove)="activeIndex.set(item.index)"
+          (click)="execute(item.command)"
+        >
+          <span class="palette__icon"><app-icon [name]="item.command.icon" [size]="16" /></span>
+          <span class="palette__label">{{ item.command.label }}</span>
+          @if (item.command.hint) {
+            <span class="palette__hint">{{ item.command.hint }}</span>
+          }
+          @if (item.command.shortcut) {
+            <span class="kbd">{{ item.command.shortcut }}</span>
+          }
+        </button>
+      }
+    } @empty {
+      <p class="palette__empty">No match for “{{ query() }}”.</p>
+    }
+  </div>
+
+  <footer class="palette__footer">
+    <span><span class="kbd">↑</span><span class="kbd">↓</span> navigate</span>
+    <span><span class="kbd">↵</span> open</span>
+    <span><span class="kbd">N</span> new analysis</span>
+    <span><span class="kbd">1</span>–<span class="kbd">4</span> switch tab</span>
+  </footer>
+</dialog>

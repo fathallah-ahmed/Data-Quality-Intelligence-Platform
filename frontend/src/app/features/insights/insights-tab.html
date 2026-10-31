@@ -1,50 +1,53 @@
 @if (tables().length === 0) {
-  <app-empty-state title="No insights yet" message="Insights appear once tables have been analysed." icon="✦" />
+  <app-empty-state title="No insights yet" message="Insights appear once tables have been analysed." icon="lightbulb" />
 } @else {
-  <section class="card">
-    <header class="card__header insights-head">
+  <section class="card intro">
+    <div class="card__heading">
+      <span class="card__icon"><app-icon name="lightbulb" /></span>
       <div>
         <h2 class="card__title">Table insights</h2>
         <p class="card__subtitle">Semantic analysis of one table at a time</p>
       </div>
+    </div>
+    <div class="intro__controls">
+      @if (selected(); as table) {
+        <app-llm-badge [status]="table.llmStatus" />
+      }
       <label class="field field--inline">
-        <span class="field__label">Table</span>
-        <select class="input input--sm" [value]="selected()?.tableName ?? ''" (change)="selectTable.emit($any($event.target).value)">
+        <span class="sr-only">Table</span>
+        <select class="input input--sm" (change)="selectTable.emit($any($event.target).value)" aria-label="Table">
           @for (table of tables(); track table.tableVersionId) {
-            <option [value]="table.tableName">{{ table.tableName }}</option>
+            <option [value]="table.tableName" [selected]="table.tableName === selected()?.tableName">{{ table.tableName }}</option>
           }
         </select>
       </label>
-    </header>
-    @if (selected(); as table) {
-      <div class="insights-meta">
-        <app-llm-badge [status]="table.llmStatus" />
-      </div>
-      @if (executiveSummary()) {
-        <p class="lead">{{ executiveSummary() }}</p>
-      }
-      @if (groups().length === 0) {
-        <p class="muted">No semantic analysis was returned for this table yet.</p>
-      }
+    </div>
+    @if (executiveSummary()) {
+      <p class="lead">{{ executiveSummary() }}</p>
+    }
+    @if (selected() && groups().length === 0) {
+      <p class="muted">No semantic analysis was returned for this table yet.</p>
     }
   </section>
 
   @for (group of groups(); track group.id; let first = $first) {
     <details class="group card" [open]="first">
       <summary class="group__summary">
-        <span>
+        <span class="group__icon"><app-icon [name]="group.icon" [size]="18" /></span>
+        <span class="group__text">
           <span class="group__title">{{ group.title }}</span>
           <span class="group__description">{{ group.description }}</span>
         </span>
         <span class="group__count">{{ group.cards.length }}</span>
+        <app-icon class="group__chevron" name="chevronDown" [size]="18" />
       </summary>
       <div class="group__cards">
         @for (card of group.cards; track $index) {
-          <article class="insight-card">
+          <article class="insight-card" [attr.data-tone]="tone(card.tag)">
             <header>
               <strong>{{ card.title }}</strong>
               @if (card.tag) {
-                <span class="chip chip--xs">{{ card.tag }}</span>
+                <span class="tag" [attr.data-tone]="tone(card.tag)">{{ card.tag }}</span>
               }
             </header>
             @if (card.text) {
@@ -62,22 +65,31 @@
   @if (portfolio().length > 0) {
     <section class="card">
       <header class="card__header">
-        <div>
-          <h2 class="card__title">Portfolio recommendations</h2>
-          <p class="card__subtitle">From the global analysis across all tables</p>
+        <div class="card__heading">
+          <span class="card__icon"><app-icon name="sparkles" /></span>
+          <div>
+            <h2 class="card__title">Portfolio recommendations</h2>
+            <p class="card__subtitle">From the global analysis across all tables</p>
+          </div>
         </div>
         <app-llm-badge [status]="details().globalAnalysis?.llmStatus" />
       </header>
-      @for (group of portfolio(); track group.id) {
-        <details class="portfolio-group">
-          <summary>{{ group.title }} <span class="group__count">{{ group.items.length }}</span></summary>
-          <ul>
-            @for (item of group.items; track $index) {
-              <li>{{ item }}</li>
-            }
-          </ul>
-        </details>
-      }
+      <div class="portfolio">
+        @for (group of portfolio(); track group.id) {
+          <details class="portfolio-group">
+            <summary>
+              <span>{{ group.title }}</span>
+              <span class="group__count">{{ group.items.length }}</span>
+              <app-icon class="group__chevron" name="chevronDown" [size]="16" />
+            </summary>
+            <ul>
+              @for (item of group.items; track $index) {
+                <li>{{ item }}</li>
+              }
+            </ul>
+          </details>
+        }
+      </div>
     </section>
   }
 }

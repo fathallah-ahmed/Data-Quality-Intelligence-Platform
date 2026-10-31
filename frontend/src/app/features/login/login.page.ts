@@ -5,10 +5,11 @@ import { Router } from '@angular/router';
 import { apiErrorMessage } from '../../core/api.service';
 import { AuthService } from '../../core/auth.service';
 import { ThemeService } from '../../core/theme.service';
+import { Icon } from '../../shared/icon';
 
 @Component({
   selector: 'app-login-page',
-  imports: [FormsModule],
+  imports: [FormsModule, Icon],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './login.page.html',
   styleUrl: './login.page.css'
