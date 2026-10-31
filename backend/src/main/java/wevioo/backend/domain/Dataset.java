@@ -28,6 +28,9 @@ public class Dataset {
     @OrderBy("versionNumber DESC")
     private List<DatasetVersion> versions = new ArrayList<>();
 
+    @OneToMany(mappedBy = "dataset", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<QualityRule> rules = new ArrayList<>();
+
     @PreUpdate
     void preUpdate() {
         updatedAt = Instant.now();
@@ -46,4 +49,5 @@ public class Dataset {
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
     public List<DatasetVersion> getVersions() { return versions; }
+    public List<QualityRule> getRules() { return rules; }
 }

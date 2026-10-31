@@ -12,6 +12,10 @@ from typing import Optional, Dict, Any, Iterable, List
 from dq_pipeline.config.settings import settings
 from dq_pipeline.models import TableAnalysisResult, GlobalAnalysisResult
 
+# Result callbacks are retried for about two minutes (2 + 4 + ... + 64 seconds of back-off), long
+# enough for the backend to restart while a run is in flight.
+CALLBACK_ATTEMPTS = 7
+
 
 class BackendClient:
     """Client for communicating with Spring Boot backend."""
@@ -54,7 +58,9 @@ class BackendClient:
         url = f"{self.backend_url}/api/pipeline/{pipeline_run_id}/table-analysis"
         payload = result.to_dict()
 
-        return self._post_with_retry(url, payload, f"table-analysis:{result.table_name}", debug)
+        return self._post_with_retry(
+            url, payload, f"table-analysis:{result.table_name}", debug, max_retries=self._callback_attempts()
+        )
 
     def post_global_analysis(
         self,
@@ -78,7 +84,7 @@ class BackendClient:
         url = f"{self.backend_url}/api/pipeline/{pipeline_run_id}/global-analysis"
         payload = result.to_dict()
 
-        return self._post_with_retry(url, payload, "global-analysis", debug)
+        return self._post_with_retry(url, payload, "global-analysis", debug, max_retries=self._callback_attempts())
 
     def post_pipeline_run_started(
         self,
@@ -151,7 +157,10 @@ class BackendClient:
             "completed_at": time.time(),
         }
 
-        return self._post_with_retry(url, payload, "pipeline-completed", debug)
+        return self._post_with_retry(url, payload, "pipeline-completed", debug, max_retries=self._callback_attempts())
+
+    def _callback_attempts(self) -> int:
+        return max(self.max_retries, CALLBACK_ATTEMPTS)
 
     def _post_with_retry(
         self,

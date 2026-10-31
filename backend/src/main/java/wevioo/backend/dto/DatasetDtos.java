@@ -12,6 +12,8 @@ public class DatasetDtos {
         Instant createdAt,
         Instant updatedAt,
         Integer versionCount,
+        /** Quality rules that failed in the latest version (0 when there are none). */
+        Integer failedRules,
         VersionSummary latestVersion
     ) {}
 
@@ -84,6 +86,8 @@ public class DatasetDtos {
         GlobalAnalysisView globalAnalysis,
         List<TableAnalysisView> tables,
         List<FailedTableView> failedTables,
-        Double qualityScore
+        Double qualityScore,
+        /** Null until the quality rules have been evaluated for this version. */
+        RuleDtos.RuleSummary ruleSummary
     ) {}
 }

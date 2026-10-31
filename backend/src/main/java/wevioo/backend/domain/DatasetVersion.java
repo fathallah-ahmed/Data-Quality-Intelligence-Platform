@@ -51,6 +51,9 @@ public class DatasetVersion {
     @OneToOne(mappedBy = "datasetVersion", cascade = CascadeType.ALL, orphanRemoval = true)
     private GlobalAnalysis globalAnalysis;
 
+    @OneToMany(mappedBy = "datasetVersion", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<RuleResult> ruleResults = new ArrayList<>();
+
     public Long getId() { return id; }
     public Dataset getDataset() { return dataset; }
     public void setDataset(Dataset dataset) { this.dataset = dataset; }
@@ -68,5 +71,6 @@ public class DatasetVersion {
     public List<TableVersion> getTableVersions() { return tableVersions; }
     public List<PipelineRun> getPipelineRuns() { return pipelineRuns; }
     public GlobalAnalysis getGlobalAnalysis() { return globalAnalysis; }
+    public List<RuleResult> getRuleResults() { return ruleResults; }
     public void setGlobalAnalysis(GlobalAnalysis globalAnalysis) { this.globalAnalysis = globalAnalysis; }
 }

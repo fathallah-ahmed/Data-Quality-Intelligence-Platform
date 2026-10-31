@@ -11,6 +11,7 @@ import wevioo.backend.config.AppProperties;
 import wevioo.backend.domain.*;
 import wevioo.backend.dto.DatasetDtos.*;
 import wevioo.backend.dto.LiveEvent;
+import wevioo.backend.dto.RuleDtos;
 import wevioo.backend.dto.UploadResponse;
 import wevioo.backend.exception.ConflictException;
 import wevioo.backend.exception.NotFoundException;
@@ -44,6 +45,7 @@ public class DatasetService {
     private final TableVersionRepository tableVersionRepository;
     private final PipelineRunRepository pipelineRunRepository;
     private final GlobalAnalysisRepository globalAnalysisRepository;
+    private final RuleResultRepository ruleResultRepository;
     private final JsonService jsonService;
     private final AirflowClient airflowClient;
     private final EventStreamService eventStreamService;
@@ -56,6 +58,7 @@ public class DatasetService {
         TableVersionRepository tableVersionRepository,
         PipelineRunRepository pipelineRunRepository,
         GlobalAnalysisRepository globalAnalysisRepository,
+        RuleResultRepository ruleResultRepository,
         JsonService jsonService,
         AirflowClient airflowClient,
         EventStreamService eventStreamService,
@@ -67,6 +70,7 @@ public class DatasetService {
         this.tableVersionRepository = tableVersionRepository;
         this.pipelineRunRepository = pipelineRunRepository;
         this.globalAnalysisRepository = globalAnalysisRepository;
+        this.ruleResultRepository = ruleResultRepository;
         this.jsonService = jsonService;
         this.airflowClient = airflowClient;
         this.eventStreamService = eventStreamService;
@@ -127,6 +131,7 @@ public class DatasetService {
                     dataset.getCreatedAt(),
                     dataset.getUpdatedAt(),
                     dataset.getVersions().size(),
+                    latest == null ? 0 : (int) ruleResultRepository.countByDatasetVersionIdAndStatus(latest.id(), RuleStatus.FAIL),
                     latest
                 );
             })
@@ -161,8 +166,14 @@ public class DatasetService {
             global,
             tables,
             failedTables(latestRun(version)),
-            QualityScores.rowWeighted(tables)
+            QualityScores.rowWeighted(tables),
+            ruleSummary(versionId)
         );
+    }
+
+    private RuleDtos.RuleSummary ruleSummary(Long versionId) {
+        List<RuleResult> results = ruleResultRepository.findByDatasetVersionIdOrderByIdAsc(versionId);
+        return results.isEmpty() ? null : RuleService.summarize(results);
     }
 
     @Transactional(readOnly = true)
@@ -291,6 +302,8 @@ public class DatasetService {
             globalAnalysisRepository.delete(version.getGlobalAnalysis());
             version.setGlobalAnalysis(null);
         }
+        // Rule outcomes belong to the run that is being replaced; they are re-evaluated at its end.
+        version.getRuleResults().clear();
         tableVersionRepository.flush();
     }
 
@@ -784,13 +797,7 @@ public class DatasetService {
     }
 
     private String toContainerPath(Path hostPath) {
-        String normalized = hostPath.toAbsolutePath().normalize().toString().replace('\\', '/');
-        String marker = "/Data_Quality_Wevioo/";
-        int markerIndex = normalized.indexOf(marker);
-        if (markerIndex >= 0) {
-            return "/opt/airflow/" + normalized.substring(markerIndex + marker.length());
-        }
-        return normalized;
+        return PipelinePaths.toContainerPath(hostPath);
     }
 
     private String stripExtension(String filename) {

@@ -8,6 +8,7 @@ import wevioo.backend.dto.LiveEvent;
 import wevioo.backend.dto.PipelineDtos.*;
 import wevioo.backend.service.EventStreamService;
 import wevioo.backend.service.PipelineIngestionService;
+import wevioo.backend.service.RuleService;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -19,15 +20,18 @@ import java.util.Map;
 public class PipelineController {
     private final PipelineIngestionService pipelineService;
     private final EventStreamService eventStreamService;
+    private final RuleService ruleService;
     private final AppProperties properties;
 
     public PipelineController(
         PipelineIngestionService pipelineService,
         EventStreamService eventStreamService,
+        RuleService ruleService,
         AppProperties properties
     ) {
         this.pipelineService = pipelineService;
         this.eventStreamService = eventStreamService;
+        this.ruleService = ruleService;
         this.properties = properties;
     }
 
@@ -77,6 +81,8 @@ public class PipelineController {
             stringValue(request, "error_message"),
             failedTables(listValue(request.get("failed_tables")))
         )));
+        // Check the user's quality rules on the finished version; failures raise an alert.
+        ruleService.evaluateForRun(runId).ifPresent(this::publish);
         return Map.of("status", "accepted");
     }
 
