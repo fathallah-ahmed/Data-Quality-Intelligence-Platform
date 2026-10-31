@@ -9,6 +9,9 @@ Backend REST de la plateforme Data Quality. Il reçoit les uploads, versionne le
 - Détection d'un upload déjà existant (noms de fichiers + SHA-256 du contenu).
 - Statuts `COMPLETED` / `PARTIAL` / `FAILED`, tables en échec et raisons exposées.
 - Watchdog qui marque `FAILED` les runs bloqués (Airflow arrêté, DAG en pause, callback perdu).
+- Reprise au démarrage (`RunRecovery`) : les runs `PENDING`/`RUNNING` sont rapprochés d'Airflow (relancés s'il les ignore, échoués s'il les donne en échec).
+- Règles qualité par dataset, évaluées à la fin de chaque run (événement live `RULES_FAILED` en cas d'échec).
+- Comparaison de deux versions (lignes, score, dérive de schéma par table).
 - Stockage des métriques table/global et interprétations LLM.
 - Déclenchement du DAG Airflow `data_quality_analysis_pipeline`.
 - Réception des callbacks Airflow.
@@ -138,6 +141,11 @@ Endpoints pipeline :
 | `GET` | `/api/datasets/{datasetId}/versions/{versionId}` | Détails d'une version (tables, `failedTables`, `qualityScore`) |
 | `GET` | `/api/datasets/{datasetId}/versions/{versionId}/tables/{tableVersionId}` | Une table avec ses métriques brutes |
 | `POST` | `/api/datasets/{datasetId}/versions/{versionId}/rerun` | Relance une version |
+| `GET` | `/api/datasets/{datasetId}/versions/{versionId}/diff` | Compare avec la version précédente (`?against=<versionId>` pour une autre) |
+| `GET` `POST` | `/api/datasets/{datasetId}/rules` | Règles qualité du dataset |
+| `PUT` `DELETE` | `/api/datasets/{datasetId}/rules/{ruleId}` | Modifier / supprimer une règle |
+| `GET` | `/api/datasets/{datasetId}/versions/{versionId}/rule-results` | Résultat des règles pour une version |
+| `POST` | `/api/datasets/{datasetId}/versions/{versionId}/rules/evaluate` | Réévaluer les règles |
 | `DELETE` | `/api/datasets/{datasetId}` | Supprime dataset, versions et artefacts |
 | `GET` | `/api/events/stream` | Flux SSE temps réel |
 | `POST` | `/api/pipeline/{runId}/start` | Callback Airflow démarrage |

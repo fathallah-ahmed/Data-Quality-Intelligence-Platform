@@ -6,9 +6,25 @@ Plateforme d'analyse de qualité de données pour des bases CSV :
 - **backend** Spring Boot : datasets et versions, authentification par jeton, API REST, événements temps réel (SSE), déclenchement et surveillance d'Airflow ;
 - **worker** Python/Airflow : profiling des tables, métriques, relations entre tables, enrichissement LLM (Ollama) et envoi progressif des résultats au backend.
 
+## Démarrage en une commande
+
+Développement sous Windows : une fenêtre par service (Ollama, Airflow, backend, frontend), puis le navigateur s'ouvre quand tout répond.
+
+```powershell
+.\start-dev.ps1
+```
+
+Tout dans Docker (Airflow, backend, frontend ; Ollama reste sur la machine) :
+
+```powershell
+docker compose --env-file Data_Quality_Wevioo/.env up --build
+```
+
+Application : `http://localhost:4200` · API : `http://localhost:8081` · Airflow : `http://localhost:8080`. Le fichier `Data_Quality_Wevioo\.env` doit exister (copie `.env.example`). Le fichier `docker-compose.yml` racine inclut celui du worker : tous les services partagent un réseau et les mêmes secrets, et le backend appelle Airflow par son nom de service.
+
 ## Démarrage rapide
 
-Ouvre **quatre** terminaux PowerShell depuis la racine du projet, dans cet ordre.
+Sans le script : ouvre **quatre** terminaux PowerShell depuis la racine du projet, dans cet ordre.
 
 ### 1. Ollama (optionnel)
 
@@ -77,6 +93,32 @@ Spring Boot -> Angular : SSE /api/events/stream (repli automatique en polling)
 4. Airflow exécute les phases visibles : validation, notification, découverte des tables, profiling, métriques + LLM, publication, analyse globale, clôture.
 5. Chaque table apparaît dès que ses métriques sont prêtes, puis est enrichie par le LLM.
 6. Le statut final est `COMPLETED`, `PARTIAL` (au moins une table en échec, avec la raison) ou `FAILED`. Un bouton **Retry** relance une version en échec ou partielle.
+7. Les règles qualité du dataset sont évaluées sur la version terminée ; un échec déclenche une alerte (toast en direct, badge dans la liste des datasets, bandeau dans la vue d'ensemble).
+
+### Onglets d'une version
+
+| Onglet | Contenu |
+| --- | --- |
+| Overview | Statut du run, score et note A–D, complétude / unicité, santé de chaque table, colonnes à revoir, insights globaux |
+| Tables | Profil d'une table : colonnes, valeurs fréquentes, valeurs manquantes, associations, insights |
+| Data model | Diagramme des tables et relations (recouvrement de valeurs) |
+| Insights | Analyse sémantique (rôles des colonnes, contrat de données, surveillance, causes, impacts) |
+| Compare | Écarts avec une version plus ancienne : score, lignes, colonnes ajoutées/supprimées, changements de type, valeurs manquantes |
+| Rules | Règles qualité du dataset et résultat pour cette version, avec des règles suggérées à partir des données |
+
+Le bouton **Report** ouvre une page imprimable de la version (Imprimer / Enregistrer en PDF, ou téléchargement Markdown).
+
+Raccourcis : `Ctrl/⌘ K` ou `/` (recherche et actions), `N` (nouvelle analyse), `1`–`6` (changer d'onglet).
+
+### Règles qualité
+
+Types : colonne sans valeur manquante, au plus X % de valeurs manquantes, valeurs uniques, au moins N lignes, au plus X % de doublons, score minimal, baisse maximale du nombre de lignes par rapport à la version précédente. Chaque règle est `WARNING` ou `CRITICAL`, peut être mise en pause, et visée sur une table (et une colonne). Elles sont évaluées à la fin de chaque run et à la demande (**Check now**).
+
+### Reprise après un redémarrage
+
+- Au démarrage, le backend interroge Airflow pour chaque run `PENDING`/`RUNNING` : un run inconnu d'Airflow est relancé (si ses fichiers sont toujours là), un run en échec côté Airflow est marqué `FAILED`, un run en cours est laissé tranquille.
+- Les callbacks du worker (tables, analyse globale, fin de run) sont retentés pendant environ deux minutes : un redémarrage du backend n'interrompt pas un run en cours.
+- Le watchdog continue de surveiller les runs bloqués.
 
 ### Statuts
 
@@ -106,6 +148,11 @@ Tous les endpoints `/api/**` (sauf login et callbacks pipeline) exigent `Authori
 | `GET` | `/api/datasets/{id}/versions/{versionId}` | Détails : tables, `failedTables`, `qualityScore`, analyse globale |
 | `GET` | `/api/datasets/{id}/versions/{versionId}/tables/{tableVersionId}` | Une table avec ses métriques brutes (valeurs fréquentes, quartiles, associations) |
 | `POST` | `/api/datasets/{id}/versions/{versionId}/rerun` | Relance l'analyse d'une version (409 si elle tourne déjà) |
+| `GET` | `/api/datasets/{id}/versions/{versionId}/diff?against=` | Écarts avec la version précédente (ou `against`) : score, lignes, schéma par table |
+| `GET` `POST` | `/api/datasets/{id}/rules` | Liste / création des règles qualité |
+| `PUT` `DELETE` | `/api/datasets/{id}/rules/{ruleId}` | Modification (pause comprise) / suppression |
+| `GET` | `/api/datasets/{id}/versions/{versionId}/rule-results` | Résultat des règles pour une version |
+| `POST` | `/api/datasets/{id}/versions/{versionId}/rules/evaluate` | Réévalue les règles sur une version |
 | `DELETE` | `/api/datasets/{id}` | Supprime le dataset et ses fichiers (409 pendant un run) |
 | `GET` | `/api/events/stream` | Flux SSE |
 | `POST` | `/api/pipeline/{runId}/start` \| `table-analysis` \| `global-analysis` \| `complete` | Callbacks Airflow (`X-Pipeline-Token`) |
@@ -117,6 +164,10 @@ Codes d'erreur : 400 requête invalide, 401 jeton absent/invalide (y compris jet
 - Les valeurs par défaut (`admin123`, `dev-pipeline-token`, `JWT_SECRET` de dev, mot de passe Airflow `admin`) sont réservées au développement : le backend affiche un **WARN** au démarrage s'il les utilise, et `STRICT_SECRETS=true` refuse de démarrer avec elles.
 - Variables à définir avant tout partage : `ADMIN_PASSWORD`, `JWT_SECRET`, `PIPELINE_API_TOKEN`, `AIRFLOW_PASSWORD` (backend) et les secrets de `Data_Quality_Wevioo\.env`.
 - Le port PostgreSQL d'Airflow n'est plus publié sur l'hôte.
+
+## Intégration continue
+
+`.github/workflows/ci.yml` exécute, à chaque push et pull request : les tests du backend (`./mvnw test`), le build et les tests du frontend, les tests Python du pipeline (avec les contraintes d'Airflow 2.10.0 / Python 3.12) et la validation du `docker-compose.yml`.
 
 ## Tests
 
