@@ -64,7 +64,16 @@ class Settings:
         self.GLOBAL_LLM_ENABLED = _env_bool("GLOBAL_LLM_ENABLED", True)
         self.GLOBAL_LLM_TEMPERATURE = _env_number("GLOBAL_LLM_TEMPERATURE", 0.2, float)
         self.GLOBAL_LLM_TOP_P = _env_number("GLOBAL_LLM_TOP_P", 0.9, float)
-        self.GLOBAL_LLM_NUM_PREDICT = _env_number("GLOBAL_LLM_NUM_PREDICT", 1800, int)
+        # The structured answers are long; a small budget truncates the JSON (or is spent on
+        # "thinking" tokens) and the whole answer is then rejected.
+        self.TABLE_LLM_NUM_PREDICT = _env_number("TABLE_LLM_NUM_PREDICT", 4096, int)
+        self.GLOBAL_LLM_NUM_PREDICT = _env_number("GLOBAL_LLM_NUM_PREDICT", 4096, int)
+        # 0 keeps the model default; the prompt plus the column evidence needs room.
+        self.LLM_NUM_CTX = _env_number("LLM_NUM_CTX", 16384, int)
+        # Reasoning models (qwen3, gemma) otherwise spend the budget thinking and answer nothing.
+        self.LLM_THINK = _env_bool("LLM_THINK", False)
+        # Read timeout of one table call; large local models need more than the old 180 s.
+        self.TABLE_LLM_TIMEOUT_SECONDS = _env_number("TABLE_LLM_TIMEOUT_SECONDS", 300, int)
         self.GLOBAL_LLM_TIMEOUT_SECONDS = _env_number("GLOBAL_LLM_TIMEOUT_SECONDS", 420, int)
 
         # Runtime

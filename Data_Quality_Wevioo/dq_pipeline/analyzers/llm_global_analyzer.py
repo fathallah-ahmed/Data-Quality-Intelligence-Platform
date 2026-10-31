@@ -29,6 +29,8 @@ def call_ollama(
     }
     if num_predict is not None:
         options["num_predict"] = num_predict
+    if settings.LLM_NUM_CTX:
+        options["num_ctx"] = settings.LLM_NUM_CTX
 
     base_url = str(ollama_url or settings.OLLAMA_URL or "http://localhost:11434").rstrip("/")
     model = model or settings.OLLAMA_MODEL
@@ -40,6 +42,7 @@ def call_ollama(
                 "prompt": prompt,
                 "stream": False,
                 "format": "json",
+                "think": bool(settings.LLM_THINK),
                 "options": options,
             },
             timeout=(20, timeout_seconds),

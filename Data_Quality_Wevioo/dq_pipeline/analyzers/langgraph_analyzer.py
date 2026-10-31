@@ -99,6 +99,10 @@ HIGH_SEVERITY_RE = re.compile(
     re.IGNORECASE,
 )
 PERCENT_RE = re.compile(r"(\d+(?:[\.,]\d+)?)\s*%")
+POSITIVE_PERCENT_RE = re.compile(
+    r"\s*(?:of\s+\w+\s+)?(?:complete|completeness|populated|filled|present|unique|distinct|valid|non[- ]?missing|non[- ]?null)",
+    re.IGNORECASE,
+)
 DANGEROUS_DROP_RE = re.compile(
     r"\b(drop|delete|remove|supprimer|effacer)\b.{0,35}\b(column|field|champ|colonne)\b|"
     r"\b(column|field|champ|colonne)\b.{0,35}\b(drop|delete|remove|supprimer|effacer)\b",
@@ -890,6 +894,37 @@ HARD RULES:
 - Do not recommend dropping ID/key columns unless the evidence shows severe missingness or parsing artifacts.
 - Return only the JSON object required by the API schema. No markdown or prose outside JSON.
 
+RESPONSE SHAPE (use exactly these keys; the semantic keys go INSIDE "semantic_analysis"):
+- interpretation: {{summary, key_entities[], relationships[]}}
+- quality_assessment: {{issues[], completeness, consistency}}
+- improvement_areas[]: {{field, issue, impact(high|medium|low), priority(int)}}
+- resolution_steps[]: {{field, issue, steps[], effort(low|medium|high)}}
+- custom_analysis: {{question, answer, reasoning, supporting_evidence[]}}
+- semantic_analysis: {{executive_summary, column_roles[{{column, role, description, business_meaning, usage_notes}}],
+  relationship_hypotheses[{{source_column, target_table, target_column, confidence, reason}}],
+  root_cause_hypotheses[{{field, hypothesis, evidence, priority}}], downstream_impacts[{{area, impact, severity}}],
+  data_contract_rules[{{field, rule, severity}}], monitoring_rules[{{field, check, threshold, cadence}}],
+  data_owner_questions[strings], use_case_readiness[{{use_case, status(ready|review|not_ready), rationale}}]}}
+
+SPECIFICITY RULES (the answer is rejected as useless if it reads like generic advice):
+- Every sentence must name at least one exact column and quote a number or observed value from the evidence
+  (row count, distinct count, min/max/mean, a top value with its share, an association score).
+- Never write filler such as "ensure data quality", "validate the data" or "monitor regularly" without saying
+  which column, which check and which threshold.
+- column_roles: one entry per column. "description" says what the column holds using its data_type, distinct_count
+  and top_values or numeric range; "business_meaning" says which decision or report uses it; "usage_notes" gives one
+  concrete check (for example "10 distinct values, 62% in 'active': treat as a status code").
+- data_contract_rules and monitoring_rules: give the column, an exact condition and a numeric threshold derived from
+  the evidence (for example "customer_id: distinct_count must equal rows (1,445)"; "phone: alert above 90% missing").
+- root_cause_hypotheses: link each one to a column with real missingness or an anomaly in the evidence, say what
+  produces it in the source system, and mark it as a hypothesis.
+- data_owner_questions: ask what only a person can answer (meaning of a code, why a column is empty, expected range),
+  naming the column and the observed fact that triggered the question.
+- use_case_readiness: name a concrete use case (join to a named table, monthly KPI, model training) and the exact
+  columns that block or allow it.
+- Answer the custom question in 2-4 sentences using exact figures; put the figures in supporting_evidence.
+- If the evidence shows nothing wrong, say so with the numbers instead of inventing a risk.
+
 TASKS:
 - Explain what the table likely represents, based on table and column names.
 - Add business context to the deterministic quality facts; do not create new metric findings.
@@ -943,7 +978,7 @@ def _validate_and_normalize_analysis(
 ) -> Tuple[Dict[str, Any], List[str], List[str]]:
     errors: List[str] = []
     warnings: List[str] = []
-    normalized = _normalize_analysis_shape(analysis, errors, warnings)
+    normalized = _normalize_analysis_shape(_lift_flat_answer(analysis), errors, warnings)
     normalized = _apply_deterministic_quality(normalized, evidence, warnings)
 
     _validate_placeholders(normalized, errors)
@@ -955,16 +990,110 @@ def _validate_and_normalize_analysis(
     return normalized, _dedupe(errors), _dedupe(warnings)
 
 
+SEMANTIC_KEYS = (
+    "column_roles",
+    "relationship_hypotheses",
+    "root_cause_hypotheses",
+    "downstream_impacts",
+    "data_contract_rules",
+    "monitoring_rules",
+    "data_owner_questions",
+    "use_case_readiness",
+)
+
+
+def _lift_flat_answer(analysis: Dict[str, Any]) -> Dict[str, Any]:
+    """Accept answers whose keys sit at the top level instead of under ``semantic_analysis``.
+
+    Hosted models often ignore the response schema and return the right content in a flatter
+    shape (``table_summary``, ``custom_answer``, ``column_roles`` ...). Re-homing it keeps the
+    specific content instead of rejecting the answer and falling back to template text.
+    """
+    lifted = dict(analysis)
+    semantic = lifted.get("semantic_analysis")
+    semantic = dict(semantic) if isinstance(semantic, dict) else {}
+
+    for key in SEMANTIC_KEYS:
+        if key in lifted:
+            value = lifted.pop(key)
+            if value and not semantic.get(key):
+                semantic[key] = value
+
+    summary = lifted.get("table_summary") or lifted.get("summary")
+    if summary and not semantic.get("executive_summary"):
+        semantic["executive_summary"] = summary
+    if summary and "interpretation" not in lifted:
+        lifted["interpretation"] = {"summary": summary, "key_entities": [], "relationships": []}
+
+    if "custom_analysis" not in lifted and lifted.get("custom_answer"):
+        lifted["custom_analysis"] = {
+            "question": "",
+            "answer": lifted.get("custom_answer"),
+            "reasoning": "",
+            "supporting_evidence": lifted.get("supporting_evidence") or [],
+        }
+
+    lifted["semantic_analysis"] = semantic
+    return lifted
+
+
+def _normalize_rule_items(value: Any, *, monitoring: bool) -> List[Dict[str, Any]]:
+    """Map the near-miss shapes models produce for contract/monitoring rules onto the schema."""
+    items = _normalize_items(value, default_field="table")
+    for item in items:
+        condition = _as_text(item.pop("condition", ""))
+        threshold = item.get("threshold")
+        if monitoring:
+            item["check"] = _as_text(item.get("check") or condition or item.get("rule"))
+            item["threshold"] = _as_text(threshold)
+            item["cadence"] = _as_text(item.get("cadence") or "Each dataset version")
+        else:
+            rule = _as_text(item.get("rule"))
+            if not rule and condition:
+                rule = f"{condition} {_as_text(threshold)}".strip()
+            item["rule"] = rule or _as_text(item.get("issue"))
+            item["severity"] = _as_text(item.get("severity") or "medium").lower()
+    return items
+
+
+def _question_texts(value: Any) -> List[str]:
+    if value is None:
+        return []
+    texts = []
+    for item in value if isinstance(value, list) else [value]:
+        if isinstance(item, dict):
+            question = _as_text(item.get("question") or item.get("text"))
+            column = _as_text(item.get("column") or item.get("field"))
+            if question:
+                texts.append(f"{column}: {question}" if column and column.lower() not in question.lower() else question)
+        elif _as_text(item):
+            texts.append(_as_text(item))
+    return texts
+
+
+def _readiness_items(value: Any) -> List[Dict[str, Any]]:
+    if isinstance(value, dict):
+        converted = []
+        for use_case, detail in value.items():
+            if isinstance(detail, dict):
+                status = _as_text(detail.get("status") or "review").lower()
+                rationale = _as_text(detail.get("rationale") or detail.get("reason"))
+            else:
+                status, rationale = "review", _as_text(detail)
+            converted.append({"use_case": str(use_case).replace("_", " "), "status": status, "rationale": rationale})
+        return converted
+    return _normalize_items(value, default_field="table")
+
+
 def _normalize_analysis_shape(
     analysis: Dict[str, Any],
     errors: List[str],
     warnings: List[str],
 ) -> Dict[str, Any]:
+    # quality_assessment, improvement_areas and resolution_steps are replaced by the
+    # deterministic metrics afterwards, so a model that omits them is not at fault.
     required = [
         "interpretation",
-        "quality_assessment",
-        "improvement_areas",
-        "resolution_steps",
         "custom_analysis",
     ]
     for key in required:
@@ -1033,10 +1162,10 @@ def _normalize_semantic_analysis(value: Dict[str, Any]) -> Dict[str, Any]:
         "relationship_hypotheses": _normalize_items(value.get("relationship_hypotheses"), default_field="table"),
         "root_cause_hypotheses": _normalize_items(value.get("root_cause_hypotheses"), default_field="table"),
         "downstream_impacts": _normalize_items(value.get("downstream_impacts"), default_field="table"),
-        "data_contract_rules": _normalize_items(value.get("data_contract_rules"), default_field="table"),
-        "monitoring_rules": _normalize_items(value.get("monitoring_rules"), default_field="table"),
-        "data_owner_questions": _as_text_list(value.get("data_owner_questions")),
-        "use_case_readiness": _normalize_items(value.get("use_case_readiness"), default_field="table"),
+        "data_contract_rules": _normalize_rule_items(value.get("data_contract_rules"), monitoring=False),
+        "monitoring_rules": _normalize_rule_items(value.get("monitoring_rules"), monitoring=True),
+        "data_owner_questions": _question_texts(value.get("data_owner_questions")),
+        "use_case_readiness": _readiness_items(value.get("use_case_readiness")),
     }
 
 
@@ -1072,6 +1201,18 @@ def _normalize_column_roles(value: Any) -> List[Dict[str, Any]]:
     return roles
 
 
+def _level(value: str) -> str:
+    """Map severity words models like to use onto the high/medium/low scale of the schema."""
+    word = value.strip().lower()
+    if word in {"critical", "severe", "major", "blocker", "urgent", "high"}:
+        return "high"
+    if word in {"minor", "info", "informational", "trivial", "low"}:
+        return "low"
+    if word in {"warning", "moderate", "med", "normal", "medium"}:
+        return "medium"
+    return word
+
+
 def _normalize_items(value: Any, default_field: str) -> List[Dict[str, Any]]:
     if value is None:
         return []
@@ -1082,6 +1223,9 @@ def _normalize_items(value: Any, default_field: str) -> List[Dict[str, Any]]:
     for index, item in enumerate(value, start=1):
         if isinstance(item, dict):
             copied = dict(item)
+            for level_key in ("impact", "severity"):
+                if isinstance(copied.get(level_key), str):
+                    copied[level_key] = _level(copied[level_key])
             copied.setdefault("field", copied.get("column") or copied.get("feature") or default_field)
             if "priority" not in copied:
                 copied["priority"] = index
@@ -1203,9 +1347,11 @@ def _validate_free_text_claims(
                     _validate_missingness_claims(text, column, errors, warnings)
                     continue
                 unresolved_candidates.append(candidate)
-            if unresolved_candidates:
-                for candidate in unresolved_candidates:
-                    errors.append(f"Unknown column reference in text at {path}: {candidate}")
+            # The sentence parser also picks up ordinary words ("There", "main risk"), so a
+            # name that is not a column is only a warning here. Invented columns in explicit
+            # ``field`` keys are still rejected by _validate_explicit_field_references.
+            for candidate in unresolved_candidates:
+                warnings.append(f"Unrecognised column reference in text at {path}: {candidate}")
             continue
 
         if MISSINGNESS_RE.search(text) and PERCENT_RE.search(text):
@@ -1320,8 +1466,11 @@ def _validate_missingness_claims(
         return
 
     actual = float(column.get("missing_percent") or 0.0)
-    for raw_percent in PERCENT_RE.findall(text):
-        claimed = _safe_float(raw_percent.replace(",", "."))
+    for match in PERCENT_RE.finditer(text):
+        # "100% complete" or "100% unique" describes the opposite of missingness.
+        if POSITIVE_PERCENT_RE.match(text[match.end():match.end() + 24]):
+            continue
+        claimed = _safe_float(match.group(1).replace(",", "."))
         if claimed is None:
             continue
         if abs(claimed - actual) > max(2.0, actual * 0.15):

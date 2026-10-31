@@ -94,7 +94,7 @@ def analyze_table_metrics(
     model: str = None,
     temperature: float = 0.2,
     top_p: float = 0.9,
-    num_predict: int = 1400,
+    num_predict: int = None,
     debug: bool = False,
     dataset_config_path: str = None,
 ) -> dict:
@@ -107,6 +107,11 @@ def analyze_table_metrics(
     """
     if sweetviz_data.get("status") == "failed":
         return {"status": "skipped", "reason": "sweetviz_failed", "llm_status": LLM_STATUS_DISABLED}
+
+    if num_predict is None:
+        from dq_pipeline.config.settings import settings
+
+        num_predict = settings.TABLE_LLM_NUM_PREDICT
 
     config = load_dataset_config(dataset_config_path)
     description, custom_question = _context_for_table(config, table_name)
@@ -151,6 +156,8 @@ def call_ollama(
     }
     if num_predict is not None:
         options["num_predict"] = num_predict
+    if settings.LLM_NUM_CTX:
+        options["num_ctx"] = settings.LLM_NUM_CTX
 
     base_url = str(ollama_url or settings.OLLAMA_URL or "http://localhost:11434").rstrip("/")
     api_url = f"{base_url}/api/generate"
@@ -161,6 +168,7 @@ def call_ollama(
         "prompt": prompt,
         "stream": False,
         "format": format_schema or "json",
+        "think": bool(settings.LLM_THINK),
         "options": options,
     }
     if system:
@@ -168,11 +176,11 @@ def call_ollama(
 
     request_start = time.monotonic()
     try:
-        response = requests.post(api_url, json=request_payload, timeout=(15, 180))
+        response = requests.post(api_url, json=request_payload, timeout=(15, settings.TABLE_LLM_TIMEOUT_SECONDS))
         if response.status_code != 200 and format_schema is not None:
             _debug_log(debug, "Structured schema format failed; retrying with plain JSON mode")
             request_payload["format"] = "json"
-            response = requests.post(api_url, json=request_payload, timeout=(15, 180))
+            response = requests.post(api_url, json=request_payload, timeout=(15, settings.TABLE_LLM_TIMEOUT_SECONDS))
     except requests.exceptions.ConnectionError as exc:
         raise LlmUnavailableError(f"Ollama is not reachable at {base_url}") from exc
     except requests.exceptions.Timeout as exc:
