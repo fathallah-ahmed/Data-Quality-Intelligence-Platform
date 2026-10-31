@@ -9,18 +9,20 @@ import { formatDuration, isActiveStatus, sourceTypeLabel } from '../../shared/fo
 import { Icon } from '../../shared/icon';
 import { DQ_PIPES } from '../../shared/pipes';
 import { ignoreShortcut } from '../../shared/keyboard';
+import { CompareTab } from '../compare/compare-tab';
 import { DataModelTab } from '../data-model/data-model-tab';
 import { InsightsTab } from '../insights/insights-tab';
 import { OverviewTab } from '../overview/overview-tab';
+import { RulesTab } from '../rules/rules-tab';
 import { TablesTab } from '../tables/tables-tab';
 
-export const VERSION_TABS = ['overview', 'tables', 'model', 'insights'] as const;
+export const VERSION_TABS = ['overview', 'tables', 'model', 'insights', 'compare', 'rules'] as const;
 export type VersionTab = (typeof VERSION_TABS)[number];
 
 /** /datasets/:datasetId/versions/:versionId/:tab?table=name — the URL holds the whole selection. */
 @Component({
   selector: 'app-version-page',
-  imports: [RouterLink, Icon, Tabs, StatusBadge, EmptyState, Skeleton, ConfirmDialog, OverviewTab, TablesTab, DataModelTab, InsightsTab, ...DQ_PIPES],
+  imports: [RouterLink, Icon, Tabs, StatusBadge, EmptyState, Skeleton, ConfirmDialog, OverviewTab, TablesTab, DataModelTab, InsightsTab, CompareTab, RulesTab, ...DQ_PIPES],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './version.page.html',
   styleUrl: './version.page.css'
@@ -37,6 +39,8 @@ export class VersionPage {
   readonly versionId = input.required<string>();
   readonly tab = input<string>('overview');
   readonly table = input<string | undefined>(undefined);
+  /** ?against=<versionId>: the older version the Compare tab uses. */
+  readonly against = input<string | undefined>(undefined);
 
   readonly now = signal(Date.now());
   readonly retrying = signal(false);
@@ -46,6 +50,8 @@ export class VersionPage {
 
   readonly activeTab = computed<VersionTab>(() => (VERSION_TABS as readonly string[]).includes(this.tab()) ? (this.tab() as VersionTab) : 'overview');
   readonly details = this.store.details;
+  readonly datasetIdNumber = computed(() => Number(this.datasetId()));
+  readonly againstId = computed(() => (this.against() ? Number(this.against()) : null));
   readonly dataset = this.store.selectedDataset;
   readonly status = computed(() => this.details()?.version.status ?? this.dataset()?.latestVersion?.status ?? null);
   readonly active = computed(() => isActiveStatus(this.status()));
@@ -70,7 +76,9 @@ export class VersionPage {
       { id: 'overview', label: 'Overview', icon: 'overview', link: [...base, 'overview'], shortcut: '1' },
       { id: 'tables', label: 'Tables', icon: 'table', link: [...base, 'tables'], count: tableCount, shortcut: '2' },
       { id: 'model', label: 'Data model', icon: 'network', link: [...base, 'model'], shortcut: '3' },
-      { id: 'insights', label: 'Insights', icon: 'lightbulb', link: [...base, 'insights'], shortcut: '4' }
+      { id: 'insights', label: 'Insights', icon: 'lightbulb', link: [...base, 'insights'], shortcut: '4' },
+      { id: 'compare', label: 'Compare', icon: 'swap', link: [...base, 'compare'], shortcut: '5' },
+      { id: 'rules', label: 'Rules', icon: 'shield', link: [...base, 'rules'], shortcut: '6' }
     ];
   });
 
@@ -130,6 +138,10 @@ export class VersionPage {
 
   selectVersion(versionId: string): void {
     this.router.navigate(['/datasets', this.datasetId(), 'versions', versionId, this.activeTab()]);
+  }
+
+  setAgainst(versionId: number): void {
+    this.router.navigate([], { queryParams: { against: versionId }, queryParamsHandling: 'merge', replaceUrl: true });
   }
 
   selectTable(name: string): void {

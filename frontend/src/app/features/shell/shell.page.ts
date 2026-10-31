@@ -1,8 +1,11 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, HostListener, OnInit, computed, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { RouterLink, RouterOutlet } from '@angular/router';
 import { AuthService } from '../../core/auth.service';
 import { LayoutService } from '../../core/layout.service';
 import { LiveEventsService } from '../../core/live-events.service';
+import { LiveEvent } from '../../core/models';
+import { ToastService } from '../../core/toast.service';
 import { ThemeService } from '../../core/theme.service';
 import { WorkspaceStore } from '../../core/workspace.store';
 import { Icon } from '../../shared/icon';
@@ -25,6 +28,7 @@ export class ShellPage implements OnInit {
   readonly live = inject(LiveEventsService);
   readonly theme = inject(ThemeService);
   private readonly store = inject(WorkspaceStore);
+  private readonly toasts = inject(ToastService);
   private readonly destroyRef = inject(DestroyRef);
   readonly userMenuOpen = signal(false);
   readonly now = signal(Date.now());
@@ -46,6 +50,7 @@ export class ShellPage implements OnInit {
   ngOnInit(): void {
     this.store.loadDatasets();
     this.live.start();
+    this.live.events.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((event) => this.onLiveEvent(event));
     const timer = setInterval(() => this.now.set(Date.now()), 30000);
     this.destroyRef.onDestroy(() => {
       // Leaving the shell means signing out (or an expired session): drop the old user's data.
@@ -53,6 +58,16 @@ export class ShellPage implements OnInit {
       this.live.stop();
       this.store.reset();
     });
+  }
+
+  /** Quality rules that fail when a run finishes raise an alert, wherever the user is. */
+  private onLiveEvent(event: LiveEvent): void {
+    if (event.type !== 'RULES_FAILED') {
+      return;
+    }
+    const name = this.store.datasets().find((dataset) => dataset.id === event.datasetId)?.name;
+    const where = name ? `${name}${event.versionNumber ? ` v${event.versionNumber}` : ''}: ` : '';
+    this.toasts.warning(`${where}${event.message ?? 'Quality rules failed.'}`);
   }
 
   /** Global shortcuts: Ctrl/⌘ K or / opens the palette, N starts a new analysis. */

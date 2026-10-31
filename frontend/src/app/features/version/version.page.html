@@ -45,6 +45,9 @@
             }
           </select>
         </label>
+        <a class="btn btn--secondary" [routerLink]="['/datasets', datasetId(), 'versions', versionId(), 'report']" title="Printable report of this version">
+          <app-icon name="file" [size]="16" /> Report
+        </a>
         <div class="menu">
           <button type="button" class="btn btn--secondary btn--icon" aria-label="Dataset actions" aria-haspopup="menu" [attr.aria-expanded]="menuOpen()" (click)="toggleMenu()">
             <app-icon name="more" [size]="20" [stroke]="2.6" />
@@ -88,6 +91,18 @@
         }
         @case ('insights') {
           <app-insights-tab [details]="details" [selected]="selectedTable()" (selectTable)="selectTable($event)" />
+        }
+        @case ('compare') {
+          <app-compare-tab
+            [datasetId]="datasetIdNumber()"
+            [details]="details"
+            [versions]="store.versions()"
+            [against]="againstId()"
+            (againstChange)="setAgainst($event)"
+          />
+        }
+        @case ('rules') {
+          <app-rules-tab [datasetId]="datasetIdNumber()" [details]="details" (rulesChanged)="store.refresh()" />
         }
       }
     } @else {

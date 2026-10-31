@@ -36,6 +36,7 @@ export class OverviewTab {
   readonly retry = output<void>();
 
   readonly active = computed(() => isActiveStatus(this.details().version.status));
+  readonly rules = computed(() => this.details().ruleSummary ?? null);
   readonly ready = computed(() => readyTables(this.details()));
   readonly expected = computed(() => Math.max(expectedTables(this.details()), this.ready().length));
   readonly rows = computed(() => totalRows(this.details()));

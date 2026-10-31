@@ -30,6 +30,23 @@
   </dl>
 </section>
 
+@if (rules(); as rules) {
+  <a class="rules-strip" [routerLink]="['../rules']" [attr.data-tone]="rules.failed === 0 ? 'success' : rules.criticalFailed > 0 ? 'danger' : 'warning'">
+    <app-icon [name]="rules.failed === 0 ? 'shield' : 'bell'" [size]="20" />
+    <span class="rules-strip__text">
+      @if (rules.failed === 0) {
+        <strong>All {{ rules.passed }} quality rules pass</strong>
+      } @else {
+        <strong>{{ rules.failed }} of {{ rules.passed + rules.failed }} quality rules fail</strong>
+        @if (rules.criticalFailed > 0) {
+          <span class="tag" data-tone="danger">{{ rules.criticalFailed }} critical</span>
+        }
+      }
+    </span>
+    <span class="rules-strip__cta">Open rules <app-icon name="arrowRight" [size]="14" /></span>
+  </a>
+}
+
 @if (details().tables.length === 0) {
   @if (active()) {
     <app-empty-state compact title="No table results yet" message="Metrics appear here as soon as the first table has been profiled." icon="clock" />

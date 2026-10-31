@@ -38,6 +38,9 @@ Les URLs sont dans `src/environments/` :
 | `.../tables?table=orders` | Liste des tables + détail (colonnes, valeurs fréquentes, valeurs manquantes, associations, insights) |
 | `.../model` | Modèle de données (zoom, déplacement, export SVG, relations avec couverture) |
 | `.../insights?table=orders` | Analyse sémantique par groupes repliables + recommandations globales |
+| `.../compare?against=<versionId>` | Écarts avec une version plus ancienne (score, lignes, colonnes, valeurs manquantes) |
+| `.../rules` | Règles qualité du dataset, résultat pour la version, règles suggérées |
+| `.../report` | Rapport imprimable de la version (PDF via l'impression, ou Markdown) |
 
 L'URL contient toute la sélection : un lien partagé ou un rafraîchissement rouvre le même dataset, la même version, le même onglet et la même table.
 
@@ -46,7 +49,7 @@ L'URL contient toute la sélection : un lien partagé ou un rafraîchissement ro
 | Dossier | Rôle |
 | --- | --- |
 | `src/app/core` | `ApiService` (tous les appels HTTP), `AuthService` + guard + intercepteur (jeton, 401), `LiveEventsService` (SSE puis polling), `WorkspaceStore` (état partagé en signals), thème, toasts |
-| `src/app/features` | Écrans : `login`, `shell` (barre du haut, panneau latéral), `datasets`, `version`, `overview`, `tables`, `data-model`, `insights`, `upload` |
+| `src/app/features` | Écrans : `login`, `shell` (barre du haut, panneau latéral, palette de commandes), `datasets`, `version`, `overview`, `tables`, `data-model`, `insights`, `compare`, `rules`, `report`, `upload` |
 | `src/app/shared` | Formatage (`format.ts`), lecture des réponses LLM (`insight.ts`), pipes, composants communs (badges, état vide, modal, confirmation, onglets, toasts, skeleton, info-bulle) |
 | `src/styles.css` | Design system : variables (couleurs, espacements, rayons, ombres), thème sombre, boutons, badges, cartes, tableaux, formulaires |
 

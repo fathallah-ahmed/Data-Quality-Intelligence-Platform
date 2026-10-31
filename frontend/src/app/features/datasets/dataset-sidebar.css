@@ -231,3 +231,17 @@
 :host(.collapsed) .item--active::before {
   left: -14px;
 }
+
+.item__alert {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 7px;
+  border-radius: var(--radius-pill);
+  background: rgb(240 116 104 / 18%);
+  color: #ff9d92;
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}

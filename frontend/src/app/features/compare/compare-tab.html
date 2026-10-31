@@ -1,0 +1,153 @@
+@if (firstVersion()) {
+  <app-empty-state
+    title="This is the first version"
+    message="Upload new files under the same dataset name to create version 2, then compare the two here."
+    icon="swap"
+  />
+} @else {
+  <section class="card picker">
+    <div class="card__heading">
+      <span class="card__icon"><app-icon name="swap" /></span>
+      <div>
+        <h2 class="card__title">Compare versions</h2>
+        <p class="card__subtitle">What changed between an older version and version {{ details().version.versionNumber }}</p>
+      </div>
+    </div>
+    <label class="field field--inline">
+      <span class="field__label">Compare with</span>
+      <select class="input input--sm" aria-label="Compare with" (change)="select($any($event.target).value)">
+        @for (version of olderVersions(); track version.id) {
+          <option [value]="version.id" [selected]="version.id === selectedAgainst()">Version {{ version.versionNumber }} · {{ when(version) }}</option>
+        }
+      </select>
+    </label>
+  </section>
+
+  @if (error()) {
+    <app-empty-state title="Nothing to compare" [message]="error() ?? ''" icon="alert" />
+  } @else if (diff(); as diff) {
+    <section class="card hero" [class.hero--loading]="loading()" aria-label="Summary of the changes">
+      <div class="hero__scores">
+        <div class="score">
+          <app-score-ring [value]="diff.scoreFrom" [size]="88" [stroke]="11" [showGrade]="true" />
+          <span class="score__caption">Version {{ diff.from.versionNumber }}</span>
+        </div>
+        <div class="hero__delta" [attr.data-tone]="scoreDelta().tone">
+          <app-icon [name]="scoreDelta().direction === 'up' ? 'arrowUp' : scoreDelta().direction === 'down' ? 'arrowDown' : 'minus'" [size]="22" [stroke]="2.4" />
+          <strong>{{ scoreDelta().text }}</strong>
+          <span>quality score</span>
+        </div>
+        <div class="score">
+          <app-score-ring [value]="diff.scoreTo" [size]="88" [stroke]="11" [showGrade]="true" />
+          <span class="score__caption">Version {{ diff.to.versionNumber }}</span>
+        </div>
+      </div>
+      <dl class="hero__facts">
+        <div>
+          <dt>Rows</dt>
+          <dd>{{ diff.rowsFrom | dqNumber }} <app-icon name="arrowRight" [size]="14" /> {{ diff.rowsTo | dqNumber }}
+            <span class="delta" [attr.data-tone]="rowsDelta().tone">{{ rowsDelta().text }}</span></dd>
+        </div>
+        <div>
+          <dt>Tables</dt>
+          <dd>{{ headline() }}</dd>
+        </div>
+        <div>
+          <dt>Grade</dt>
+          <dd>{{ gradeFrom() }} <app-icon name="arrowRight" [size]="14" /> {{ gradeTo() }}</dd>
+        </div>
+      </dl>
+    </section>
+
+    @if (changed().length === 0) {
+      <app-empty-state compact title="No differences" message="Every table has the same values, schema and metrics in both versions." icon="checkCircle" />
+    }
+
+    @for (row of changed(); track row.diff.tableName) {
+      <article class="card table-diff" [attr.data-change]="row.diff.change">
+        <header class="table-diff__head">
+          <h3>{{ row.diff.tableName }}</h3>
+          <span class="badge" [attr.data-tone]="row.diff.change === 'ADDED' ? 'info' : row.diff.change === 'REMOVED' ? 'danger' : 'warning'">
+            {{ row.diff.change === 'ADDED' ? 'Added' : row.diff.change === 'REMOVED' ? 'Removed' : 'Changed' }}
+          </span>
+          @if (row.valuesOnly) {
+            <span class="badge" data-tone="warning">Values edited</span>
+          }
+        </header>
+
+        <dl class="metrics">
+          @for (item of row.metrics; track item.label) {
+            @if (item.from !== '–' || item.to !== '–') {
+              <div class="metric">
+                <dt>{{ item.label }}</dt>
+                <dd>
+                  <span class="metric__values">{{ item.from }} <app-icon name="arrowRight" [size]="12" /> {{ item.to }}</span>
+                  <span class="delta" [attr.data-tone]="item.delta.tone" [attr.title]="item.delta.percent === null ? null : percent(item.delta.percent)">{{ item.delta.text }}</span>
+                </dd>
+              </div>
+            }
+          }
+        </dl>
+
+        @if (row.hasDetail) {
+          <details class="table-diff__detail">
+            <summary>
+              Schema and missing-value changes
+              <app-icon name="chevronDown" [size]="16" />
+            </summary>
+            <div class="detail-grid">
+              @if (row.diff.columnsAdded.length) {
+                <div>
+                  <h4>New columns</h4>
+                  <div class="chip-list">@for (column of row.diff.columnsAdded; track column) {<span class="chip" data-tone="info"><app-icon name="plus" [size]="12" /><span class="mono">{{ column }}</span></span>}</div>
+                </div>
+              }
+              @if (row.diff.columnsRemoved.length) {
+                <div>
+                  <h4>Removed columns</h4>
+                  <div class="chip-list">@for (column of row.diff.columnsRemoved; track column) {<span class="chip" data-tone="danger"><app-icon name="minus" [size]="12" /><span class="mono">{{ column }}</span></span>}</div>
+                </div>
+              }
+              @if (row.diff.typeChanges.length) {
+                <div>
+                  <h4>Type changes</h4>
+                  <ul class="plain">
+                    @for (change of row.diff.typeChanges; track change.column) {
+                      <li><span class="mono">{{ change.column }}</span> <span class="muted">{{ change.from }} → {{ change.to }}</span></li>
+                    }
+                  </ul>
+                </div>
+              }
+              @if (row.diff.missingShifts.length) {
+                <div>
+                  <h4>Missing values</h4>
+                  <ul class="plain">
+                    @for (shift of row.diff.missingShifts; track shift.column) {
+                      <li>
+                        <span class="mono">{{ shift.column }}</span>
+                        <span class="muted">{{ shift.from | dqPercent }} → {{ shift.to | dqPercent }}</span>
+                        <span class="delta" [attr.data-tone]="shift.delta > 0 ? 'danger' : 'success'">{{ shift.delta > 0 ? '+' : '−' }}{{ shift.delta < 0 ? -shift.delta : shift.delta | dqPercent }}</span>
+                      </li>
+                    }
+                  </ul>
+                </div>
+              }
+            </div>
+          </details>
+        }
+      </article>
+    }
+
+    @if (unchanged().length > 0) {
+      <details class="card unchanged">
+        <summary>
+          <span><app-icon name="checkCircle" [size]="16" /> {{ unchanged().length }} unchanged {{ unchanged().length === 1 ? 'table' : 'tables' }}</span>
+          <app-icon name="chevronDown" [size]="16" />
+        </summary>
+        <div class="chip-list">@for (name of unchanged(); track name) {<span class="chip">{{ name }}</span>}</div>
+      </details>
+    }
+  } @else {
+    <div class="card"><app-skeleton [count]="4" [height]="20" /></div>
+  }
+}

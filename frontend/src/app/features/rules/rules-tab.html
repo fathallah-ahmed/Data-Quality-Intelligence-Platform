@@ -1,0 +1,198 @@
+@if (error()) {
+  <app-empty-state title="Rules could not be loaded" [message]="error() ?? ''" icon="alert">
+    <button type="button" class="btn btn--secondary" (click)="load()"><app-icon name="refresh" [size]="16" /> Try again</button>
+  </app-empty-state>
+} @else {
+  <!-- Verdict for this version -->
+  <section class="card verdict" aria-labelledby="verdict-title">
+    <header class="card__header">
+      <div class="card__heading">
+        <span class="card__icon"><app-icon name="shield" /></span>
+        <div>
+          <h2 class="card__title" id="verdict-title">Quality rules</h2>
+          <p class="card__subtitle">Checks every version of this dataset must pass. They run when an analysis finishes and raise an alert when one fails.</p>
+        </div>
+      </div>
+      @if (rules().length > 0) {
+        <button type="button" class="btn btn--secondary btn--sm" [disabled]="busy()" (click)="recheck()"><app-icon name="refresh" [size]="15" /> Check now</button>
+      }
+    </header>
+
+    @if (loading() && !results()) {
+      <app-skeleton [count]="3" [height]="20" />
+    } @else if (rules().length === 0) {
+      <p class="muted">No rules yet. Add one below, or start from the suggestions made from how your data looks today.</p>
+    } @else if (notChecked()) {
+      <div class="callout" data-tone="info"><app-icon name="info" /><span>These rules have not been checked against this version yet. Use <strong>Check now</strong>.</span></div>
+    } @else if (results(); as results) {
+      <div class="summary" [attr.data-tone]="results.summary.failed === 0 ? 'success' : results.summary.criticalFailed > 0 ? 'danger' : 'warning'">
+        <div class="summary__headline">
+          <app-icon [name]="results.summary.failed === 0 ? 'checkCircle' : 'alert'" [size]="22" />
+          <strong>
+            @if (results.summary.failed === 0) {
+              All {{ results.summary.passed }} checked rule(s) pass
+            } @else {
+              {{ results.summary.failed }} of {{ results.summary.passed + results.summary.failed }} rule(s) fail
+              @if (results.summary.criticalFailed > 0) {
+                <span class="tag" data-tone="danger">{{ results.summary.criticalFailed }} critical</span>
+              }
+            }
+          </strong>
+        </div>
+        <span class="meter"><span [style.width.%]="passShare()"></span></span>
+        <div class="summary__counts">
+          <span><b>{{ results.summary.passed }}</b> passed</span>
+          <span><b>{{ results.summary.failed }}</b> failed</span>
+          <span><b>{{ results.summary.skipped }}</b> skipped</span>
+        </div>
+      </div>
+
+      <ul class="results">
+        @for (result of sortedResults(); track result.ruleId) {
+          <li class="result" [attr.data-status]="result.status">
+            <span class="result__icon" aria-hidden="true">
+              <app-icon [name]="result.status === 'PASS' ? 'checkCircle' : result.status === 'FAIL' ? 'xCircle' : 'minus'" [size]="20" />
+            </span>
+            <span class="result__body">
+              <span class="result__title">{{ result.description }}</span>
+              <span class="result__message">{{ result.message }}</span>
+            </span>
+            @if (result.status === 'FAIL') {
+              <span class="tag" [attr.data-tone]="result.severity === 'CRITICAL' ? 'danger' : 'warning'">{{ result.severity.toLowerCase() }}</span>
+            } @else if (result.status === 'SKIPPED') {
+              <span class="tag">skipped</span>
+            }
+          </li>
+        }
+      </ul>
+    }
+  </section>
+
+  <div class="columns">
+    <!-- New rule -->
+    <section class="card" aria-labelledby="new-rule-title">
+      <header class="card__header">
+        <div class="card__heading">
+          <span class="card__icon"><app-icon name="plus" /></span>
+          <h2 class="card__title" id="new-rule-title">New rule</h2>
+        </div>
+      </header>
+      <form class="form" (submit)="$event.preventDefault(); submit()">
+        <label class="field">
+          <span class="field__label">What to check</span>
+          <select class="input" [value]="formType()" (change)="setType($any($event.target).value)">
+            @for (type of ruleTypes; track type.type) {
+              <option [value]="type.type" [selected]="type.type === formType()">{{ type.label }}</option>
+            }
+          </select>
+          <span class="field__hint">{{ typeInfo().help }}</span>
+        </label>
+        <div class="form__row">
+          <label class="field">
+            <span class="field__label">Table</span>
+            <select class="input" (change)="formTable.set($any($event.target).value)">
+              @for (name of tableNames(); track name) {
+                <option [value]="name" [selected]="name === table()">{{ name }}</option>
+              }
+            </select>
+          </label>
+          @if (typeInfo().needsColumn) {
+            <label class="field">
+              <span class="field__label">Column</span>
+              <select class="input" (change)="formColumn.set($any($event.target).value)">
+                @for (name of columns(); track name) {
+                  <option [value]="name" [selected]="name === column()">{{ name }}</option>
+                }
+              </select>
+            </label>
+          }
+          @if (typeInfo().needsThreshold) {
+            <label class="field field--short">
+              <span class="field__label">Limit @if (typeInfo().unit) {<span class="muted">({{ typeInfo().unit }})</span>}</span>
+              <input class="input" type="number" min="0" step="any" [value]="threshold() ?? ''" (input)="formThreshold.set($any($event.target).value === '' ? null : +$any($event.target).value)" />
+            </label>
+          }
+          <label class="field field--short">
+            <span class="field__label">Severity</span>
+            <select class="input" (change)="formSeverity.set($any($event.target).value)">
+              <option value="WARNING" [selected]="formSeverity() === 'WARNING'">Warning</option>
+              <option value="CRITICAL" [selected]="formSeverity() === 'CRITICAL'">Critical</option>
+            </select>
+          </label>
+        </div>
+        <p class="preview"><app-icon name="shield" [size]="15" /> <span>{{ preview() }}</span></p>
+        <button type="submit" class="btn btn--primary" [disabled]="!canAdd()"><app-icon name="plus" [size]="16" /> Add rule</button>
+      </form>
+    </section>
+
+    <!-- Suggestions -->
+    <section class="card" aria-labelledby="suggest-title">
+      <header class="card__header">
+        <div class="card__heading">
+          <span class="card__icon"><app-icon name="sparkles" /></span>
+          <div>
+            <h2 class="card__title" id="suggest-title">Suggested rules</h2>
+            <p class="card__subtitle">Based on how this version looks today</p>
+          </div>
+        </div>
+        @if (suggestions().length > 1) {
+          <button type="button" class="btn btn--secondary btn--sm" [disabled]="busy()" (click)="addAllSuggestions()">Add all {{ suggestions().length }}</button>
+        }
+      </header>
+      @if (suggestions().length === 0) {
+        <p class="muted">Nothing more to suggest: the obvious rules already exist.</p>
+      } @else {
+        <ul class="suggestions">
+          @for (rule of suggestions(); track rule.type + rule.tableName + (rule.columnName ?? '')) {
+            <li>
+              <span class="suggestions__text">{{ describe(rule) }}</span>
+              @if (rule.severity === 'CRITICAL') {
+                <span class="tag" data-tone="danger">critical</span>
+              }
+              <button type="button" class="btn btn--ghost btn--sm btn--icon" [disabled]="busy()" (click)="addSuggestion(rule)" [attr.aria-label]="'Add rule: ' + describe(rule)"><app-icon name="plus" [size]="16" /></button>
+            </li>
+          }
+        </ul>
+      }
+    </section>
+  </div>
+
+  <!-- Existing rules -->
+  @if (rules().length > 0) {
+    <section class="card" aria-labelledby="rules-title">
+      <header class="card__header">
+        <div class="card__heading">
+          <span class="card__icon"><app-icon name="list" /></span>
+          <div>
+            <h2 class="card__title" id="rules-title">All rules</h2>
+            <p class="card__subtitle">{{ rules().length }} rule(s), {{ enabledCount() }} enabled</p>
+          </div>
+        </div>
+      </header>
+      <ul class="rule-list">
+        @for (rule of rules(); track rule.id) {
+          <li class="rule" [class.rule--paused]="!rule.enabled">
+            <span class="rule__text">
+              <span class="rule__title">{{ rule.description }}</span>
+              <span class="rule__meta">{{ rule.type.toLowerCase().replaceAll('_', ' ') }}</span>
+            </span>
+            <span class="tag" [attr.data-tone]="rule.severity === 'CRITICAL' ? 'danger' : 'warning'">{{ rule.severity.toLowerCase() }}</span>
+            <button type="button" class="btn btn--ghost btn--sm" [disabled]="busy()" [attr.aria-pressed]="rule.enabled" (click)="toggle(rule)">{{ rule.enabled ? 'Pause' : 'Enable' }}</button>
+            <button type="button" class="btn btn--ghost btn--sm btn--icon" [disabled]="busy()" (click)="ruleToDelete.set(rule)" [attr.aria-label]="'Delete rule: ' + rule.description"><app-icon name="trash" [size]="16" /></button>
+          </li>
+        }
+      </ul>
+    </section>
+  }
+}
+
+<app-confirm-dialog
+  [open]="!!ruleToDelete()"
+  title="Delete rule"
+  [message]="'Delete “' + (ruleToDelete()?.description ?? '') + '”? Its results are removed too.'"
+  confirmText="Delete rule"
+  [danger]="true"
+  [busy]="busy()"
+  (confirmed)="confirmDelete()"
+  (cancelled)="ruleToDelete.set(null)"
+/>

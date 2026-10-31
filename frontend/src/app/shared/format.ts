@@ -259,3 +259,38 @@ export function typeIcon(label: string): 'hash' | 'calendar' | 'boolean' | 'text
       return 'text';
   }
 }
+
+export type DeltaPolarity = 'higher-is-better' | 'lower-is-better' | 'neutral';
+
+export interface Delta {
+  /** "+2", "−1,200", "no change" */
+  text: string;
+  /** Colour for the change: good, bad or neutral given what the number means. */
+  tone: Tone;
+  direction: 'up' | 'down' | 'flat';
+  /** Relative change in percent (null when the starting value is 0 or unknown). */
+  percent: number | null;
+}
+
+/** How a number changed between two versions, worded and coloured for its polarity. */
+export function deltaInfo(from: number | null | undefined, to: number | null | undefined, polarity: DeltaPolarity = 'neutral', digits = 0): Delta {
+  if (!isNumber(from) || !isNumber(to)) {
+    return { text: '–', tone: 'neutral', direction: 'flat', percent: null };
+  }
+  const change = to - from;
+  const rounded = Number(change.toFixed(digits));
+  if (rounded === 0) {
+    return { text: 'no change', tone: 'neutral', direction: 'flat', percent: 0 };
+  }
+  const direction = change > 0 ? 'up' : 'down';
+  const tone: Tone = polarity === 'neutral'
+    ? 'info'
+    : (change > 0) === (polarity === 'higher-is-better') ? 'success' : 'danger';
+  const magnitude = Math.abs(rounded).toLocaleString('en-US', { minimumFractionDigits: digits, maximumFractionDigits: digits });
+  return {
+    text: `${change > 0 ? '+' : '−'}${magnitude}`,
+    tone,
+    direction,
+    percent: from === 0 ? null : (change / Math.abs(from)) * 100
+  };
+}

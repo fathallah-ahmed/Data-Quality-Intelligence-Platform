@@ -23,6 +23,10 @@ export const routes: Routes = [
       },
       { path: 'datasets/:datasetId/versions/:versionId', pathMatch: 'full', redirectTo: 'datasets/:datasetId/versions/:versionId/overview' },
       {
+        path: 'datasets/:datasetId/versions/:versionId/report',
+        loadComponent: () => import('./features/report/report.page').then((m) => m.ReportPage)
+      },
+      {
         path: 'datasets/:datasetId/versions/:versionId/:tab',
         loadComponent: () => import('./features/version/version.page').then((m) => m.VersionPage)
       }

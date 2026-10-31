@@ -6,10 +6,14 @@ import {
   AuthMe,
   DatasetSummary,
   LoginResponse,
+  RuleRequest,
+  RuleResults,
+  RuleView,
   TableAnalysisView,
   UploadRequest,
   UploadResponse,
   VersionDetails,
+  VersionDiff,
   VersionSummary
 } from './models';
 
@@ -65,6 +69,38 @@ export class ApiService {
     return this.http.post<UploadResponse>(`${this.base}/datasets/upload`, form, {
       params: { rerunExisting: String(rerunExisting) }
     });
+  }
+
+  /** Compare a version with an older one (the previous version unless `against` is given). */
+  diff(datasetId: number, versionId: number, against?: number | null): Observable<VersionDiff> {
+    return this.http.get<VersionDiff>(`${this.base}/datasets/${datasetId}/versions/${versionId}/diff`, {
+      params: against ? { against: String(against) } : {}
+    });
+  }
+
+  rules(datasetId: number): Observable<RuleView[]> {
+    return this.http.get<RuleView[]>(`${this.base}/datasets/${datasetId}/rules`);
+  }
+
+  createRule(datasetId: number, rule: RuleRequest): Observable<RuleView> {
+    return this.http.post<RuleView>(`${this.base}/datasets/${datasetId}/rules`, rule);
+  }
+
+  updateRule(datasetId: number, ruleId: number, rule: RuleRequest): Observable<RuleView> {
+    return this.http.put<RuleView>(`${this.base}/datasets/${datasetId}/rules/${ruleId}`, rule);
+  }
+
+  deleteRule(datasetId: number, ruleId: number): Observable<{ status: string }> {
+    return this.http.delete<{ status: string }>(`${this.base}/datasets/${datasetId}/rules/${ruleId}`);
+  }
+
+  ruleResults(datasetId: number, versionId: number): Observable<RuleResults> {
+    return this.http.get<RuleResults>(`${this.base}/datasets/${datasetId}/versions/${versionId}/rule-results`);
+  }
+
+  /** Check the rules against a version (after adding or editing a rule). */
+  evaluateRules(datasetId: number, versionId: number): Observable<RuleResults> {
+    return this.http.post<RuleResults>(`${this.base}/datasets/${datasetId}/versions/${versionId}/rules/evaluate`, null);
   }
 
   rerun(datasetId: number, versionId: number): Observable<UploadResponse> {

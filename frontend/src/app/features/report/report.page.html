@@ -1,0 +1,119 @@
+<div class="toolbar no-print">
+  <a class="btn btn--ghost" [routerLink]="['/datasets', datasetId(), 'versions', versionId(), 'overview']"><app-icon name="chevronLeft" [size]="16" /> Back to the dataset</a>
+  <div class="toolbar__actions">
+    <button type="button" class="btn btn--secondary" [disabled]="!report()" (click)="downloadMarkdown()"><app-icon name="download" [size]="16" /> Markdown</button>
+    <button type="button" class="btn btn--primary" [disabled]="!report()" (click)="print()"><app-icon name="printer" [size]="16" /> Print / Save as PDF</button>
+  </div>
+</div>
+
+@if (store.detailsError()) {
+  <app-empty-state title="This report could not be built" [message]="store.detailsError() ?? ''" icon="alert" />
+} @else if (report(); as report) {
+  <article class="paper">
+    <header class="paper__head">
+      <div>
+        <p class="eyebrow">Data quality report</p>
+        <h1>{{ report.datasetName }}</h1>
+        <p class="muted">Version {{ report.versionNumber }} · {{ report.status }} · generated {{ report.generatedAt.toLocaleString() }}</p>
+      </div>
+      <div class="paper__score" [attr.data-tone]="tone()">
+        <app-score-ring [value]="store.details()?.qualityScore" [size]="104" [stroke]="10" [showGrade]="true" />
+        <div>
+          <strong>{{ report.score }}<small> / 100</small></strong>
+          <span>{{ report.gradeLabel }}</span>
+        </div>
+      </div>
+    </header>
+
+    @if (report.runIssue) {
+      <div class="callout" data-tone="warning"><app-icon name="alert" /><span><strong>The run finished with issues.</strong> {{ report.runIssue }}</span></div>
+    }
+
+    <section>
+      <h2>Summary</h2>
+      <dl class="facts">
+        @for (stat of report.stats; track stat.label) {
+          <div><dt>{{ stat.label }}</dt><dd>{{ stat.value }}</dd></div>
+        }
+        @for (dimension of report.dimensions; track dimension.label) {
+          <div><dt>{{ dimension.label }}</dt><dd>{{ dimension.value }}</dd></div>
+        }
+      </dl>
+    </section>
+
+    @if (report.changes; as changes) {
+      <section>
+        <h2>{{ changes.heading }}</h2>
+        <ul>@for (line of changes.lines; track $index) {<li>{{ line }}</li>}</ul>
+      </section>
+    }
+
+    <section>
+      <h2>Table health</h2>
+      <table class="data-table report-table">
+        <thead>
+          <tr><th scope="col">Table</th><th scope="col" class="num">Score</th><th scope="col" class="num">Rows</th><th scope="col" class="num">Columns</th><th scope="col" class="num">Missing</th><th scope="col" class="num">Duplicates</th><th scope="col">Change</th></tr>
+        </thead>
+        <tbody>
+          @for (table of report.tables; track table.name) {
+            <tr>
+              <th scope="row">{{ table.name }}</th>
+              <td class="num">{{ table.score }}</td>
+              <td class="num">{{ table.rows }}</td>
+              <td class="num">{{ table.columns }}</td>
+              <td class="num">{{ table.missing }}</td>
+              <td class="num">{{ table.duplicates }}</td>
+              <td>{{ table.change }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </section>
+
+    @if (report.failedTables.length > 0) {
+      <section>
+        <h2>Tables that could not be analysed</h2>
+        <ul>@for (item of report.failedTables; track item.tableName) {<li><code>{{ item.tableName }}</code>: {{ item.error }}</li>}</ul>
+      </section>
+    }
+
+    @if (report.review.length > 0) {
+      <section>
+        <h2>Columns to review</h2>
+        <ul>@for (item of report.review; track item.column) {<li><code>{{ item.column }}</code>: {{ item.missing }} missing</li>}</ul>
+      </section>
+    }
+
+    @if (report.rules; as rules) {
+      <section>
+        <h2>Quality rules</h2>
+        <p>{{ rules.summary }}</p>
+        @if (rules.failing.length > 0) {
+          <ul>
+            @for (result of rules.failing; track result.ruleId) {
+              <li><span class="tag" [attr.data-tone]="result.severity === 'CRITICAL' ? 'danger' : 'warning'">{{ result.severity.toLowerCase() }}</span> {{ result.description }}@if (result.message) {: {{ result.message }}}</li>
+            }
+          </ul>
+        }
+      </section>
+    }
+
+    <section>
+      <h2>Insights</h2>
+      @for (insight of report.insights; track insight.heading) {
+        <p><strong>{{ insight.heading }}.</strong> {{ insight.text }}</p>
+      }
+    </section>
+
+    @if (report.notes.length > 0) {
+      <section>
+        <h2>Table notes</h2>
+        @for (note of report.notes; track note.table) {
+          <p><strong>{{ note.table }}.</strong> {{ note.text }}</p>
+        }
+      </section>
+    }
+  </article>
+} @else {
+  <div class="card" aria-busy="true"><app-skeleton [count]="6" [height]="20" /></div>
+}

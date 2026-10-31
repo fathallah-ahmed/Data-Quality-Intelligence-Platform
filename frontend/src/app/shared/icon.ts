@@ -56,7 +56,14 @@ export const ICONS = {
   x: ['M18 6 6 18', 'm6 6 12 12'],
   xCircle: [c(12, 12, 10), 'm15 9-6 6', 'm9 9 6 6'],
   zoomIn: [c(11, 11, 8), 'm21 21-4.3-4.3', 'M11 8v6', 'M8 11h6'],
-  zoomOut: [c(11, 11, 8), 'm21 21-4.3-4.3', 'M8 11h6']
+  zoomOut: [c(11, 11, 8), 'm21 21-4.3-4.3', 'M8 11h6'],
+  arrowUp: ['M12 19V5', 'm5 12 7-7 7 7'],
+  arrowDown: ['M12 5v14', 'm19 12-7 7-7-7'],
+  bell: ['M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9', 'M10.3 21a1.94 1.94 0 0 0 3.4 0'],
+  minus: ['M5 12h14'],
+  printer: ['M6 9V2h12v7', 'M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2', 'M6 14h12v8H6z'],
+  shield: ['M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z', 'm9 12 2 2 4-4'],
+  swap: ['m16 3 4 4-4 4', 'M20 7H4', 'm8 21-4-4 4-4', 'M4 17h16']
 } as const satisfies Record<string, readonly string[]>;
 
 export type IconName = keyof typeof ICONS;

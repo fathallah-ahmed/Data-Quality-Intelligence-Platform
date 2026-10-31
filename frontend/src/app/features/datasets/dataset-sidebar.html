@@ -43,6 +43,11 @@
               <span [attr.title]="dataset.updatedAt | absoluteTime">{{ dataset.updatedAt | relativeTime: now() }}</span>
             </span>
           </span>
+          @if (dataset.failedRules) {
+            <span class="item__alert" [attr.title]="dataset.failedRules + ' quality rule(s) failing in the latest version'">
+              <app-icon name="bell" [size]="12" />{{ dataset.failedRules }}
+            </span>
+          }
           @if (dataset.latestVersion?.status !== 'COMPLETED') {
             <span class="item__status" [attr.data-tone]="tone(dataset)">{{ statusText(dataset) }}</span>
           }

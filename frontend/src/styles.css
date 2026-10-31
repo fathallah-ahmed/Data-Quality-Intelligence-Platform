@@ -1259,3 +1259,54 @@ a.bars__label:hover {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ---------------------------------------------------------------- print (the report page) */
+
+@media print {
+  :root {
+    color-scheme: light;
+  }
+
+  body {
+    background: #fff;
+    color: #111;
+  }
+
+  .sidebar,
+  .topbar,
+  .no-print,
+  .drawer-backdrop,
+  .skip-link,
+  .toasts {
+    display: none !important;
+  }
+
+  .app {
+    display: block !important;
+  }
+
+  .main {
+    max-width: none !important;
+    padding: 0 !important;
+  }
+
+  .card,
+  .paper {
+    box-shadow: none !important;
+  }
+
+  .paper {
+    max-width: none !important;
+    padding: 0 !important;
+    border: 0 !important;
+  }
+
+  section,
+  tr {
+    break-inside: avoid;
+  }
+
+  a {
+    color: inherit;
+  }
+}
