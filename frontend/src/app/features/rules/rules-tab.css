@@ -24,6 +24,14 @@
   background: color-mix(in srgb, var(--tone-fg) 7%, var(--surface));
 }
 
+.summary[data-tone='warning'] {
+  --tone-fg: var(--warning);
+}
+
+.summary[data-tone='danger'] {
+  --tone-fg: var(--danger);
+}
+
 .summary__headline {
   display: flex;
   flex-wrap: wrap;
@@ -40,7 +48,7 @@
 }
 
 .summary .meter > span {
-  background: var(--success);
+  background: var(--tone-fg);
 }
 
 .summary__counts {
