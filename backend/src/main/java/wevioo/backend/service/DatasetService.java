@@ -109,7 +109,7 @@ public class DatasetService {
             if (isActive(version.getStatus())) {
                 throw new ConflictException("Version " + version.getVersionNumber() + " is already running");
             }
-            if (version.getFilePath() == null || !Files.isDirectory(Path.of(version.getFilePath()))) {
+            if (storedFolder(version) == null) {
                 throw new ConflictException("The stored files for version " + version.getVersionNumber() + " are missing");
             }
             return prepareRerun(version.getDataset(), version, null, null);
@@ -277,7 +277,10 @@ public class DatasetService {
     }
 
     private UploadPlan prepareRerun(Dataset dataset, DatasetVersion version, UploadContext context, String duplicateMessage) {
-        Path versionDir = Path.of(version.getFilePath());
+        Path versionDir = storedFolder(version) != null ? storedFolder(version) : Path.of(version.getFilePath());
+        // Versions stored by a backend running elsewhere (for example in a container) keep that
+        // machine's path: point them at the folder this backend can actually read.
+        version.setFilePath(versionDir.toString());
         if (context != null) {
             writeDatasetConfig(versionDir, context);
         }
@@ -667,6 +670,18 @@ public class DatasetService {
     }
 
     // ---------------------------------------------------------------- storage
+
+    /**
+     * The folder holding a version's files on this machine: the recorded path when it exists,
+     * otherwise the canonical folder under the storage root, otherwise null.
+     */
+    private Path storedFolder(DatasetVersion version) {
+        if (version.getFilePath() != null && Files.isDirectory(Path.of(version.getFilePath()))) {
+            return Path.of(version.getFilePath());
+        }
+        Path canonical = versionDirectory(version.getDataset().getId(), version.getVersionNumber());
+        return Files.isDirectory(canonical) ? canonical : null;
+    }
 
     private Path versionDirectory(Long datasetId, int versionNumber) {
         return Path.of(properties.getStorageRoot(), "datasets", "dataset_" + datasetId, "v" + versionNumber)
