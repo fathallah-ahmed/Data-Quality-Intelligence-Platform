@@ -178,7 +178,10 @@ def score_column(
     for role, format_name in (("EMAIL", "EMAIL"), ("URL", "URL"), ("DATE", "DATE")):
         share = _share(format_stats, format_name)
         if share >= FORMAT_SHARE:
-            scores.add(role, 0.6, f"{share * 100:.0f}% of its values look like {format_name.lower()} values")
+            # Values that nearly all follow a format settle the role even when the name says nothing
+            # (opened_on, closed_on): such a column does not need the model.
+            weight = 0.7 if share >= 0.95 else 0.6
+            scores.add(role, weight, f"{share * 100:.0f}% of its values look like {format_name.lower()} values")
     if is_datetime:
         scores.add("DATE", 0.6, "its type is a date and time")
     phone_share = _share(format_stats, "PHONE")

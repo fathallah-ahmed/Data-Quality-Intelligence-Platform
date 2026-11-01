@@ -66,6 +66,15 @@ def test_a_postal_code_made_of_digits_is_not_taken_for_a_number():
     assert any("leading zeros" in clue for clue in zipcode.role_evidence)
 
 
+def test_a_date_column_whose_name_says_nothing_is_settled_by_its_values():
+    frame = pd.DataFrame({"opened_on": [f"2020-01-{i % 28 + 1:02d}" for i in range(60)]})
+    opened = _roles(frame)["opened_on"]
+
+    assert opened.role == "DATE"
+    assert opened.role_confidence >= cr.UNCLEAR_BELOW
+    assert opened not in cr.unclear_columns([opened])
+
+
 def test_dates_categories_and_long_text():
     roles = _roles(_accounts())
 

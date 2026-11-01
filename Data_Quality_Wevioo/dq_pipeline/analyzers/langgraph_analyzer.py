@@ -1470,6 +1470,28 @@ def _nearest_column_before(text: str, position: int, columns: Optional[List[str]
     return best_name
 
 
+def _column_named_after(text: str, position: int, columns: Optional[List[str]]) -> Optional[str]:
+    """
+    The column a percentage points at when it is written before the name: "62% missingness (124 rows)
+    in closed_on", "10% of the email column". Only a column that follows an "in/of/for/on" phrase in
+    the same clause counts, so "62% of rows are missing" does not grab a later column name.
+    """
+    tail = re.split(r"[;\n]|(?<=[A-Za-z0-9)])\.\s", text[position:position + 90], maxsplit=1)[0]
+    lead = re.match(r"^[^,;]{0,45}?\b(?:in|of|for|on|within|from)\s+(?:the\s+)?(?:column\s+)?", tail, re.IGNORECASE)
+    if not lead:
+        return None
+    rest = tail[lead.end():]
+    for name in sorted(columns or [], key=len, reverse=True):
+        if re.match(rf"{re.escape(str(name))}(?![A-Za-z0-9_])", rest, re.IGNORECASE):
+            return str(name)
+    return None
+
+
+def _percentage_owner(text: str, match: "re.Match[str]", columns: Optional[List[str]]) -> Optional[str]:
+    """The column a percentage is about: the one named right after it, else the nearest one before it."""
+    return _column_named_after(text, match.end(), columns) or _nearest_column_before(text, match.start(), columns)
+
+
 def _validate_missingness_claims(
     text: str,
     column: Dict[str, Any],
@@ -1486,7 +1508,7 @@ def _validate_missingness_claims(
         if POSITIVE_PERCENT_RE.match(text[match.end():match.end() + 24]):
             continue
         # "A has 10% missing; B has 60% missing": a percentage belongs to the column named just before it.
-        owner = _nearest_column_before(text, match.start(), all_columns)
+        owner = _percentage_owner(text, match, all_columns)
         if owner and _normalize_name(owner) != _normalize_name(column["name"]):
             continue
         # Only a percentage stated next to a missing-value word is a missingness claim;

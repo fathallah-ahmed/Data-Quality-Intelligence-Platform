@@ -27,7 +27,9 @@ public class SchemaMaintenance implements InitializingBean {
     private static final List<String> ENUM_COLUMNS = List.of(
         "dataset_version.status",
         "pipeline_run.status",
-        "table_version.change_status"
+        "table_version.change_status",
+        "quality_rule.type",
+        "rule_result.type"
     );
 
     private final DataSource dataSource;
@@ -94,8 +96,9 @@ public class SchemaMaintenance implements InitializingBean {
         );
         for (String[] check : checks) {
             String clause = check[2] == null ? "" : check[2].toUpperCase(Locale.ROOT);
-            // Status value lists are validated by the Java enums; a DB copy only breaks when a value is added.
-            if (clause.contains("'COMPLETED'") || clause.contains("'UNCHANGED'")) {
+            // Value lists are validated by the Java enums; a DB copy only breaks when a value is added
+            // (a new run status, a new rule type such as MIN_FORMAT_VALID_PERCENT).
+            if (clause.contains("'COMPLETED'") || clause.contains("'UNCHANGED'") || clause.contains("'MAX_ROW_DROP_PERCENT'")) {
                 jdbc.execute("ALTER TABLE " + check[0] + " DROP CONSTRAINT \"" + check[1] + "\"");
                 log.info("Dropped stale enum check {} on {}", check[1], check[0]);
             }

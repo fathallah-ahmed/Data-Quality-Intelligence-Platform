@@ -111,6 +111,30 @@ def test_shortened_values_with_ellipsis_are_allowed_but_bare_placeholders_are_no
     assert any("Ellipsis" in error or "Placeholder" in error for error in errors)
 
 
+def test_a_percentage_written_before_its_column_name_belongs_to_that_column():
+    answer = _flat_answer()
+    # Right figures, but the second one comes before the name of the column it describes.
+    answer["custom_answer"] = (
+        "The primary risk is the 88.0% missingness (88 rows) in the phone column. "
+        "Next, check the 0.0% missingness in customer_id."
+    )
+    _, errors, _ = lg._validate_and_normalize_analysis(answer, _evidence())
+    assert errors == []
+
+    # A wrong figure is still caught when it is written before the name.
+    answer["custom_answer"] = "The primary risk is the 40.0% missingness (40 rows) in the phone column."
+    _, errors, _ = lg._validate_and_normalize_analysis(answer, _evidence())
+    assert any("phone" in error and "40.00%" in error for error in errors)
+
+
+def test_a_percentage_followed_by_other_words_still_belongs_to_the_column_before_it():
+    answer = _flat_answer()
+    answer["custom_answer"] = "customer_id is complete; phone is 88% missing and 88% of rows are affected."
+    _, errors, _ = lg._validate_and_normalize_analysis(answer, _evidence())
+
+    assert errors == []
+
+
 def test_each_percentage_in_a_multi_column_sentence_is_checked_against_its_own_column():
     answer = _flat_answer()
     answer["column_roles"][0]["description"] = (

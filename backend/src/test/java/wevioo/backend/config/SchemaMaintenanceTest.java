@@ -35,4 +35,23 @@ class SchemaMaintenanceTest {
         assertThat(jdbc.queryForObject("SELECT status FROM pipeline_run WHERE external_run_id = 'run-legacy'", String.class))
             .isEqualTo("PARTIAL");
     }
+
+    @Test
+    void legacyRuleTypeChecksAcceptTheNewRuleTypesAfterMaintenance() {
+        // Database created before format and date-order rules existed: the rule type had a closed list of values.
+        jdbc.execute("INSERT INTO dataset (name, source_type, created_at, updated_at) VALUES ('legacy-rules', 'CSV', NOW(), NOW())");
+        Long datasetId = jdbc.queryForObject("SELECT id FROM dataset WHERE name = 'legacy-rules'", Long.class);
+        schemaMaintenance.dropStaleH2EnumChecks();
+        jdbc.execute("ALTER TABLE quality_rule ADD CONSTRAINT legacy_rule_type CHECK (type IN "
+            + "('NOT_NULL','MAX_MISSING_PERCENT','UNIQUE','MIN_ROWS','MAX_DUPLICATE_PERCENT','MIN_QUALITY_SCORE','MAX_ROW_DROP_PERCENT'))");
+        String insert = "INSERT INTO quality_rule (dataset_id, table_name, column_name, type, severity, enabled, created_at) "
+            + "VALUES (?, 't', 'c', 'MIN_FORMAT_VALID_PERCENT', 'WARNING', TRUE, NOW())";
+        assertThatThrownBy(() -> jdbc.update(insert, datasetId)).hasMessageContaining("Check constraint violation");
+
+        schemaMaintenance.afterPropertiesSet();
+
+        jdbc.update(insert, datasetId);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM quality_rule WHERE type = 'MIN_FORMAT_VALID_PERCENT'", Integer.class))
+            .isGreaterThanOrEqualTo(1);
+    }
 }
