@@ -25,7 +25,9 @@ public final class DateNormalizer {
 
     public record Result(Outcome outcome, String value) {}
 
-    private static final String TIME = "(?:[T ](\\d{1,2}):(\\d{2})(?::(\\d{2}))?(?:\\.\\d+)?(?:Z|[+-]\\d{2}:?\\d{2})?)?";
+    // Hours, minutes and seconds only. A time zone or fractions of a second would be lost by the ISO form
+    // written here, so a value that has them is not recognised and stays as it is.
+    private static final String TIME = "(?:[T ](\\d{1,2}):(\\d{2})(?::(\\d{2}))?)?";
     private static final Pattern YEAR_FIRST = Pattern.compile("^(\\d{4})[-/.](\\d{1,2})[-/.](\\d{1,2})" + TIME + "$");
     private static final Pattern YEAR_LAST = Pattern.compile("^(\\d{1,2})[-/.](\\d{1,2})[-/.](\\d{4})" + TIME + "$");
     private static final Pattern DAY_MONTH_NAME = Pattern.compile("^(\\d{1,2})[ -]([A-Za-z]{3,9})\\.?,?[ -](\\d{4})" + TIME + "$");

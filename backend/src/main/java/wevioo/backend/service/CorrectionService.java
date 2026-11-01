@@ -103,6 +103,7 @@ public class CorrectionService {
             log.put("rowsBefore", result.rowsBefore());
             log.put("rowsAfter", result.rowsAfter());
             log.put("cellsChanged", result.cellsChanged());
+            log.put("adjustedRows", result.adjustedRows());
             log.put("operations", toPreview(request.table(), result).operations());
             Files.writeString(target.resolve(LOG_FILE), jsonService.toJson(log));
         });
@@ -138,7 +139,12 @@ public class CorrectionService {
         if (requested == null) {
             return List.of();
         }
-        List<String> columns = scan(file).columns();
+        List<String> columns;
+        try {
+            columns = wevioo.backend.correction.Csv.header(file);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
         List<OpSpec> checked = new ArrayList<>();
         for (OpSpec op : requested) {
             checked.add(Operations.validate(op, columns));

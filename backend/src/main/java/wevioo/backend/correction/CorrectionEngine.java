@@ -64,7 +64,10 @@ public class CorrectionEngine {
             if (header == null) {
                 throw new IOException("The file is empty");
             }
-            header = header.stream().map(String::strip).toList();
+            // Columns are matched by name without the spaces around it, but the file keeps its header exactly:
+            // renaming a column is not a correction, and Compare would show it as a removed and an added column.
+            List<String> rawHeader = header;
+            header = header.stream().map(CorrectionEngine::strip).toList();
             List<CellStep> steps = new ArrayList<>();
             List<OpResult> results = new ArrayList<>();
             for (OpSpec op : ops) {
@@ -76,7 +79,7 @@ public class CorrectionEngine {
                 }
             }
             if (writer != null) {
-                writer.write(header);
+                writer.write(rawHeader);
             }
 
             long rowsBefore = 0;
@@ -92,8 +95,14 @@ public class CorrectionEngine {
                     while (row.size() < header.size()) {
                         row.add("");
                     }
+                    // Empty cells beyond the header (a trailing separator) carry nothing; a cell with data does,
+                    // and cutting it would lose that data without telling anyone.
                     while (row.size() > header.size()) {
-                        row.remove(row.size() - 1);
+                        String extra = row.remove(row.size() - 1);
+                        if (!strip(extra).isEmpty()) {
+                            throw new IllegalArgumentException("Row " + rowsBefore + " has " + record.size() + " cells but the header has "
+                                + header.size() + ": the extra data would be lost. Fix the structure of the file first.");
+                        }
                     }
                 }
                 boolean dropped = false;

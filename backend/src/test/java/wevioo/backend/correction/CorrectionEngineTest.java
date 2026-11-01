@@ -173,8 +173,8 @@ class CorrectionEngineTest {
     }
 
     @Test
-    void shortAndLongRowsAreAdjustedAndCounted() throws IOException {
-        Path file = csv("t.csv", "id,name\n1\n2,Bo,extra\n3,Cy\n", StandardCharsets.UTF_8);
+    void shortRowsAndRowsWithATrailingSeparatorAreAdjustedAndCounted() throws IOException {
+        Path file = csv("t.csv", "id,name\n1\n2,Bo,\n3,Cy\n", StandardCharsets.UTF_8);
 
         RunResult result = engine.run(file, List.of(), null);
 

@@ -36,15 +36,51 @@ public final class Csv {
         try (InputStream input = Files.newInputStream(file)) {
             head = input.readNBytes(SNIFF_BYTES);
         }
-        return new Dialect(isUtf8(head) ? StandardCharsets.UTF_8 : WINDOWS_1252, detectDelimiter(head));
+        return new Dialect(isUtf8(file) ? StandardCharsets.UTF_8 : WINDOWS_1252, detectDelimiter(head));
     }
 
-    /** True when the bytes decode as UTF-8; a character cut off at the end of the sample does not count. */
-    private static boolean isUtf8(byte[] bytes) {
+    /** The column names of a file, without the spaces around them. */
+    public static List<String> header(Path file) throws IOException {
+        Dialect dialect = detect(file);
+        try (RecordReader reader = new RecordReader(open(file, dialect), dialect.delimiter())) {
+            List<String> header = reader.next();
+            return header == null ? List.of() : header.stream().map(CorrectionEngine::strip).toList();
+        }
+    }
+
+    /**
+     * True when the whole file is valid UTF-8. The whole file, not its start: an accent that only appears
+     * after the first megabyte of a Latin-1 file must not make it pass for UTF-8 and be read as garbage.
+     */
+    private static boolean isUtf8(Path file) throws IOException {
         CharsetDecoder decoder = StandardCharsets.UTF_8.newDecoder()
             .onMalformedInput(CodingErrorAction.REPORT)
             .onUnmappableCharacter(CodingErrorAction.REPORT);
-        return !decoder.decode(ByteBuffer.wrap(bytes), CharBuffer.allocate(bytes.length + 1), bytes.length < SNIFF_BYTES).isError();
+        ByteBuffer bytes = ByteBuffer.allocate(1 << 16);
+        CharBuffer chars = CharBuffer.allocate(1 << 16);
+        try (InputStream input = Files.newInputStream(file)) {
+            boolean end = false;
+            while (!end) {
+                int read = input.read(bytes.array(), bytes.position(), bytes.remaining());
+                end = read < 0;
+                if (!end) {
+                    bytes.position(bytes.position() + read);
+                }
+                bytes.flip();
+                while (true) {
+                    var result = decoder.decode(bytes, chars, end);
+                    if (result.isError()) {
+                        return false;
+                    }
+                    chars.clear();
+                    if (!result.isOverflow()) {
+                        break;
+                    }
+                }
+                bytes.compact();
+            }
+        }
+        return true;
     }
 
     private static char detectDelimiter(byte[] bytes) {
