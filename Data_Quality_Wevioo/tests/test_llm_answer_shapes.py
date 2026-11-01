@@ -90,3 +90,37 @@ def test_invented_field_is_still_rejected():
     _, errors, _ = lg._validate_and_normalize_analysis(answer, _evidence())
 
     assert any("loyalty_tier" in error for error in errors)
+
+
+def test_other_percentages_in_the_same_sentence_are_not_missingness_claims():
+    answer = _flat_answer()
+    answer["column_roles"][0]["description"] = "phone is 88% missing, and 61% of rows share one prefix"
+    _, errors, _ = lg._validate_and_normalize_analysis(answer, _evidence())
+
+    assert errors == []
+
+
+def test_shortened_values_with_ellipsis_are_allowed_but_bare_placeholders_are_not():
+    answer = _flat_answer()
+    answer["data_owner_questions"] = [{"column": "phone", "question": "Is 'call back after the quarterly rev...' a valid phone value?"}]
+    _, errors, _ = lg._validate_and_normalize_analysis(answer, _evidence())
+    assert errors == []
+
+    answer["custom_answer"] = "..."
+    _, errors, _ = lg._validate_and_normalize_analysis(answer, _evidence())
+    assert any("Ellipsis" in error or "Placeholder" in error for error in errors)
+
+
+def test_each_percentage_in_a_multi_column_sentence_is_checked_against_its_own_column():
+    answer = _flat_answer()
+    answer["column_roles"][0]["description"] = (
+        "Missing values: customer_id has 0% missing values (0 missing); phone has 88% missing values (88 missing)"
+    )
+    _, errors, _ = lg._validate_and_normalize_analysis(answer, _evidence())
+    assert errors == []
+
+    answer["column_roles"][0]["description"] = (
+        "Missing values: customer_id has 0% missing values; phone has 40% missing values"
+    )
+    _, errors, _ = lg._validate_and_normalize_analysis(answer, _evidence())
+    assert any("phone" in error and "40.00%" in error for error in errors)

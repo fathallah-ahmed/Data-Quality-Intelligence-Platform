@@ -1258,7 +1258,9 @@ def _validate_placeholders(value: Any, errors: List[str], path: str = "") -> Non
             return
         if lowered in PLACEHOLDER_FIELDS or "missingness_col" in lowered:
             errors.append(f"Placeholder value is not allowed at {path}: {text}")
-        if "..." in text:
+        # A bare ellipsis is a template placeholder; "..." inside a sentence is usually a long
+        # data value the profiler shortened, which a messy dataset is full of.
+        if text.strip(" .…") == "" and ("..." in text or "…" in text):
             errors.append(f"Ellipsis placeholder is not allowed at {path}")
 
 
@@ -1293,7 +1295,7 @@ def _validate_issue_items(
         for field_ref in field_refs:
             column = _resolve_column(field_ref, evidence)
             if column:
-                _validate_missingness_claims(text, column, errors, warnings)
+                _validate_missingness_claims(text, column, errors, warnings, evidence.get("allowed_columns"))
                 _validate_impact(text, item.get("impact"), column, warnings)
 
 
@@ -1309,7 +1311,7 @@ def _validate_resolution_items(
         for field_ref in field_refs:
             column = _resolve_column(field_ref, evidence)
             if column:
-                _validate_missingness_claims(text, column, errors, warnings)
+                _validate_missingness_claims(text, column, errors, warnings, evidence.get("allowed_columns"))
                 if _is_dangerous_drop(text, column):
                     errors.append(
                         f"Dangerous recommendation for ID/key-like column {column['name']}: do not drop it without severe evidence"
@@ -1340,11 +1342,11 @@ def _validate_free_text_claims(
                 mentioned_columns = _mentioned_allowed_columns(candidate, evidence)
                 if mentioned_columns:
                     for column in mentioned_columns:
-                        _validate_missingness_claims(text, column, errors, warnings)
+                        _validate_missingness_claims(text, column, errors, warnings, evidence.get("allowed_columns"))
                     continue
                 column = _resolve_column(candidate, evidence)
                 if column:
-                    _validate_missingness_claims(text, column, errors, warnings)
+                    _validate_missingness_claims(text, column, errors, warnings, evidence.get("allowed_columns"))
                     continue
                 unresolved_candidates.append(candidate)
             # The sentence parser also picks up ordinary words ("There", "main risk"), so a
@@ -1456,11 +1458,22 @@ def _validate_field_value(
             errors.append(f"Unknown column reference at {path}: {field_ref}")
 
 
+def _nearest_column_before(text: str, position: int, columns: Optional[List[str]]) -> Optional[str]:
+    """The allowed column whose name ends closest before ``position`` in ``text``."""
+    best_name, best_end = None, -1
+    for name in columns or []:
+        for found in re.finditer(rf"(?<![A-Za-z0-9_]){re.escape(str(name))}(?![A-Za-z0-9_])", text, re.IGNORECASE):
+            if found.end() <= position and found.end() > best_end:
+                best_name, best_end = str(name), found.end()
+    return best_name
+
+
 def _validate_missingness_claims(
     text: str,
     column: Dict[str, Any],
     errors: List[str],
     warnings: List[str],
+    all_columns: Optional[List[str]] = None,
 ) -> None:
     if not MISSINGNESS_RE.search(text):
         return
@@ -1469,6 +1482,18 @@ def _validate_missingness_claims(
     for match in PERCENT_RE.finditer(text):
         # "100% complete" or "100% unique" describes the opposite of missingness.
         if POSITIVE_PERCENT_RE.match(text[match.end():match.end() + 24]):
+            continue
+        # "A has 10% missing; B has 60% missing": a percentage belongs to the column named just before it.
+        owner = _nearest_column_before(text, match.start(), all_columns)
+        if owner and _normalize_name(owner) != _normalize_name(column["name"]):
+            continue
+        # Only a percentage stated next to a missing-value word is a missingness claim;
+        # "86.76% missing, 61.03% distinct" makes two different claims.
+        near = text[match.end():match.end() + 25]
+        before = text[max(0, match.start() - 45):match.start()]
+        if not (MISSINGNESS_RE.search(near) or MISSINGNESS_RE.search(before.split(",")[-1].split(";")[-1])):
+            continue
+        if re.search(r"\b(distinct|unique|duplicate|duplicates|of rows|share|concentrat)", near, re.IGNORECASE) and not MISSINGNESS_RE.search(near):
             continue
         claimed = _safe_float(match.group(1).replace(",", "."))
         if claimed is None:
