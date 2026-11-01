@@ -107,8 +107,8 @@ public class GraphBuilder {
                         }
                     }
                     for (RelType relationship : tableRels) {
-                        String from = keyOf(record, index, relationship.fromColumn(), rowNumber);
-                        String to = keyOf(record, index, relationship.toColumn(), rowNumber);
+                        String from = endOf(record, index, relationship.fromColumn(), relationship.fromByPosition(), rowNumber);
+                        String to = endOf(record, index, relationship.toColumn(), relationship.toByPosition(), rowNumber);
                         if (!from.isEmpty() && !to.isEmpty() && pairKeys.get(relationship).add(from + '\u0001' + to)) {
                             pairs.get(relationship).add(new String[] {from, to});
                         }
@@ -174,6 +174,16 @@ public class GraphBuilder {
         findings.add(new Finding("info", "BUILT", nodeCounts.values().stream().mapToLong(Long::longValue).sum() + " node(s) and "
             + totalRelationships + " relationship(s) written to Neo4j.", List.of()));
         return new BuildResult(scope, nodeCounts, relationshipCounts, findings, (System.nanoTime() - started) / 1_000_000, Instant.now().toString());
+    }
+
+    /** The key of one end of a relationship: the value of the column, or "row-N" when the column names a line. */
+    private static String endOf(List<String> record, Map<String, Integer> index, String column, boolean byPosition, long rowNumber) {
+        String key = keyOf(record, index, column, rowNumber);
+        if (!byPosition || key.isEmpty()) {
+            return key;
+        }
+        String digits = key.endsWith(".0") ? key.substring(0, key.length() - 2) : key;
+        return digits.matches("[0-9]{1,15}") ? "row-" + Long.parseLong(digits) : "";
     }
 
     private static String keyOf(List<String> record, Map<String, Integer> index, String column, long rowNumber) {

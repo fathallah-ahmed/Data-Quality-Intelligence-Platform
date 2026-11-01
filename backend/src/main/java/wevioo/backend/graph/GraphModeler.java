@@ -45,6 +45,14 @@ public class GraphModeler {
     static final int PROMOTABLE_MAX_DISTINCT = 100;
     private static final int MAX_EXAMPLES = 3;
     private static final Set<String> PROMOTABLE_ROLES = Set.of("LOCATION", "CATEGORY", "STATUS");
+    /** Share of a column's values that must be line numbers of a table for the column to point at that table's rows. */
+    static final double POSITION_COVERAGE = 0.95;
+    /** Below this, a column that only partly fits as line numbers is not even worth mentioning. */
+    private static final double POSITION_HINT = 0.3;
+    /** How far into the rows the values must reach: a column that pointed at all rows of a file reaches its end. */
+    static final double POSITION_REACH = 0.9;
+    /** Words that say "this is a file" and not what its rows are: friends_table holds friends. */
+    private static final Set<String> FILE_WORDS = Set.of("table", "tbl", "tab", "csv", "file");
     private static final Set<String> KEY_WORDS = Set.of("id", "identifier", "ref", "reference", "key", "code", "uuid", "guid", "no", "num", "number", "pk", "fk");
 
     /** How well one column follows one repeating key. */
@@ -72,9 +80,12 @@ public class GraphModeler {
             keys.put(table.name(), pickKey(table, findings));
         }
 
+        Map<String, Map<String, String>> positional = positionalLinks(tables, links, keys, findings);
+
         for (TableInput table : tables) {
             String rowLabel = rowLabels.get(table.name());
             String keyColumn = keys.get(table.name());
+            Map<String, String> byPosition = positional.getOrDefault(table.name(), Map.of());
 
             // Foreign keys: columns whose values are the key of another table's rows.
             Map<String, Link> foreign = new LinkedHashMap<>();
@@ -94,13 +105,34 @@ public class GraphModeler {
                 foreign.putIfAbsent(link.sourceColumn(), link);
             }
             List<Column> references = table.columns().stream()
-                .filter(c -> "REFERENCE".equals(c.role()) && !c.name().equals(keyColumn) && !foreign.containsKey(c.name()))
+                .filter(c -> "REFERENCE".equals(c.role()) && !c.name().equals(keyColumn) && !foreign.containsKey(c.name())
+                    && !byPosition.containsKey(c.name()))
                 .toList();
             List<Column> candidates = table.columns().stream()
-                .filter(c -> !c.name().equals(keyColumn) && !foreign.containsKey(c.name())
+                .filter(c -> !c.name().equals(keyColumn) && !foreign.containsKey(c.name()) && !byPosition.containsKey(c.name())
                     && references.stream().noneMatch(r -> r.name().equals(c.name()))
                     && !"REFERENCE".equals(c.role()))
                 .toList();
+
+            // A table that only says which two things go together (friends: user, user) is a relationship, not a thing.
+            List<String> ends = table.columns().stream()
+                .map(Column::name).filter(c -> foreign.containsKey(c) || byPosition.containsKey(c)).toList();
+            if (keyColumn == null && ends.size() == 2 && table.columns().size() == 2) {
+                String[] labels = new String[2];
+                boolean[] positions = new boolean[2];
+                for (int i = 0; i < 2; i++) {
+                    positions[i] = byPosition.containsKey(ends.get(i));
+                    labels[i] = rowLabels.get(positions[i] ? byPosition.get(ends.get(i)) : foreign.get(ends.get(i)).targetTable());
+                }
+                String type = snake(rowLabel);
+                relationships.add(new RelType(type, labels[0], labels[1], table.name(), ends.get(0), ends.get(1),
+                    "each row of " + table.name() + " says that the " + labels[0] + " in " + ends.get(0) + " and the " + labels[1] + " in "
+                        + ends.get(1) + " are linked; the direction is the order of the two columns",
+                    positions[0], positions[1]));
+                findings.add(new Finding("info", "LINK_TABLE", table.name() + " only holds two references (" + ends.get(0) + ", " + ends.get(1)
+                    + "), so it becomes the relationship " + type + " between " + labels[0] + " and " + labels[1] + " and has no node of its own.", List.of()));
+                continue;
+            }
 
             TableScan scan = scan(table, keyColumn, references, candidates);
             addKeyFindings(table, keyColumn, scan, findings);
@@ -143,6 +175,13 @@ public class GraphModeler {
                 relationships.add(new RelType("HAS_" + snake(rowLabel), derivedLabel, rowLabel, table.name(), reference.name(), keyColumn,
                     "each row of " + table.name() + " belongs to the " + derivedLabel + " named by " + reference.name()));
             }
+            for (Map.Entry<String, String> position : byPosition.entrySet()) {
+                relationships.add(new RelType("HAS_" + snake(rowLabel), rowLabels.get(position.getValue()), rowLabel, table.name(),
+                    position.getKey(), keyColumn,
+                    "the values of " + table.name() + "." + position.getKey() + " are line numbers of " + position.getValue()
+                        + " (it has no identifier, so a row is named by its position in the file)",
+                    true, false));
+            }
             for (Link link : foreign.values()) {
                 relationships.add(new RelType("HAS_" + snake(rowLabel), rowLabels.get(link.targetTable()), rowLabel, table.name(),
                     link.sourceColumn(), keyColumn,
@@ -152,7 +191,182 @@ public class GraphModeler {
 
             promoteColumns(table, rowLabel, keyColumn, nodes, relationships, promotable, promote, usedLabels);
         }
+        // Safety net: a relationship must never start or end at a node that does not exist.
+        Set<String> existing = new HashSet<>();
+        nodes.forEach(n -> existing.add(n.label()));
+        relationships.removeIf(r -> {
+            boolean dangling = !existing.contains(r.fromLabel()) || !existing.contains(r.toLabel());
+            if (dangling) {
+                findings.add(new Finding("warning", "RELATION_NOT_USED", r.table() + "." + r.fromColumn() + " pointed at a table that has no node in this graph, so no relationship is drawn from it.", List.of()));
+            }
+            return dangling;
+        });
+        addConnectivityFindings(tables, nodes, relationships, findings);
         return new Schema(nodes, relationships, findings, promotable, Map.of());
+    }
+
+    // ------------------------------------------------------------------ tables that are tied to nothing
+
+    private void addConnectivityFindings(List<TableInput> tables, List<NodeType> nodes, List<RelType> relationships, List<Finding> findings) {
+        if (tables.size() < 2) {
+            return;
+        }
+        Map<String, String> tableOf = new HashMap<>();
+        nodes.forEach(n -> tableOf.put(n.label(), n.table()));
+        Set<String> connected = new HashSet<>();
+        for (RelType relationship : relationships) {
+            Set<String> ends = new HashSet<>();
+            ends.add(relationship.table());
+            ends.add(tableOf.getOrDefault(relationship.fromLabel(), relationship.table()));
+            ends.add(tableOf.getOrDefault(relationship.toLabel(), relationship.table()));
+            if (ends.size() > 1) {
+                connected.addAll(ends);
+            }
+        }
+        for (TableInput table : tables) {
+            if (!connected.contains(table.name())) {
+                findings.add(new Finding("warning", "DISCONNECTED", table.name() + " is not tied to any other table in this graph: no column of it "
+                    + "could be matched with the identifier of another table. Its nodes will exist but cannot be reached from the others.", List.of()));
+            }
+        }
+    }
+
+    // ------------------------------------------------------------------ rows named by their position
+
+    /**
+     * Some files have no identifier column and are still referred to by number: a table of users in the order of
+     * their ids, and friendships that say "1 and 555". A column of another table points at those rows when almost
+     * all its values are whole numbers between 1 and the number of rows, and they reach well into that range
+     * (so a small code is not mistaken for a row number). When two tables fit equally, or when only some of the
+     * values fit, nothing is linked and a finding says why.
+     *
+     * @return per table, the columns that name rows of a key-less table, with that table
+     */
+    private Map<String, Map<String, String>> positionalLinks(List<TableInput> tables, List<Link> links, Map<String, String> keys, List<Finding> findings) throws IOException {
+        Map<String, Long> targets = new LinkedHashMap<>();
+        for (TableInput table : tables) {
+            // A table of two references becomes a relationship and has no rows to point at.
+            boolean linkTable = table.columns().size() == 2 && table.columns().stream().allMatch(c -> "REFERENCE".equals(c.role()));
+            if (keys.get(table.name()) == null && !linkTable) {
+                long count = countRows(table);
+                if (count >= 2) {
+                    targets.put(table.name(), count);
+                }
+            }
+        }
+        Map<String, Map<String, String>> result = new LinkedHashMap<>();
+        if (targets.isEmpty()) {
+            return result;
+        }
+        List<String> targetNames = new ArrayList<>(targets.keySet());
+        for (TableInput table : tables) {
+            List<Column> columns = table.columns().stream()
+                .filter(c -> "REFERENCE".equals(c.role()) && !c.name().equals(keys.get(table.name()))
+                    && links.stream().noneMatch(l -> l.sourceTable().equals(table.name()) && l.sourceColumn().equals(c.name())))
+                .toList();
+            if (columns.isEmpty()) {
+                continue;
+            }
+            long[] filled = new long[columns.size()];
+            long[][] largest = new long[columns.size()][targetNames.size()];
+            long[][] fitting = new long[columns.size()][targetNames.size()];
+            Csv.Dialect dialect = Csv.detect(table.file());
+            try (Csv.RecordReader reader = new Csv.RecordReader(Csv.open(table.file(), dialect), dialect.delimiter())) {
+                List<String> header = reader.next();
+                if (header == null) {
+                    continue;
+                }
+                Map<String, Integer> index = new HashMap<>();
+                for (int i = 0; i < header.size(); i++) {
+                    index.putIfAbsent(header.get(i).strip(), i);
+                }
+                int[] at = columns.stream().mapToInt(c -> index.getOrDefault(c.name(), -1)).toArray();
+                List<String> record;
+                while ((record = reader.next()) != null) {
+                    for (int j = 0; j < at.length; j++) {
+                        String value = at[j] < 0 ? "" : cell(record, at[j]);
+                        if (value.isEmpty()) {
+                            continue;
+                        }
+                        filled[j]++;
+                        long number = wholeNumber(value);
+                        if (number < 1) {
+                            continue;
+                        }
+                        for (int t = 0; t < targetNames.size(); t++) {
+                            if (number <= targets.get(targetNames.get(t))) {
+                                fitting[j][t]++;
+                                largest[j][t] = Math.max(largest[j][t], number);
+                            }
+                        }
+                    }
+                }
+            }
+            for (int j = 0; j < columns.size(); j++) {
+                if (filled[j] == 0) {
+                    continue;
+                }
+                List<String> fits = new ArrayList<>();
+                double best = 0;
+                String bestTable = null;
+                for (int t = 0; t < targetNames.size(); t++) {
+                    String target = targetNames.get(t);
+                    if (target.equals(table.name())) {
+                        continue;
+                    }
+                    double coverage = (double) fitting[j][t] / filled[j];
+                    // Only a partial fit is worth a remark: a column that fits everywhere without reaching the end of the rows is a code.
+                    if (coverage < POSITION_COVERAGE && coverage > best && largest[j][t] >= POSITION_REACH * targets.get(target)) {
+                        best = coverage;
+                        bestTable = target;
+                    }
+                    // The values must also reach into the range, so that a small code is not taken for a line number.
+                    if (coverage >= POSITION_COVERAGE && largest[j][t] >= POSITION_REACH * targets.get(target)) {
+                        fits.add(target);
+                    }
+                }
+                String name = table.name() + "." + columns.get(j).name();
+                if (fits.size() == 1) {
+                    result.computeIfAbsent(table.name(), k -> new LinkedHashMap<>()).put(columns.get(j).name(), fits.get(0));
+                } else if (fits.size() > 1) {
+                    findings.add(new Finding("warning", "AMBIGUOUS_LINK", name + " could be the line number of a row of " + String.join(" or ", fits)
+                        + " (its values fit both), so it is not linked to either.", List.of()));
+                } else if (bestTable != null && best >= POSITION_HINT) {
+                    findings.add(new Finding("warning", "PARTIAL_LINK", name + ": " + Math.round(best * 100) + "% of its values are line numbers of "
+                        + bestTable + " (1 to " + targets.get(bestTable) + "), the others are not. That is too few to say it points at those rows, "
+                        + "so it is not linked. If it should be, its values need to be checked.", List.of()));
+                }
+            }
+        }
+        return result;
+    }
+
+    private static long countRows(TableInput table) throws IOException {
+        Csv.Dialect dialect = Csv.detect(table.file());
+        long rows = 0;
+        try (Csv.RecordReader reader = new Csv.RecordReader(Csv.open(table.file(), dialect), dialect.delimiter())) {
+            if (reader.next() == null) {
+                return 0;
+            }
+            while (reader.next() != null) {
+                rows++;
+            }
+        }
+        return rows;
+    }
+
+    /** The value as a whole number (7 and 7.0 are both 7), or 0 when it is not one. */
+    static long wholeNumber(String value) {
+        String digits = value.endsWith(".0") ? value.substring(0, value.length() - 2) : value;
+        if (digits.isEmpty() || digits.length() > 15) {
+            return 0;
+        }
+        for (int i = 0; i < digits.length(); i++) {
+            if (digits.charAt(i) < '0' || digits.charAt(i) > '9') {
+                return 0;
+            }
+        }
+        return Long.parseLong(digits);
     }
 
     // ------------------------------------------------------------------ keys
@@ -391,7 +605,7 @@ public class GraphModeler {
     /** A node label from a table or column name: "customer_id" is Customer, "accounts" is Account. */
     static String label(String name, boolean table) {
         List<String> tokens = tokens(name);
-        List<String> kept = tokens.stream().filter(t -> table || !KEY_WORDS.contains(t)).toList();
+        List<String> kept = tokens.stream().filter(t -> table ? !FILE_WORDS.contains(t) : !KEY_WORDS.contains(t)).toList();
         if (kept.isEmpty()) {
             kept = tokens;
         }

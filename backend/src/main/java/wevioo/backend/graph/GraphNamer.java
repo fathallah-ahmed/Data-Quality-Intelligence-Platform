@@ -122,7 +122,7 @@ public class GraphNamer {
         }
         List<RelType> relationships = schema.relationships().stream()
             .map(r -> new RelType(types.getOrDefault(r.type(), r.type()), labels.getOrDefault(r.fromLabel(), r.fromLabel()),
-                labels.getOrDefault(r.toLabel(), r.toLabel()), r.table(), r.fromColumn(), r.toColumn(), r.basis()))
+                labels.getOrDefault(r.toLabel(), r.toLabel()), r.table(), r.fromColumn(), r.toColumn(), r.basis(), r.fromByPosition(), r.toByPosition()))
             .toList();
         Map<String, String> all = new LinkedHashMap<>(schema.renames());
         labels.forEach((from, to) -> all.put("label:" + from, to));

@@ -319,4 +319,134 @@ class GraphModelTest {
         assertThat(GraphModeler.label("évènement; DROP", true)).matches("[A-Za-z][A-Za-z0-9]*");
         assertThat(GraphModeler.snake("OrderLine")).isEqualTo("ORDER_LINE");
     }
+
+    // ------------------------------------------------------------------ files with no identifier column
+
+    /** Users numbered by their line, posts that name a user by that number, friendships between two numbers. */
+    private List<TableInput> social(boolean reactionsFit) throws IOException {
+        StringBuilder users = new StringBuilder("Surname,Name,Age\n");
+        for (int i = 1; i <= 40; i++) {
+            users.append("S").append(i % 7).append(",N").append(i % 5).append(",").append(20 + i % 30).append("\n");
+        }
+        StringBuilder posts = new StringBuilder("User,Post Type\n");
+        StringBuilder friends = new StringBuilder("Friend 1,Friend 2\n");
+        StringBuilder reactions = new StringBuilder("User,Reaction Type\n");
+        for (int i = 1; i <= 40; i++) {
+            posts.append(i).append(",Text\n").append(i).append(",Image\n");
+            for (int d = 1; d <= 3; d++) {
+                friends.append(i).append(",").append((i + d - 1) % 40 + 1).append("\n");
+            }
+        }
+        for (int i = 1; i <= 100; i++) {
+            reactions.append(reactionsFit ? (i - 1) % 40 + 1 : i * 7).append(",Like\n");
+        }
+        return List.of(
+            new TableInput("friends_table", csv("friends_table.csv", friends.toString()), 120, List.of(
+                column("Friend 1", "REFERENCE", 40, 0), column("Friend 2", "REFERENCE", 40, 0))),
+            new TableInput("posts_table", csv("posts_table.csv", posts.toString()), 80, List.of(
+                column("User", "REFERENCE", 40, 0), column("Post Type", "CATEGORY", 2, 0))),
+            new TableInput("reactions_table", csv("reactions_table.csv", reactions.toString()), 100, List.of(
+                column("User", "REFERENCE", 40, 0), column("Reaction Type", "CATEGORY", 1, 0))),
+            new TableInput("user_table", csv("user_table.csv", users.toString()), 40, List.of(
+                column("Surname", "NAME", 7, 0), column("Name", "NAME", 5, 0), column("Age", "QUANTITY", 30, 0))));
+    }
+
+    private static boolean has(Schema schema, String kind) {
+        return schema.findings().stream().anyMatch(f -> f.kind().equals(kind));
+    }
+
+    @Test
+    void rowsWithoutAnIdentifierAreReachedByTheirLineNumber() throws IOException {
+        Schema schema = modeler.propose(social(true), List.of(), Set.of());
+
+        // Table names say what the rows are, not that they are a table.
+        assertThat(schema.nodes()).extracting(NodeType::label).contains("User", "Post", "Reaction");
+        // The user column of the posts names a row of user_table, so no invented "User" node appears next to the real one.
+        assertThat(schema.nodes().stream().filter(NodeType::derived)).isEmpty();
+        RelType posted = schema.relationships().stream().filter(r -> r.toLabel().equals("Post")).findFirst().orElseThrow();
+        assertThat(posted.fromLabel()).isEqualTo("User");
+        assertThat(posted.fromByPosition()).isTrue();
+        assertThat(posted.toByPosition()).isFalse();
+        assertThat(has(schema, "DISCONNECTED")).isFalse();
+    }
+
+    @Test
+    void aTableOfTwoReferencesIsARelationshipAndNotANode() throws IOException {
+        Schema schema = modeler.propose(social(true), List.of(), Set.of());
+
+        assertThat(schema.nodes()).extracting(NodeType::table).doesNotContain("friends_table");
+        RelType friend = schema.relationships().stream().filter(r -> r.table().equals("friends_table")).findFirst().orElseThrow();
+        assertThat(friend.type()).isEqualTo("FRIEND");
+        assertThat(friend.fromLabel()).isEqualTo("User");
+        assertThat(friend.toLabel()).isEqualTo("User");
+        assertThat(friend.fromByPosition()).isTrue();
+        assertThat(friend.toByPosition()).isTrue();
+        assertThat(has(schema, "LINK_TABLE")).isTrue();
+    }
+
+    @Test
+    void theBuildJoinsTheRowsByTheirPosition() throws IOException {
+        List<TableInput> tables = social(true);
+        Schema schema = modeler.propose(tables, List.of(), Set.of());
+        BuildResult result = builder.build("d1v1", schema, tables);
+
+        assertThat(result.nodes()).containsEntry("User", 40L).containsEntry("Post", 80L);
+        // User 1 is the first line of user_table, and posted two posts.
+        assertThat(store.relationships.get("HAS_POST:User>Post")).hasSize(80);
+        assertThat(store.relationships.get("HAS_POST:User>Post")).anyMatch(pair -> pair[0].equals("row-1") && pair[1].startsWith("row-"));
+        assertThat(store.relationships.get("FRIEND:User>User")).hasSize(120).anyMatch(pair -> pair[0].equals("row-40") && pair[1].equals("row-1"));
+        assertThat(result.findings()).noneMatch(f -> f.kind().equals("MISSING_TARGET"));
+    }
+
+    @Test
+    void aColumnThatOnlyPartlyFitsAsLineNumbersIsNotLinkedAndSaysWhy() throws IOException {
+        Schema schema = modeler.propose(social(false), List.of(), Set.of());
+
+        // Only 5 of 100 values (7, 14, ... 35) are inside 1..40 here, so the column is not taken for a reference to the users.
+        assertThat(schema.relationships()).noneMatch(r -> r.table().equals("reactions_table") && r.fromByPosition());
+        assertThat(has(schema, "PARTIAL_LINK")).isFalse(); // below the 30% that deserves a remark
+        assertThat(has(schema, "DISCONNECTED")).isTrue();
+        assertThat(schema.findings().stream().filter(f -> f.kind().equals("DISCONNECTED")).findFirst().orElseThrow().message())
+            .contains("reactions_table");
+    }
+
+    @Test
+    void aSmallCodeIsNotTakenForALineNumber() throws IOException {
+        StringBuilder rows = new StringBuilder("Name\n");
+        StringBuilder codes = new StringBuilder("Code,Kind\n");
+        for (int i = 1; i <= 100; i++) {
+            rows.append("N").append(i).append("\n");
+            codes.append(i % 5 + 1).append(",x\n");
+        }
+        Schema schema = modeler.propose(List.of(
+            new TableInput("people", csv("people.csv", rows.toString()), 100, List.of(column("Name", "NAME", 100, 0))),
+            new TableInput("events", csv("events.csv", codes.toString()), 100, List.of(column("Code", "REFERENCE", 5, 0), column("Kind", "CATEGORY", 1, 0)))),
+            List.of(), Set.of());
+
+        assertThat(schema.relationships()).noneMatch(RelType::fromByPosition);
+    }
+
+    @Test
+    void aTableThatBecomesARelationshipIsNeverTheTargetOfAPosition() throws IOException {
+        // The reactions' user column also fits the line numbers of the (long) friendships file; that file has no nodes.
+        List<TableInput> tables = social(true);
+        StringBuilder many = new StringBuilder("User,Reaction Type\n");
+        for (int i = 1; i <= 100; i++) {
+            many.append(i * 3).append(",Like\n");
+        }
+        List<TableInput> withLongReactions = new ArrayList<>(tables);
+        withLongReactions.set(2, new TableInput("reactions_table", csv("reactions_table.csv", many.toString()), 100, List.of(
+            column("User", "REFERENCE", 100, 0), column("Reaction Type", "CATEGORY", 1, 0))));
+
+        Schema schema = modeler.propose(withLongReactions, List.of(), Set.of());
+
+        Set<String> labels = new java.util.HashSet<>();
+        schema.nodes().forEach(n -> labels.add(n.label()));
+        assertThat(schema.relationships()).allSatisfy(r -> assertThat(labels).contains(r.fromLabel(), r.toLabel()));
+    }
+
+    @Test
+    void aSingleTableIsNeverReportedAsDisconnected() throws IOException {
+        assertThat(has(modeler.propose(List.of(accounts()), List.of(), Set.of()), "DISCONNECTED")).isFalse();
+    }
 }

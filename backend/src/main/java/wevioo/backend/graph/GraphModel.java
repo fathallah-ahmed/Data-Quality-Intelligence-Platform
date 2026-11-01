@@ -36,8 +36,15 @@ public final class GraphModel {
     /**
      * A kind of relationship, read from the rows of {@code table}: {@code fromColumn} holds the key of the
      * node it starts from and {@code toColumn} the key of the node it ends at (null means the row itself).
+     * When an end is "by position", the column holds the line number (1 for the first row after the header) of a
+     * row of a table that has no identifier, and the node it names is that row.
      */
-    public record RelType(String type, String fromLabel, String toLabel, String table, String fromColumn, String toColumn, String basis) {}
+    public record RelType(String type, String fromLabel, String toLabel, String table, String fromColumn, String toColumn, String basis,
+                          boolean fromByPosition, boolean toByPosition) {
+        public RelType(String type, String fromLabel, String toLabel, String table, String fromColumn, String toColumn, String basis) {
+            this(type, fromLabel, toLabel, table, fromColumn, toColumn, basis, false, false);
+        }
+    }
 
     /** Something found while modelling or building that the user should know: info, warning or conflict. */
     public record Finding(String severity, String kind, String message, List<String> examples) {}
