@@ -126,6 +126,73 @@ public class DatasetService {
         return triggerCommittedRun(plan, List.of());
     }
 
+    /** Writes the files of a corrected version; see {@link #createDerivedVersion}. */
+    @FunctionalInterface
+    public interface DerivedFiller {
+        /** @param sourceVersionNumber the version being corrected */
+        void fill(Path sourceFolder, Path targetFolder, int sourceVersionNumber) throws IOException;
+    }
+
+    /** The folder holding the files of a version, as this backend can read them. */
+    @Transactional(readOnly = true)
+    public Path versionFolder(Long datasetId, Long versionId) {
+        DatasetVersion version = requireVersion(datasetId, versionId);
+        Path folder = storedFolder(version);
+        if (folder == null) {
+            throw new ConflictException("The stored files for version " + version.getVersionNumber() + " are missing");
+        }
+        return folder;
+    }
+
+    /**
+     * Creates the next version of a dataset from an existing one: the filler writes its files (the corrected
+     * table and a copy of the rest), then the version is recorded as derived from the source and analysed like
+     * any upload. The source version and its files are never touched, so a correction can always be compared
+     * with, or undone by going back to, the original.
+     */
+    public UploadResponse createDerivedVersion(Long datasetId, Long sourceVersionId, DerivedFiller filler) {
+        UploadPlan plan = transactionTemplate.execute(status -> {
+            DatasetVersion source = requireVersion(datasetId, sourceVersionId);
+            Path sourceFolder = storedFolder(source);
+            if (sourceFolder == null) {
+                throw new ConflictException("The stored files for version " + source.getVersionNumber() + " are missing");
+            }
+            Dataset dataset = source.getDataset();
+            dataset.touch();
+            int nextVersion = versionRepository.findTopByDatasetIdOrderByVersionNumberDesc(datasetId)
+                .map(v -> v.getVersionNumber() + 1)
+                .orElse(1);
+            Path versionDir = versionDirectory(datasetId, nextVersion);
+            deleteDirectory(versionDir, Path.of(properties.getStorageRoot()));
+            try {
+                Files.createDirectories(versionDir);
+                filler.fill(sourceFolder, versionDir, source.getVersionNumber());
+
+                DatasetVersion version = new DatasetVersion();
+                version.setDataset(dataset);
+                version.setVersionNumber(nextVersion);
+                version.setFilePath(versionDir.toString());
+                version.setExpectedTableCount(source.getExpectedTableCount());
+                version.setDataSignatureJson(jsonService.toJson(Map.of("upload", uploadSignature(storedFileHashes(versionDir)))));
+                version.setStatus(RunStatus.PENDING);
+                version.setDerivedFromVersionId(source.getId());
+                version.setDerivedFromVersionNumber(source.getVersionNumber());
+                version = versionRepository.save(version);
+
+                PipelineRun run = createPipelineRun(version);
+                int tables = source.getExpectedTableCount() == null ? 0 : source.getExpectedTableCount();
+                return UploadPlan.trigger(dataset, version, run.getExternalRunId(), tables, false, null);
+            } catch (IOException e) {
+                deleteDirectory(versionDir, Path.of(properties.getStorageRoot()));
+                throw new IllegalStateException("Could not write the corrected files: " + e.getMessage(), e);
+            } catch (RuntimeException e) {
+                deleteDirectory(versionDir, Path.of(properties.getStorageRoot()));
+                throw e;
+            }
+        });
+        return triggerCommittedRun(plan, List.of());
+    }
+
     @Transactional(readOnly = true)
     public List<DatasetSummary> listDatasets() {
         return datasetRepository.findAll().stream()
@@ -555,7 +622,8 @@ public class DatasetService {
             run == null ? null : run.getExternalRunId(),
             run == null ? null : run.getErrorMessage(),
             run == null ? null : (run.getStartedAt() != null ? run.getStartedAt() : run.getCreatedAt()),
-            run == null ? null : run.getFinishedAt()
+            run == null ? null : run.getFinishedAt(),
+            version.getDerivedFromVersionNumber()
         );
     }
 

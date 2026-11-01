@@ -34,6 +34,13 @@ public class DatasetVersion {
     @Column(name = "data_signature_json")
     private String dataSignatureJson;
 
+    /** Set when this version was made by correcting another one: which one, so the two can be compared. */
+    @Column(name = "derived_from_version_id")
+    private Long derivedFromVersionId;
+
+    @Column(name = "derived_from_version_number")
+    private Integer derivedFromVersionNumber;
+
     @Column(name = "uploaded_at", nullable = false)
     private Instant uploadedAt = Instant.now();
 
@@ -65,6 +72,10 @@ public class DatasetVersion {
     public void setExpectedTableCount(Integer expectedTableCount) { this.expectedTableCount = expectedTableCount; }
     public String getDataSignatureJson() { return dataSignatureJson; }
     public void setDataSignatureJson(String dataSignatureJson) { this.dataSignatureJson = dataSignatureJson; }
+    public Long getDerivedFromVersionId() { return derivedFromVersionId; }
+    public void setDerivedFromVersionId(Long derivedFromVersionId) { this.derivedFromVersionId = derivedFromVersionId; }
+    public Integer getDerivedFromVersionNumber() { return derivedFromVersionNumber; }
+    public void setDerivedFromVersionNumber(Integer derivedFromVersionNumber) { this.derivedFromVersionNumber = derivedFromVersionNumber; }
     public Instant getUploadedAt() { return uploadedAt; }
     public RunStatus getStatus() { return status; }
     public void setStatus(RunStatus status) { this.status = status; }

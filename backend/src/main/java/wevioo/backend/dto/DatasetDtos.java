@@ -27,7 +27,9 @@ public class DatasetDtos {
         String pipelineRunId,
         String errorMessage,
         Instant startedAt,
-        Instant finishedAt
+        Instant finishedAt,
+        /** The version this one was corrected from; null for an upload. */
+        Integer derivedFromVersionNumber
     ) {}
 
     public record ColumnMetricView(

@@ -23,6 +23,9 @@ public class AppProperties {
     private long watchdogIntervalMs = 60000;
     private long watchdogStaleAfterMinutes = 10;
     private long watchdogMaxRunMinutes = 180;
+    private String ollamaUrl = "http://localhost:11434";
+    private String ollamaModel = "";
+    private int ollamaTimeoutMs = 120000;
 
     public String getStorageRoot() { return storageRoot; }
     public void setStorageRoot(String storageRoot) { this.storageRoot = storageRoot; }
@@ -62,4 +65,10 @@ public class AppProperties {
     public void setWatchdogStaleAfterMinutes(long watchdogStaleAfterMinutes) { this.watchdogStaleAfterMinutes = watchdogStaleAfterMinutes; }
     public long getWatchdogMaxRunMinutes() { return watchdogMaxRunMinutes; }
     public void setWatchdogMaxRunMinutes(long watchdogMaxRunMinutes) { this.watchdogMaxRunMinutes = watchdogMaxRunMinutes; }
+    public String getOllamaUrl() { return ollamaUrl; }
+    public void setOllamaUrl(String ollamaUrl) { this.ollamaUrl = ollamaUrl; }
+    public String getOllamaModel() { return ollamaModel; }
+    public void setOllamaModel(String ollamaModel) { this.ollamaModel = ollamaModel; }
+    public int getOllamaTimeoutMs() { return ollamaTimeoutMs; }
+    public void setOllamaTimeoutMs(int ollamaTimeoutMs) { this.ollamaTimeoutMs = ollamaTimeoutMs; }
 }

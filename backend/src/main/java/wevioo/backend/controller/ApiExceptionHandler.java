@@ -28,6 +28,11 @@ public class ApiExceptionHandler {
         return error(HttpStatus.CONFLICT, exception.getMessage());
     }
 
+    @ExceptionHandler(wevioo.backend.correction.OllamaClient.LlmUnavailableException.class)
+    public ResponseEntity<Map<String, String>> modelUnavailable(wevioo.backend.correction.OllamaClient.LlmUnavailableException exception) {
+        return error(HttpStatus.SERVICE_UNAVAILABLE, exception.getMessage());
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Map<String, String>> badRequest(IllegalArgumentException exception) {
         return error(HttpStatus.BAD_REQUEST, exception.getMessage());

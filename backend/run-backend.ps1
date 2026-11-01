@@ -48,6 +48,11 @@ if (-not $pipelineToken) {
     throw "PIPELINE_API_TOKEN is missing in $airflowEnvPath"
 }
 
+$ollamaModel = Get-DotEnvValue -Path $airflowEnvPath -Name "OLLAMA_MODEL"
+if ($ollamaModel -and -not $env:OLLAMA_MODEL) {
+    $env:OLLAMA_MODEL = $ollamaModel
+}
+
 $env:AIRFLOW_USERNAME = "admin"
 $env:AIRFLOW_PASSWORD = $airflowPassword
 $env:PIPELINE_API_TOKEN = $pipelineToken

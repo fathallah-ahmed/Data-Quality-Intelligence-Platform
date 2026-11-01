@@ -13,6 +13,8 @@ export interface VersionSummary {
   errorMessage?: string | null;
   startedAt?: string | null;
   finishedAt?: string | null;
+  /** The version this one was corrected from; null for an upload. */
+  derivedFromVersionNumber?: number | null;
 }
 
 export interface DatasetSummary {
@@ -168,6 +170,80 @@ export interface RuleView {
   origin: 'MANUAL' | 'AI';
   /** Why the analysis proposed the rule. */
   rationale?: string | null;
+}
+
+/** One correction: a known operation on a column (none for a whole-row operation) with its settings. */
+export interface CorrectionOp {
+  type: string;
+  column?: string | null;
+  params?: Record<string, unknown>;
+}
+
+export interface CorrectionSuggestion {
+  key: string;
+  operation: CorrectionOp;
+  description: string;
+  /** What was found in the data that makes this worth doing. */
+  rationale: string;
+  affectedRows: number;
+  examples: string[];
+}
+
+export interface CorrectionSuggestions {
+  table: string;
+  rows: number;
+  columns: string[];
+  suggestions: CorrectionSuggestion[];
+}
+
+export interface CorrectionOperationView {
+  operation: CorrectionOp;
+  description: string;
+}
+
+export interface CorrectionInterpretation {
+  operations: CorrectionOperationView[];
+  /** What the model assumed while reading the request. */
+  assumptions: string;
+  /** Parts of the answer that were not allowed or did not fit the table. */
+  rejected: string[];
+}
+
+export interface CorrectionExample {
+  row: number;
+  before: string;
+  after: string;
+}
+
+export interface CorrectionOperationPreview {
+  operation: CorrectionOp;
+  description: string;
+  /** Cells changed, or rows removed for the operations that remove rows. */
+  affected: number;
+  /** Dates left alone because day and month could be swapped. */
+  review: number;
+  notRecognised: number;
+  examples: CorrectionExample[];
+}
+
+export interface CorrectionPreview {
+  table: string;
+  rowsBefore: number;
+  rowsAfter: number;
+  cellsChanged: number;
+  operations: CorrectionOperationPreview[];
+  warnings: string[];
+}
+
+/** What was corrected to make a version; empty for an uploaded version. */
+export interface CorrectionLog {
+  derivedFromVersionNumber?: number;
+  table?: string;
+  appliedAt?: string;
+  rowsBefore?: number;
+  rowsAfter?: number;
+  cellsChanged?: number;
+  operations?: CorrectionOperationPreview[];
 }
 
 export interface RuleResultView {

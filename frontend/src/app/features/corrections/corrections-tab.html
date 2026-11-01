@@ -1,0 +1,236 @@
+@if (tableNames().length === 0) {
+  <app-empty-state title="No table to correct" message="Corrections apply to a table of this version once its analysis has produced one." icon="table" />
+} @else {
+  @if (details().version.derivedFromVersionNumber; as derived) {
+    <section class="card" aria-labelledby="origin-title">
+      <header class="card__header">
+        <div class="card__heading">
+          <span class="card__icon"><app-icon name="layers" /></span>
+          <div>
+            <h2 class="card__title" id="origin-title">Corrected copy of version {{ derived }}</h2>
+            <p class="card__subtitle">
+              Version {{ derived }} was not changed.
+              @if (sourceVersion(); as source) {
+                <a [routerLink]="['../compare']" [queryParams]="{ against: source.id }">Compare the two</a>
+              }
+            </p>
+          </div>
+        </div>
+      </header>
+      @if (log(); as log) {
+        @if (log.operations?.length) {
+          <p class="muted">
+            Table <code>{{ log.table }}</code>: {{ log.rowsBefore | dqNumber }} → {{ log.rowsAfter | dqNumber }} rows,
+            {{ log.cellsChanged | dqNumber }} value(s) changed.
+          </p>
+          <ul class="log">
+            @for (operation of log.operations; track $index) {
+              <li><span>{{ operation.description }}</span><strong>{{ operation.affected | dqNumber }}</strong></li>
+            }
+          </ul>
+        }
+      }
+    </section>
+  }
+
+  <section class="card" aria-labelledby="table-title">
+    <header class="card__header">
+      <div class="card__heading">
+        <span class="card__icon"><app-icon name="sparkles" /></span>
+        <div>
+          <h2 class="card__title" id="table-title">Correct a table</h2>
+          <p class="card__subtitle">Corrections are previewed first, then applied to a copy. This version is never changed.</p>
+        </div>
+      </div>
+      @if (tableNames().length > 1) {
+        <label class="table-picker">
+          <span class="field__label">Table</span>
+          <select class="input" (change)="selectTable($any($event.target).value)">
+            @for (name of tableNames(); track name) {
+              <option [value]="name" [selected]="name === table()">{{ name }}</option>
+            }
+          </select>
+        </label>
+      }
+    </header>
+    @if (running()) {
+      <div class="callout" data-tone="info"><app-icon name="info" /><span>This version is still being analysed. Corrections can be applied when it has finished.</span></div>
+    }
+  </section>
+
+  <div class="columns">
+    <!-- Found in the data -->
+    <section class="card" aria-labelledby="found-title">
+      <header class="card__header">
+        <div class="card__heading">
+          <span class="card__icon"><app-icon name="search" /></span>
+          <div>
+            <h2 class="card__title" id="found-title">Found in the data</h2>
+            <p class="card__subtitle">{{ suggestions() ? (suggestions()?.rows | dqNumber) + ' rows read' : 'Reading the table…' }}</p>
+          </div>
+        </div>
+        @if ((suggestions()?.suggestions?.length ?? 0) > 1) {
+          <button type="button" class="btn btn--secondary btn--sm" (click)="addAllSuggestions()">Add all</button>
+        }
+      </header>
+      @if (suggestionsLoading()) {
+        <app-skeleton [count]="3" [height]="20" />
+      } @else if (suggestionsError()) {
+        <div class="callout" data-tone="danger"><app-icon name="xCircle" /><span>{{ suggestionsError() }}</span></div>
+      } @else if ((suggestions()?.suggestions?.length ?? 0) === 0) {
+        <p class="all-good"><app-icon name="checkCircle" [size]="18" /> Nothing to correct was found: no stray spaces, placeholders, mixed date formats or repeated rows.</p>
+      } @else {
+        <ul class="found">
+          @for (suggestion of suggestions()?.suggestions; track suggestion.key) {
+            <li>
+              <span class="found__text">
+                <span class="found__title">{{ suggestion.description }}</span>
+                <span class="found__why">{{ suggestion.rationale }}</span>
+                @if (suggestion.examples.length > 0) {
+                  <span class="found__examples">e.g. {{ suggestion.examples.join(' · ') }}</span>
+                }
+              </span>
+              <button type="button" class="btn btn--secondary btn--sm" [disabled]="isAdded(suggestion)" (click)="addSuggestion(suggestion)">
+                @if (isAdded(suggestion)) { <app-icon name="check" [size]="15" /> Added } @else { <app-icon name="plus" [size]="15" /> Add }
+              </button>
+            </li>
+          }
+        </ul>
+      }
+    </section>
+
+    <!-- In your own words -->
+    <section class="card" aria-labelledby="words-title">
+      <header class="card__header">
+        <div class="card__heading">
+          <span class="card__icon"><app-icon name="text" /></span>
+          <div>
+            <h2 class="card__title" id="words-title">In your own words</h2>
+            <p class="card__subtitle">Describe what to fix; it is turned into corrections you can check</p>
+          </div>
+        </div>
+      </header>
+      <label class="field">
+        <span class="field__label">What should be corrected?</span>
+        <textarea
+          class="input"
+          rows="4"
+          maxlength="1000"
+          placeholder="e.g. Write every country as France, remove the spaces around names and read the dates day first"
+          [value]="instruction()"
+          (input)="instruction.set($any($event.target).value)"
+        ></textarea>
+      </label>
+      <div class="actions">
+        <button type="button" class="btn btn--primary" [disabled]="interpreting() || !instruction().trim()" (click)="interpret()">
+          <app-icon name="sparkles" [size]="16" /> {{ interpreting() ? 'Reading your request…' : 'Turn into corrections' }}
+        </button>
+      </div>
+      @if (requestError()) {
+        <div class="callout" data-tone="danger" role="alert"><app-icon name="xCircle" /><span>{{ requestError() }}</span></div>
+      }
+      @if (assumptions()) {
+        <div class="callout" data-tone="info"><app-icon name="info" /><span><strong>Assumed:</strong> {{ assumptions() }}</span></div>
+      }
+      @if (rejected().length > 0) {
+        <div class="callout" data-tone="warning">
+          <app-icon name="alert" />
+          <div>
+            <strong>Not used:</strong>
+            <ul>@for (reason of rejected(); track $index) { <li>{{ reason }}</li> }</ul>
+          </div>
+        </div>
+      }
+    </section>
+  </div>
+
+  <!-- The list and its preview -->
+  <section class="card" aria-labelledby="plan-title">
+    <header class="card__header">
+      <div class="card__heading">
+        <span class="card__icon"><app-icon name="list" /></span>
+        <div>
+          <h2 class="card__title" id="plan-title">Your corrections</h2>
+          <p class="card__subtitle">{{ plan().length }} correction(s) for <code>{{ table() }}</code>, applied in this order</p>
+        </div>
+      </div>
+      @if (plan().length > 0) {
+        <button type="button" class="btn btn--ghost btn--sm" (click)="clear()">Clear</button>
+      }
+    </header>
+
+    @if (plan().length === 0) {
+      <p class="muted">Nothing yet. Add what was found in the data, or describe a correction in your own words.</p>
+    } @else {
+      <ol class="plan">
+        @for (item of plan(); track $index) {
+          @let result = preview()?.operations?.[$index];
+          <li>
+            <div class="plan__row">
+              <span class="plan__text">
+                <span class="plan__title">{{ item.description }}</span>
+                <span class="plan__meta">{{ item.origin === 'written' ? 'from your request' : 'found in the data' }}</span>
+              </span>
+              @if (result) {
+                <button type="button" class="plan__count" [attr.aria-expanded]="openOperation() === $index" (click)="toggleOperation($index)">
+                  <strong>{{ result.affected | dqNumber }}</strong>
+                  <span>{{ item.operation.type.startsWith('DROP_') ? 'row(s) removed' : 'value(s) changed' }}</span>
+                  @if (result.review > 0) { <span class="tag" data-tone="warning">{{ result.review }} to review</span> }
+                </button>
+              } @else if (previewing()) {
+                <span class="muted">…</span>
+              }
+              <button type="button" class="btn btn--ghost btn--sm btn--icon" (click)="remove($index)" [attr.aria-label]="'Remove: ' + item.description"><app-icon name="x" [size]="16" /></button>
+            </div>
+            @if (result && openOperation() === $index) {
+              @if (result.examples.length === 0) {
+                <p class="muted plan__examples">This correction changes nothing in this table.</p>
+              } @else {
+                <table class="plan__examples data-table">
+                  <thead><tr><th scope="col" class="num">Row</th><th scope="col">Before</th><th scope="col">After</th></tr></thead>
+                  <tbody>
+                    @for (example of result.examples; track $index) {
+                      <tr><td class="num">{{ example.row | dqNumber }}</td><td class="mono">{{ example.before }}</td><td class="mono">{{ example.after }}</td></tr>
+                    }
+                  </tbody>
+                </table>
+              }
+            }
+          </li>
+        }
+      </ol>
+
+      @if (previewError()) {
+        <div class="callout" data-tone="danger" role="alert"><app-icon name="xCircle" /><span>{{ previewError() }}</span></div>
+      }
+      @if (preview(); as result) {
+        <div class="summary">
+          <span><strong>{{ result.rowsBefore | dqNumber }}</strong> rows → <strong>{{ result.rowsAfter | dqNumber }}</strong> rows</span>
+          <span><strong>{{ result.cellsChanged | dqNumber }}</strong> value(s) changed</span>
+        </div>
+        @if (result.warnings.length > 0) {
+          <div class="callout" data-tone="warning">
+            <app-icon name="alert" />
+            <ul>@for (warning of result.warnings; track $index) { <li>{{ warning }}</li> }</ul>
+          </div>
+        }
+      }
+
+      <div class="actions">
+        <button type="button" class="btn btn--primary" [disabled]="!canApply()" (click)="confirmApply.set(true)">
+          <app-icon name="check" [size]="16" /> Create corrected version
+        </button>
+      </div>
+    }
+  </section>
+}
+
+<app-confirm-dialog
+  [open]="confirmApply()"
+  title="Create a corrected version"
+  [message]="'This creates version ' + nextVersion() + ' of the dataset with ' + plan().length + ' correction(s) applied to ' + table() + ' and analyses it. Version ' + details().version.versionNumber + ' stays exactly as it is.'"
+  confirmText="Create version"
+  [busy]="applying()"
+  (confirmed)="apply()"
+  (cancelled)="confirmApply.set(false)"
+/>

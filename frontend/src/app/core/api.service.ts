@@ -4,6 +4,11 @@ import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
 import {
   AuthMe,
+  CorrectionInterpretation,
+  CorrectionLog,
+  CorrectionOp,
+  CorrectionPreview,
+  CorrectionSuggestions,
   DatasetSummary,
   LoginResponse,
   RuleRequest,
@@ -116,6 +121,30 @@ export class ApiService {
   /** Check the rules against a version (after adding or editing a rule). */
   evaluateRules(datasetId: number, versionId: number): Observable<RuleResults> {
     return this.http.post<RuleResults>(`${this.base}/datasets/${datasetId}/versions/${versionId}/rules/evaluate`, null);
+  }
+
+  /** Corrections found by reading a table: spaces, placeholders, date formats, spellings, repeated rows. */
+  correctionSuggestions(datasetId: number, versionId: number, table: string): Observable<CorrectionSuggestions> {
+    return this.http.get<CorrectionSuggestions>(`${this.base}/datasets/${datasetId}/versions/${versionId}/corrections/suggestions`, { params: { table } });
+  }
+
+  /** A request written in plain language, read as corrections. Nothing is changed. */
+  interpretCorrection(datasetId: number, versionId: number, table: string, instruction: string): Observable<CorrectionInterpretation> {
+    return this.http.post<CorrectionInterpretation>(`${this.base}/datasets/${datasetId}/versions/${versionId}/corrections/interpret`, { table, instruction });
+  }
+
+  /** What the corrections would change, with counts and examples. Nothing is written. */
+  previewCorrections(datasetId: number, versionId: number, table: string, operations: CorrectionOp[]): Observable<CorrectionPreview> {
+    return this.http.post<CorrectionPreview>(`${this.base}/datasets/${datasetId}/versions/${versionId}/corrections/preview`, { table, operations });
+  }
+
+  /** Applies the corrections to a copy: the result is the next version of the dataset. */
+  applyCorrections(datasetId: number, versionId: number, table: string, operations: CorrectionOp[]): Observable<UploadResponse> {
+    return this.http.post<UploadResponse>(`${this.base}/datasets/${datasetId}/versions/${versionId}/corrections/apply`, { table, operations });
+  }
+
+  correctionLog(datasetId: number, versionId: number): Observable<CorrectionLog> {
+    return this.http.get<CorrectionLog>(`${this.base}/datasets/${datasetId}/versions/${versionId}/corrections`);
   }
 
   rerun(datasetId: number, versionId: number): Observable<UploadResponse> {
