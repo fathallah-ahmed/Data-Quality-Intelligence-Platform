@@ -91,6 +91,9 @@ summaries when available.
 Use deterministic metrics as the source of truth. Do not recalculate row counts,
 missingness, duplicate counts, or relationships. Do not invent columns.
 
+When the payload has business_context (domain, objective, row_grain), rate every
+risk by that objective and read repeated identifiers against what one row stands for.
+
 Your job is to produce a concise global analysis across the uploaded dataset
 version. Focus on cross-table meaning, business risks, relationship consistency,
 governance actions, and questions for business/source-system owners.

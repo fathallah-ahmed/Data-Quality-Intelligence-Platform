@@ -61,6 +61,28 @@
       <span class="field__hint">Uploading again under the same name creates a new version of that dataset.</span>
     </label>
 
+    <fieldset class="purpose">
+      <legend class="field__label">What do you want to check? <span class="muted">(optional, but it makes the checks fit your goal)</span></legend>
+      <label class="field">
+        <span class="field__label">Domain</span>
+        <input class="input" type="text" maxlength="200" placeholder="e.g. Retail banking, e-commerce, HR" [ngModel]="domain()" (ngModelChange)="domain.set($event)" />
+      </label>
+      <label class="field">
+        <span class="field__label">Goal</span>
+        <textarea class="input" rows="2" maxlength="1000" placeholder="e.g. I want to check that my data lets me contact customers correctly" [ngModel]="objective()" (ngModelChange)="objective.set($event)"></textarea>
+      </label>
+      <label class="field">
+        <span class="field__label">One row represents</span>
+        <input class="input" type="text" maxlength="200" placeholder="e.g. one bank account (a customer can have several)" [ngModel]="rowGrain()" (ngModelChange)="rowGrain.set($event)" />
+        <span class="field__hint">
+          This decides what counts as a duplicate. Quick fill:
+          @for (example of grainExamples; track example) {
+            <button type="button" class="btn btn--ghost btn--sm" (click)="rowGrain.set(example)">{{ example }}</button>
+          }
+        </span>
+      </label>
+    </fieldset>
+
     <details class="context" [open]="showContext()" (toggle)="showContext.set($any($event.target).open)">
       <summary>
         <span class="context__title"><app-icon name="sparkles" [size]="16" /> Add business context for the AI <span class="muted">(optional)</span></span>

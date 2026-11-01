@@ -66,6 +66,11 @@ export class ApiService {
     if (request.tableDescriptions && Object.keys(request.tableDescriptions).length > 0) {
       form.append('tableDescriptionsJson', JSON.stringify(request.tableDescriptions));
     }
+    for (const [key, value] of [['domain', request.domain], ['objective', request.objective], ['rowGrain', request.rowGrain]] as const) {
+      if (value?.trim()) {
+        form.append(key, value.trim());
+      }
+    }
     return this.http.post<UploadResponse>(`${this.base}/datasets/upload`, form, {
       params: { rerunExisting: String(rerunExisting) }
     });

@@ -38,6 +38,8 @@ import java.util.*;
 public class DatasetService {
     private static final Logger log = LoggerFactory.getLogger(DatasetService.class);
     private static final String DATASET_CONFIG_FILE = "dataset_config.csv";
+    static final String BUSINESS_CONTEXT_FILE = "dataset_context.json";
+    private static final int MAX_CONTEXT_CHARS = 1000;
 
     private final AppProperties properties;
     private final DatasetRepository datasetRepository;
@@ -85,14 +87,18 @@ public class DatasetService {
         String contextScope,
         String globalDescription,
         String globalQuestion,
-        String tableDescriptionsJson
+        String tableDescriptionsJson,
+        BusinessContext business
     ) {
         PreparedUpload prepared = prepareUpload(files, legacyFile);
         String datasetName = hasText(requestedName) ? requestedName.trim() : stripExtension(prepared.files().get(0).name());
         if (datasetName.length() > 255) {
             throw new IllegalArgumentException("Dataset name must be at most 255 characters");
         }
-        UploadContext context = new UploadContext(contextScope, globalDescription, globalQuestion, tableDescriptionsJson);
+        UploadContext context = new UploadContext(
+            contextScope, globalDescription, globalQuestion, tableDescriptionsJson,
+            business == null ? BusinessContext.EMPTY : business
+        );
 
         UploadPlan plan = transactionTemplate.execute(status -> planUpload(datasetName, prepared, rerunExisting, context));
         if (plan.duplicateResponse() != null) {
@@ -258,6 +264,7 @@ public class DatasetService {
         try {
             storeFiles(versionDir, prepared.files());
             writeDatasetConfig(versionDir, context);
+            writeBusinessContext(versionDir, context.business());
 
             DatasetVersion version = new DatasetVersion();
             version.setDataset(dataset);
@@ -283,6 +290,7 @@ public class DatasetService {
         version.setFilePath(versionDir.toString());
         if (context != null) {
             writeDatasetConfig(versionDir, context);
+            writeBusinessContext(versionDir, context.business());
         }
         clearVersionResults(version);
         version.setStatus(RunStatus.PENDING);
@@ -769,6 +777,32 @@ public class DatasetService {
         }
     }
 
+    /**
+     * The domain, objective and row grain the user gave, in their own file next to the CSVs so the
+     * pipeline can read it. Nothing given means no file (a stale one from a previous run is removed).
+     */
+    private void writeBusinessContext(Path versionDir, BusinessContext business) {
+        try {
+            Path file = versionDir.resolve(BUSINESS_CONTEXT_FILE);
+            if (business == null || business.isEmpty()) {
+                Files.deleteIfExists(file);
+                return;
+            }
+            Map<String, Object> content = new LinkedHashMap<>();
+            content.put("domain", clip(business.domain()));
+            content.put("objective", clip(business.objective()));
+            content.put("row_grain", clip(business.rowGrain()));
+            Files.writeString(file, jsonService.toJson(content), StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw new IllegalStateException("Could not store the business context", e);
+        }
+    }
+
+    private String clip(String value) {
+        String text = cleanText(value);
+        return text.length() > MAX_CONTEXT_CHARS ? text.substring(0, MAX_CONTEXT_CHARS) : text;
+    }
+
     // ---------------------------------------------------------------- helpers
 
     private DatasetVersion requireVersion(Long datasetId, Long versionId) {
@@ -844,7 +878,26 @@ public class DatasetService {
 
     record PreparedUpload(List<IncomingFile> files, List<String> skipped) {}
 
-    private record UploadContext(String scope, String globalDescription, String globalQuestion, String tableDescriptionsJson) {}
+    /** What the user wants from the data: its domain, the goal of the analysis and what one row stands for. */
+    public record BusinessContext(String domain, String objective, String rowGrain) {
+        public static final BusinessContext EMPTY = new BusinessContext(null, null, null);
+
+        boolean isEmpty() {
+            return blank(domain) && blank(objective) && blank(rowGrain);
+        }
+
+        private static boolean blank(String value) {
+            return value == null || value.isBlank();
+        }
+    }
+
+    private record UploadContext(
+        String scope,
+        String globalDescription,
+        String globalQuestion,
+        String tableDescriptionsJson,
+        BusinessContext business
+    ) {}
 
     private record UploadPlan(
         UploadResponse duplicateResponse,

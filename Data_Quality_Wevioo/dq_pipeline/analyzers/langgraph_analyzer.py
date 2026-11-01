@@ -892,6 +892,8 @@ HARD RULES:
 - If a recommendation is table-level, use field "table".
 - If you cite a missingness percentage, it must match the evidence.
 - Do not recommend dropping ID/key columns unless the evidence shows severe missingness or parsing artifacts.
+- If the domain description says what one row represents, judge uniqueness against it: repeated identifiers are
+  normal when a row is not the entity the identifier names. Rate every risk by the stated goal of the analysis.
 - Return only the JSON object required by the API schema. No markdown or prose outside JSON.
 
 RESPONSE SHAPE (use exactly these keys; the semantic keys go INSIDE "semantic_analysis"):

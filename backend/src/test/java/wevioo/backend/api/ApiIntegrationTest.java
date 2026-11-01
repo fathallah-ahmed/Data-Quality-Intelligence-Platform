@@ -151,6 +151,40 @@ class ApiIntegrationTest {
     }
 
     @Test
+    void businessContextIsStoredBesideTheFilesAndSurvivesARetry() throws Exception {
+        var request = multipart("/api/datasets/upload").file(csv("accounts.csv", "id,owner\n1,Ann\n1,Ann\n"));
+        MvcResult created = mvc.perform(request
+                .param("name", "context-" + UUID.randomUUID())
+                .param("domain", "Retail banking")
+                .param("objective", "Contact customers correctly")
+                .param("rowGrain", "one account")
+                .header("Authorization", "Bearer " + token))
+            .andExpect(status().isOk())
+            .andReturn();
+        JsonNode upload = objectMapper.readTree(created.getResponse().getContentAsString());
+        Path folder = Path.of(versionRepository.findById(upload.get("versionId").asLong()).orElseThrow().getFilePath());
+
+        JsonNode stored = objectMapper.readTree(Files.readString(folder.resolve("dataset_context.json")));
+        assertThat(stored.get("domain").asString()).isEqualTo("Retail banking");
+        assertThat(stored.get("objective").asString()).isEqualTo("Contact customers correctly");
+        assertThat(stored.get("row_grain").asString()).isEqualTo("one account");
+
+        completeRun(upload.get("pipelineRunId").asString(), "success", null);
+        mvc.perform(post("/api/datasets/" + upload.get("datasetId").asLong() + "/versions/" + upload.get("versionId").asLong() + "/rerun")
+                .header("Authorization", "Bearer " + token))
+            .andExpect(status().isOk());
+        assertThat(folder.resolve("dataset_context.json")).exists();
+    }
+
+    @Test
+    void noBusinessContextMeansNoContextFile() throws Exception {
+        JsonNode upload = upload("plain-" + UUID.randomUUID(), false, csv("t.csv", "a\n1\n"));
+        Path folder = Path.of(versionRepository.findById(upload.get("versionId").asLong()).orElseThrow().getFilePath());
+
+        assertThat(folder.resolve("dataset_context.json")).doesNotExist();
+    }
+
+    @Test
     void legacyVersionsWithoutHashAreComparedByRecomputingTheHash() throws Exception {
         String name = "legacy-" + UUID.randomUUID();
         JsonNode first = upload(name, false, csv("t.csv", "a,b\n1,2\n"));

@@ -235,6 +235,10 @@ export interface UploadRequest {
   globalDescription?: string;
   globalQuestion?: string;
   tableDescriptions?: Record<string, string>;
+  /** What the data is about, what the user wants to check, and what one row stands for. */
+  domain?: string;
+  objective?: string;
+  rowGrain?: string;
 }
 
 export interface ClassDiagramColumn {

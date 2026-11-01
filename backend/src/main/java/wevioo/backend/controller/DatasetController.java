@@ -5,6 +5,7 @@ import org.springframework.web.multipart.MultipartFile;
 import wevioo.backend.dto.DatasetDtos.*;
 import wevioo.backend.dto.UploadResponse;
 import wevioo.backend.service.DatasetService;
+import wevioo.backend.service.DatasetService.BusinessContext;
 
 import java.util.List;
 import java.util.Map;
@@ -26,6 +27,9 @@ public class DatasetController {
         @RequestParam(value = "globalDescription", required = false) String globalDescription,
         @RequestParam(value = "globalQuestion", required = false) String globalQuestion,
         @RequestParam(value = "tableDescriptionsJson", required = false) String tableDescriptionsJson,
+        @RequestParam(value = "domain", required = false) String domain,
+        @RequestParam(value = "objective", required = false) String objective,
+        @RequestParam(value = "rowGrain", required = false) String rowGrain,
         @RequestPart(value = "files", required = false) MultipartFile[] files,
         @RequestPart(value = "file", required = false) MultipartFile file
     ) {
@@ -37,7 +41,8 @@ public class DatasetController {
             contextScope,
             globalDescription,
             globalQuestion,
-            tableDescriptionsJson
+            tableDescriptionsJson,
+            new BusinessContext(domain, objective, rowGrain)
         );
     }
 

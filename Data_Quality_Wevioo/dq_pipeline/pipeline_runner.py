@@ -565,6 +565,7 @@ class PipelineRunner:
                 model=settings.OLLAMA_MODEL,
                 debug=self.debug,
                 dataset_config_path=str(dataset_config_path) if dataset_config_path else None,
+                business_context=self._business_context(),
             )
 
         except LlmUnavailableError as e:
@@ -580,6 +581,23 @@ class PipelineRunner:
         base_path = self.file_path if self.file_path.is_dir() else self.file_path.parent
         config_path = base_path / "dataset_config.csv"
         return config_path if config_path.exists() else None
+
+    def _business_context(self) -> Dict[str, str]:
+        """Domain, objective and row grain the user gave at upload (empty when none were given)."""
+        base_path = self.file_path if self.file_path.is_dir() else self.file_path.parent
+        context_path = base_path / "dataset_context.json"
+        if not context_path.exists():
+            return {}
+        try:
+            with open(context_path, "r", encoding="utf-8-sig") as handle:
+                raw = json.load(handle)
+        except Exception as exc:
+            self._warn(f"Could not read the business context: {exc}")
+            return {}
+        if not isinstance(raw, dict):
+            return {}
+        context = {key: str(raw.get(key) or "").strip() for key in ("domain", "objective", "row_grain")}
+        return {key: value for key, value in context.items() if value}
 
     @staticmethod
     def _safe_float(value):
@@ -869,6 +887,7 @@ class PipelineRunner:
             "pipeline_run_id": self.pipeline_run_id,
             "global_description": global_context.get("description") or "",
             "global_question": global_context.get("custom_question") or "",
+            "business_context": self._business_context(),
             "table_status": {
                 "succeeded": len(table_results),
                 "failed": failed_count,

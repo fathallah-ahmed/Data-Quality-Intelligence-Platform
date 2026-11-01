@@ -31,6 +31,10 @@ export class UploadDialog {
   readonly files = signal<File[]>([]);
   readonly problems = signal<FileProblem[]>([]);
   readonly datasetName = signal('');
+  readonly domain = signal('');
+  readonly objective = signal('');
+  readonly rowGrain = signal('');
+  readonly grainExamples = ['one customer', 'one account', 'one transaction', 'one order'];
   readonly showContext = signal(false);
   readonly contextScope = signal<ContextScope>('none');
   readonly globalDescription = signal('');
@@ -109,7 +113,10 @@ export class UploadDialog {
       contextScope: context ? this.contextScope() : 'none',
       globalDescription: context && this.usesGlobal() ? this.globalDescription() : undefined,
       globalQuestion: context ? this.globalQuestion() : undefined,
-      tableDescriptions: context && this.usesTables() ? descriptions : undefined
+      tableDescriptions: context && this.usesTables() ? descriptions : undefined,
+      domain: this.domain(),
+      objective: this.objective(),
+      rowGrain: this.rowGrain()
     }, rerunExisting).subscribe({
       next: (response) => {
         this.uploading.set(false);
@@ -171,6 +178,9 @@ export class UploadDialog {
     this.files.set([]);
     this.problems.set([]);
     this.datasetName.set('');
+    this.domain.set('');
+    this.objective.set('');
+    this.rowGrain.set('');
     this.showContext.set(false);
     this.contextScope.set('none');
     this.globalDescription.set('');

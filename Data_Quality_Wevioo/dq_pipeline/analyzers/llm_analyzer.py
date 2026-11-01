@@ -87,6 +87,22 @@ def _context_for_table(config, table_name):
     return description, custom_question
 
 
+def describe_business_context(business_context):
+    """One paragraph for the LLM prompt from the domain, objective and row grain the user gave."""
+    context = business_context or {}
+    parts = []
+    if context.get("domain"):
+        parts.append(f"Business domain: {context['domain']}.")
+    if context.get("objective"):
+        parts.append(f"Goal of the analysis: {context['objective']}.")
+    if context.get("row_grain"):
+        parts.append(
+            f"One row represents: {context['row_grain']}. "
+            "A value that repeats across rows is only a problem when it contradicts this."
+        )
+    return " ".join(parts)
+
+
 def analyze_table_metrics(
     table_name: str,
     sweetviz_data: dict,
@@ -97,6 +113,7 @@ def analyze_table_metrics(
     num_predict: int = None,
     debug: bool = False,
     dataset_config_path: str = None,
+    business_context: dict = None,
 ) -> dict:
     """
     Analyze a single table from its profiling metrics.
@@ -115,6 +132,9 @@ def analyze_table_metrics(
 
     config = load_dataset_config(dataset_config_path)
     description, custom_question = _context_for_table(config, table_name)
+    business = describe_business_context(business_context)
+    if business:
+        description = f"{business}\n{description}" if description else business
     _debug_log(debug, f"{table_name}: running controlled LLM workflow")
     return analyze_table_with_langgraph(
         table_name=table_name,
