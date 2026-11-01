@@ -95,6 +95,16 @@ export class ApiService {
     return this.http.put<RuleView>(`${this.base}/datasets/${datasetId}/rules/${ruleId}`, rule);
   }
 
+  /** Switch on a rule the analysis suggested. */
+  approveRule(datasetId: number, ruleId: number): Observable<RuleView> {
+    return this.http.post<RuleView>(`${this.base}/datasets/${datasetId}/rules/${ruleId}/approve`, null);
+  }
+
+  /** Turn down a suggested rule; it is not suggested again. */
+  dismissRule(datasetId: number, ruleId: number): Observable<{ status: string }> {
+    return this.http.post<{ status: string }>(`${this.base}/datasets/${datasetId}/rules/${ruleId}/dismiss`, null);
+  }
+
   deleteRule(datasetId: number, ruleId: number): Observable<{ status: string }> {
     return this.http.delete<{ status: string }>(`${this.base}/datasets/${datasetId}/rules/${ruleId}`);
   }

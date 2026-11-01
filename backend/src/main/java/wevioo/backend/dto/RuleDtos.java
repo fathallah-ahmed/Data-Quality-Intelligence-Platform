@@ -5,8 +5,10 @@ import java.util.List;
 
 public class RuleDtos {
     /**
-     * @param type     a {@code RuleType} name, e.g. NOT_NULL or MAX_MISSING_PERCENT
-     * @param severity WARNING (default) or CRITICAL
+     * @param type         a {@code RuleType} name, e.g. NOT_NULL or MAX_MISSING_PERCENT
+     * @param severity     WARNING (default) or CRITICAL
+     * @param format       for MIN_FORMAT_VALID_PERCENT: a {@code RuleFormat} name, e.g. EMAIL
+     * @param secondColumn for DATE_ORDER: the column that must not come before {@code columnName}
      */
     public record RuleRequest(
         String tableName,
@@ -14,9 +16,15 @@ public class RuleDtos {
         String type,
         Double threshold,
         String severity,
-        Boolean enabled
+        Boolean enabled,
+        String format,
+        String secondColumn
     ) {}
 
+    /**
+     * @param state  ACTIVE (checked), SUGGESTED (waiting for the user) or DISMISSED
+     * @param origin MANUAL or AI
+     */
     public record RuleView(
         Long id,
         String tableName,
@@ -26,7 +34,12 @@ public class RuleDtos {
         String severity,
         boolean enabled,
         String description,
-        Instant createdAt
+        Instant createdAt,
+        String format,
+        String secondColumn,
+        String state,
+        String origin,
+        String rationale
     ) {}
 
     /**

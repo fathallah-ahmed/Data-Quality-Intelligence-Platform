@@ -192,6 +192,12 @@
   overflow-wrap: anywhere;
 }
 
+.suggestions__why {
+  font-size: var(--text-xs);
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
 .rule__title {
   font-weight: 600;
   overflow-wrap: anywhere;

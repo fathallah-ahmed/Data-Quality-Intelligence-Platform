@@ -38,6 +38,19 @@ public class RuleController {
         return ruleService.update(datasetId, ruleId, request);
     }
 
+    /** Accept a rule the analysis suggested: it is checked on every version from now on. */
+    @PostMapping("/rules/{ruleId}/approve")
+    public RuleView approveRule(@PathVariable Long datasetId, @PathVariable Long ruleId) {
+        return ruleService.approve(datasetId, ruleId);
+    }
+
+    /** Turn down a suggested rule; it will not be suggested again. */
+    @PostMapping("/rules/{ruleId}/dismiss")
+    public Map<String, String> dismissRule(@PathVariable Long datasetId, @PathVariable Long ruleId) {
+        ruleService.dismiss(datasetId, ruleId);
+        return Map.of("status", "dismissed");
+    }
+
     @DeleteMapping("/rules/{ruleId}")
     public Map<String, String> deleteRule(@PathVariable Long datasetId, @PathVariable Long ruleId) {
         ruleService.delete(datasetId, ruleId);

@@ -109,9 +109,14 @@ export type RuleType =
   | 'MIN_ROWS'
   | 'MAX_DUPLICATE_PERCENT'
   | 'MIN_QUALITY_SCORE'
-  | 'MAX_ROW_DROP_PERCENT';
+  | 'MAX_ROW_DROP_PERCENT'
+  | 'MIN_FORMAT_VALID_PERCENT'
+  | 'DATE_ORDER';
+export type RuleFormat = 'EMAIL' | 'PHONE' | 'URL' | 'DATE' | 'NUMBER';
 export type RuleSeverity = 'WARNING' | 'CRITICAL';
 export type RuleStatus = 'PASS' | 'FAIL' | 'SKIPPED';
+/** ACTIVE rules are checked; SUGGESTED ones wait for the user's decision. */
+export type RuleState = 'ACTIVE' | 'SUGGESTED' | 'DISMISSED';
 
 export interface RuleRequest {
   tableName: string;
@@ -120,6 +125,10 @@ export interface RuleRequest {
   threshold?: number | null;
   severity: RuleSeverity;
   enabled?: boolean;
+  /** MIN_FORMAT_VALID_PERCENT: the format the values must match. */
+  format?: RuleFormat | null;
+  /** DATE_ORDER: the column that the rule's column must not come after. */
+  secondColumn?: string | null;
 }
 
 export interface RuleView {
@@ -132,6 +141,13 @@ export interface RuleView {
   enabled: boolean;
   description: string;
   createdAt: string;
+  format?: RuleFormat | null;
+  secondColumn?: string | null;
+  state: RuleState;
+  /** AI when the analysis proposed the rule from the user's goal. */
+  origin: 'MANUAL' | 'AI';
+  /** Why the analysis proposed the rule. */
+  rationale?: string | null;
 }
 
 export interface RuleResultView {

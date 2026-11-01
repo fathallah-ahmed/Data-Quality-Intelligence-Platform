@@ -39,6 +39,9 @@ class ColumnMetrics:
     # Top values for categorical columns
     top_values: List[Dict[str, Any]] = field(default_factory=list)
 
+    # Text columns: per format (EMAIL, PHONE, URL, DATE, NUMBER) how many values match, with a few that do not.
+    format_stats: Dict[str, Any] = field(default_factory=dict)
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
         return asdict(self)
@@ -95,6 +98,9 @@ class TableAnalysisResult:
     # Deterministic relationship hypotheses discovered from column value overlap.
     # This is produced before LLM enrichment so the UI can draw a class diagram early.
     deterministic_relationships: List[Dict[str, Any]] = field(default_factory=list)
+
+    # Checks that compare columns row by row, e.g. {"date_order": [{"first", "second", "compared", ...}]}.
+    cross_checks: Dict[str, Any] = field(default_factory=dict)
 
     # Metadata
     status: str = "completed"  # completed, empty, failed

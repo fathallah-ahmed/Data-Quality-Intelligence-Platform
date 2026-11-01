@@ -34,6 +34,11 @@ public class ColumnMetric {
     @Column(name = "max_value")
     private Double maxValue;
 
+    /** Per format (EMAIL, PHONE...) how many values match, as measured by the pipeline; text columns only. */
+    @Lob
+    @Column(name = "format_stats_json")
+    private String formatStatsJson;
+
     public Long getId() { return id; }
     public TableAnalysis getTableAnalysis() { return tableAnalysis; }
     public void setTableAnalysis(TableAnalysis tableAnalysis) { this.tableAnalysis = tableAnalysis; }
@@ -51,4 +56,6 @@ public class ColumnMetric {
     public void setMinValue(Double minValue) { this.minValue = minValue; }
     public Double getMaxValue() { return maxValue; }
     public void setMaxValue(Double maxValue) { this.maxValue = maxValue; }
+    public String getFormatStatsJson() { return formatStatsJson; }
+    public void setFormatStatsJson(String formatStatsJson) { this.formatStatsJson = formatStatsJson; }
 }

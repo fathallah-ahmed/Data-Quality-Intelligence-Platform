@@ -68,6 +68,18 @@ public class PipelineController {
         return Map.of("status", "accepted");
     }
 
+    /** Rules the pipeline proposes from the user's goal; they wait for approval in the Rules tab. */
+    @PostMapping("/rule-suggestions")
+    public Map<String, String> ruleSuggestions(
+        @PathVariable String runId,
+        @RequestHeader(value = "X-Pipeline-Token", required = false) String token,
+        @RequestBody Map<String, Object> request
+    ) {
+        requirePipelineToken(token);
+        ruleService.saveSuggestions(runId, suggestedRules(request)).ifPresent(this::publish);
+        return Map.of("status", "accepted");
+    }
+
     @PostMapping("/complete")
     public Map<String, String> completed(
         @PathVariable String runId,
@@ -129,8 +141,26 @@ public class PipelineController {
                 .filter(item -> !item.isEmpty())
                 .toList(),
             stringValue(payload, "change_status"),
-            stringValue(payload, "status")
+            stringValue(payload, "status"),
+            mapValue(payload.get("cross_checks"))
         );
+    }
+
+    private List<SuggestedRule> suggestedRules(Map<String, Object> payload) {
+        return listValue(payload.get("rules")).stream()
+            .map(this::mapValue)
+            .filter(item -> !item.isEmpty())
+            .map(item -> new SuggestedRule(
+                stringValue(item, "table_name"),
+                stringValue(item, "column_name"),
+                stringValue(item, "type"),
+                stringValue(item, "format"),
+                stringValue(item, "second_column"),
+                doubleValue(item.get("threshold")),
+                stringValue(item, "severity"),
+                stringValue(item, "rationale")
+            ))
+            .toList();
     }
 
     private GlobalAnalysisRequest globalAnalysisRequest(Map<String, Object> payload) {
@@ -167,7 +197,8 @@ public class PipelineController {
                 doubleValue(column.get("missing_percent")),
                 longValue(column.get("distinct_count")),
                 doubleValue(column.get("min_value")),
-                doubleValue(column.get("max_value"))
+                doubleValue(column.get("max_value")),
+                mapValue(column.get("format_stats"))
             ))
             .toList();
     }

@@ -1,14 +1,30 @@
-import { RuleRequest, RuleType, RuleView, VersionDetails } from '../../core/models';
+import { RuleFormat, RuleRequest, RuleType, RuleView, VersionDetails } from '../../core/models';
 
 export interface RuleTypeInfo {
   type: RuleType;
   label: string;
   needsColumn: boolean;
   needsThreshold: boolean;
+  /** The rule names a format (email, phone...). */
+  needsFormat?: boolean;
+  /** The rule compares its column with another column. */
+  needsSecondColumn?: boolean;
   /** Shown next to the threshold field. */
   unit: string;
   defaultThreshold: number | null;
   help: string;
+}
+
+export const RULE_FORMATS: { value: RuleFormat; label: string }[] = [
+  { value: 'EMAIL', label: 'an email address' },
+  { value: 'PHONE', label: 'a phone number' },
+  { value: 'URL', label: 'a web address' },
+  { value: 'DATE', label: 'a date' },
+  { value: 'NUMBER', label: 'a number' }
+];
+
+export function formatLabel(format: RuleFormat | string | null | undefined): string {
+  return RULE_FORMATS.find((item) => item.value === format)?.label ?? String(format ?? '');
 }
 
 export const RULE_TYPES: RuleTypeInfo[] = [
@@ -23,6 +39,14 @@ export const RULE_TYPES: RuleTypeInfo[] = [
   {
     type: 'UNIQUE', label: 'Column values are unique', needsColumn: true, needsThreshold: false, unit: '', defaultThreshold: null,
     help: 'Fails when a value appears more than once (empty values are ignored). Use it for keys.'
+  },
+  {
+    type: 'MIN_FORMAT_VALID_PERCENT', label: 'Column values follow a format', needsColumn: true, needsThreshold: true, needsFormat: true, unit: '% valid', defaultThreshold: 95,
+    help: 'Fails when fewer than this share of the filled values look like an email, a phone number, a date... Empty values are ignored.'
+  },
+  {
+    type: 'DATE_ORDER', label: 'One date is not after another', needsColumn: true, needsThreshold: true, needsSecondColumn: true, unit: '% of rows', defaultThreshold: 0,
+    help: 'On rows where both dates are filled, fails when the first comes after the second (for example a closing date before the opening date).'
   },
   {
     type: 'MIN_ROWS', label: 'Table has at least … rows', needsColumn: false, needsThreshold: true, unit: 'rows', defaultThreshold: 1,
@@ -51,10 +75,14 @@ function num(value: number): string {
 }
 
 /** The same sentence the backend writes for a rule. */
-export function describeRule(rule: Pick<RuleRequest, 'type' | 'tableName' | 'columnName' | 'threshold'>): string {
+export function describeRule(rule: Pick<RuleRequest, 'type' | 'tableName' | 'columnName' | 'threshold'> & Partial<Pick<RuleRequest, 'format' | 'secondColumn'>>): string {
   const target = rule.tableName + (rule.columnName ? `.${rule.columnName}` : '');
   const limit = rule.threshold === null || rule.threshold === undefined ? '' : num(rule.threshold);
   switch (rule.type) {
+    case 'MIN_FORMAT_VALID_PERCENT':
+      return `${target} has at least ${limit}% of its values as ${formatLabel(rule.format)}`;
+    case 'DATE_ORDER':
+      return `${target} is not after ${rule.tableName}.${rule.secondColumn ?? 'column'}${rule.threshold ? ` (up to ${limit}% of rows may break this)` : ''}`;
     case 'NOT_NULL':
       return `${target} has no missing values`;
     case 'MAX_MISSING_PERCENT':
@@ -79,7 +107,7 @@ const MAX_SUGGESTIONS = 12;
  * columns that are (almost) complete should stay that way, and tables should not shrink or lose
  * quality. Rules that already exist are left out.
  */
-export function suggestRules(details: VersionDetails, existing: Pick<RuleView, 'type' | 'tableName' | 'columnName'>[]): RuleRequest[] {
+export function suggestRules(details: VersionDetails, existing: Pick<RuleView, 'type' | 'tableName' | 'columnName' | 'format' | 'secondColumn'>[]): RuleRequest[] {
   const taken = new Set(existing.map((rule) => ruleKey(rule)));
   const tables = details.tables.filter((table) => table.changeStatus !== 'REMOVED' && (table.rowCount ?? 0) > 0);
   const keys: RuleRequest[] = [];
@@ -118,6 +146,6 @@ export function suggestRules(details: VersionDetails, existing: Pick<RuleView, '
     .slice(0, MAX_SUGGESTIONS);
 }
 
-export function ruleKey(rule: { type: string; tableName: string; columnName?: string | null }): string {
-  return `${rule.type}|${rule.tableName}|${rule.columnName ?? ''}`;
+export function ruleKey(rule: { type: string; tableName: string; columnName?: string | null; format?: string | null; secondColumn?: string | null }): string {
+  return `${rule.type}|${rule.tableName}|${rule.columnName ?? ''}|${rule.format ?? ''}|${rule.secondColumn ?? ''}`;
 }

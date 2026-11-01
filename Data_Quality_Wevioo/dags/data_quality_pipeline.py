@@ -26,6 +26,7 @@ from dq_pipeline.runners import (
     phase_profile_tables,
     phase_publish_table_results,
     phase_start_pipeline,
+    phase_suggest_rules,
 )
 
 
@@ -57,6 +58,7 @@ PHASE_LABELS = {
     "profile_tables_with_sweetviz": "Profile tables",
     "extract_metrics_and_run_llm": "Analyse tables",
     "publish_table_results": "Publish results",
+    "suggest_quality_rules": "Suggest rules",
     "build_global_portfolio_analysis": "Global analysis",
 }
 PHASE_TASK_IDS = list(PHASE_LABELS)
@@ -111,6 +113,10 @@ def extract_metrics_and_run_llm(**_kwargs):
 
 def publish_table_results(**_kwargs):
     return phase_publish_table_results(**_pipeline_args())
+
+
+def suggest_quality_rules(**_kwargs):
+    return phase_suggest_rules(**_pipeline_args())
 
 
 def build_global_portfolio_analysis(**_kwargs):
@@ -174,6 +180,12 @@ publish_results = PythonOperator(
     dag=dag,
 )
 
+suggest_rules = PythonOperator(
+    task_id="suggest_quality_rules",
+    python_callable=suggest_quality_rules,
+    dag=dag,
+)
+
 global_analysis = PythonOperator(
     task_id="build_global_portfolio_analysis",
     python_callable=build_global_portfolio_analysis,
@@ -187,7 +199,7 @@ complete_pipeline = PythonOperator(
     dag=dag,
 )
 
-validate_request >> notify_started >> discover_tables >> profile_tables >> analyze_tables >> publish_results >> global_analysis
+validate_request >> notify_started >> discover_tables >> profile_tables >> analyze_tables >> publish_results >> suggest_rules >> global_analysis
 [
     validate_request,
     notify_started,
@@ -195,5 +207,6 @@ validate_request >> notify_started >> discover_tables >> profile_tables >> analy
     profile_tables,
     analyze_tables,
     publish_results,
+    suggest_rules,
     global_analysis,
 ] >> complete_pipeline

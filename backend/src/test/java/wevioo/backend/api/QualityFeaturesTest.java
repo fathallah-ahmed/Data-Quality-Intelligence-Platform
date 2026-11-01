@@ -215,6 +215,134 @@ class QualityFeaturesTest {
         assertThat(result.get("message").asString()).isEqualTo("100 to 60 rows (-40%, limit -10%)");
     }
 
+    // ------------------------------------------------------------------ format and date-order rules
+
+    @Test
+    void formatAndDateOrderRulesReadTheValuesThepipelineMeasured() throws Exception {
+        JsonNode v1 = upload("measured-" + UUID.randomUUID(), csv("accounts.csv", "id\n1\n"));
+        long datasetId = v1.get("datasetId").asLong();
+        long versionId = v1.get("versionId").asLong();
+        String runId = v1.get("pipelineRunId").asString();
+        createRule(datasetId, "{\"tableName\":\"accounts\",\"columnName\":\"email\",\"type\":\"MIN_FORMAT_VALID_PERCENT\",\"format\":\"EMAIL\",\"threshold\":99,\"severity\":\"CRITICAL\"}");
+        createRule(datasetId, "{\"tableName\":\"accounts\",\"columnName\":\"email\",\"type\":\"MIN_FORMAT_VALID_PERCENT\",\"format\":\"EMAIL\",\"threshold\":90}");
+        createRule(datasetId, "{\"tableName\":\"accounts\",\"columnName\":\"opened_on\",\"type\":\"DATE_ORDER\",\"secondColumn\":\"closed_on\"}");
+        createRule(datasetId, "{\"tableName\":\"accounts\",\"columnName\":\"opened_on\",\"type\":\"DATE_ORDER\",\"secondColumn\":\"closed_on\",\"threshold\":10}");
+        createRule(datasetId, "{\"tableName\":\"accounts\",\"columnName\":\"closed_on\",\"type\":\"DATE_ORDER\",\"secondColumn\":\"opened_on\",\"threshold\":50}");
+        createRule(datasetId, "{\"tableName\":\"accounts\",\"columnName\":\"name\",\"type\":\"MIN_FORMAT_VALID_PERCENT\",\"format\":\"URL\",\"threshold\":50}");
+
+        postTableRaw(runId, """
+            {"table_name": "accounts", "status": "completed", "llm_status": "unavailable",
+             "dataset_metrics": {"row_count": 100, "column_count": 4, "duplicate_rows": 0, "duplicate_percent": 0},
+             "column_metrics": [
+               {"name": "email", "data_type": "object", "missing_count": 0, "missing_percent": 0, "distinct_count": 100,
+                "format_stats": {"EMAIL": {"checked": 100, "valid": 95, "invalid_examples": ["c.mail.com", "d@mail"]}}},
+               {"name": "opened_on", "data_type": "object", "missing_count": 0, "missing_percent": 0, "distinct_count": 90},
+               {"name": "closed_on", "data_type": "object", "missing_count": 20, "missing_percent": 20, "distinct_count": 70},
+               {"name": "name", "data_type": "int64", "missing_count": 0, "missing_percent": 0, "distinct_count": 90}],
+             "cross_checks": {"date_order": [{"first": "opened_on", "second": "closed_on", "compared": 80,
+                "first_after_second": 4, "second_after_first": 70,
+                "first_after_second_examples": ["opened_on=2020-06-01 | closed_on=2020-05-01"], "second_after_first_examples": []}]},
+             "data_signature": {"row_count": 100, "column_count": 4, "content_hash": "m1", "schema_hash": "s4"}}
+            """);
+        completeRun(runId);
+
+        JsonNode results = getJson("/api/datasets/" + datasetId + "/versions/" + versionId + "/rule-results");
+        JsonNode strict = result(results, "accounts.email has at least 99% of its values as an email address");
+        assertThat(strict.get("status").asString()).isEqualTo("FAIL");
+        assertThat(strict.get("actual").asDouble()).isEqualTo(95.0);
+        assertThat(strict.get("message").asString()).isEqualTo("95% of the filled values are an email address (minimum 99%), for example 'c.mail.com'");
+        assertThat(result(results, "accounts.email has at least 90% of its values as an email address").get("status").asString()).isEqualTo("PASS");
+
+        JsonNode strictDates = result(results, "accounts.opened_on is not after accounts.closed_on");
+        assertThat(strictDates.get("status").asString()).isEqualTo("FAIL");
+        assertThat(strictDates.get("message").asString())
+            .isEqualTo("4 of 80 row(s) have opened_on after closed_on (5%, limit 0%), for example opened_on=2020-06-01 | closed_on=2020-05-01");
+        assertThat(result(results, "accounts.opened_on is not after accounts.closed_on (up to 10% of rows may break this)").get("status").asString()).isEqualTo("PASS");
+        // The other direction reads the other counter: closed_on is after opened_on on 70 of 80 rows.
+        JsonNode reversed = result(results, "accounts.closed_on is not after accounts.opened_on (up to 50% of rows may break this)");
+        assertThat(reversed.get("status").asString()).isEqualTo("FAIL");
+        assertThat(reversed.get("actual").asDouble()).isEqualTo(87.5);
+        // A column that is not text has nothing measured: the rule is skipped, not failed.
+        assertThat(results.get("results").toString()).contains("No text values were measured for name");
+    }
+
+    @Test
+    void formatAndDateRulesNeedTheirExtraInput() throws Exception {
+        long datasetId = upload("format-input-" + UUID.randomUUID(), csv("t.csv", "a\n1\n")).get("datasetId").asLong();
+        assertRule(datasetId, "{\"tableName\":\"t\",\"columnName\":\"a\",\"type\":\"MIN_FORMAT_VALID_PERCENT\",\"threshold\":90}", 400);
+        assertRule(datasetId, "{\"tableName\":\"t\",\"columnName\":\"a\",\"type\":\"MIN_FORMAT_VALID_PERCENT\",\"format\":\"IBAN\",\"threshold\":90}", 400);
+        assertRule(datasetId, "{\"tableName\":\"t\",\"columnName\":\"a\",\"type\":\"MIN_FORMAT_VALID_PERCENT\",\"format\":\"email\",\"threshold\":120}", 400);
+        assertRule(datasetId, "{\"tableName\":\"t\",\"columnName\":\"a\",\"type\":\"DATE_ORDER\"}", 400);
+        assertRule(datasetId, "{\"tableName\":\"t\",\"columnName\":\"a\",\"type\":\"DATE_ORDER\",\"secondColumn\":\"a\"}", 400);
+        assertRule(datasetId, "{\"tableName\":\"t\",\"columnName\":\"a\",\"type\":\"DATE_ORDER\",\"secondColumn\":\"b\"}", 201);
+        assertRule(datasetId, "{\"tableName\":\"t\",\"columnName\":\"a\",\"type\":\"MIN_FORMAT_VALID_PERCENT\",\"format\":\"email\",\"threshold\":90}", 201);
+    }
+
+    // ------------------------------------------------------------------ rules suggested from the goal
+
+    @Test
+    void suggestedRulesWaitForApprovalAndAreNeverSuggestedTwice() throws Exception {
+        JsonNode v1 = upload("suggest-" + UUID.randomUUID(), csv("accounts.csv", "id\n1\n"));
+        long datasetId = v1.get("datasetId").asLong();
+        long versionId = v1.get("versionId").asLong();
+        String runId = v1.get("pipelineRunId").asString();
+        String body = """
+            {"rules": [
+              {"table_name": "accounts", "column_name": "email", "type": "MIN_FORMAT_VALID_PERCENT", "format": "EMAIL",
+               "threshold": 99, "severity": "CRITICAL", "rationale": "email is needed to contact customers"},
+              {"table_name": "accounts", "column_name": "email", "type": "NOT_NULL", "severity": "WARNING", "rationale": "must be filled"},
+              {"table_name": "accounts", "column_name": "email", "type": "SOMETHING_ELSE", "severity": "WARNING", "rationale": "invalid"}]}
+            """;
+
+        mvc.perform(post("/api/pipeline/" + runId + "/rule-suggestions").contentType(MediaType.APPLICATION_JSON).content(body))
+            .andExpect(status().isUnauthorized());
+        mvc.perform(post("/api/pipeline/" + runId + "/rule-suggestions").header("X-Pipeline-Token", PIPELINE_TOKEN)
+                .contentType(MediaType.APPLICATION_JSON).content(body))
+            .andExpect(status().isOk());
+
+        verify(eventStreamService).publish(argThat((LiveEvent event) -> event.type().equals("RULES_SUGGESTED")
+            && event.message().equals("2 quality rule(s) suggested from your goal")));
+        JsonNode rules = getJson("/api/datasets/" + datasetId + "/rules");
+        assertThat(rules.size()).isEqualTo(2);
+        JsonNode first = rules.get(0);
+        assertThat(first.get("state").asString()).isEqualTo("SUGGESTED");
+        assertThat(first.get("origin").asString()).isEqualTo("AI");
+        assertThat(first.get("rationale").asString()).isEqualTo("email is needed to contact customers");
+        assertThat(first.get("description").asString()).isEqualTo("accounts.email has at least 99% of its values as an email address");
+
+        // A suggestion is not checked until it is approved.
+        postTableRaw(runId, """
+            {"table_name": "accounts", "status": "completed", "llm_status": "unavailable",
+             "dataset_metrics": {"row_count": 10, "column_count": 1, "duplicate_rows": 0, "duplicate_percent": 0},
+             "column_metrics": [{"name": "email", "data_type": "object", "missing_count": 0, "missing_percent": 0, "distinct_count": 10,
+                "format_stats": {"EMAIL": {"checked": 10, "valid": 10, "invalid_examples": []}}}],
+             "data_signature": {"row_count": 10, "column_count": 1, "content_hash": "sg", "schema_hash": "s1"}}
+            """);
+        completeRun(runId);
+        assertThat(getJson("/api/datasets/" + datasetId + "/versions/" + versionId + "/rule-results").get("summary").get("total").asInt()).isZero();
+
+        long formatRuleId = first.get("id").asLong();
+        JsonNode approved = json(mvc.perform(post("/api/datasets/" + datasetId + "/rules/" + formatRuleId + "/approve")
+            .header("Authorization", "Bearer " + token)).andExpect(status().isOk()).andReturn());
+        assertThat(approved.get("state").asString()).isEqualTo("ACTIVE");
+        assertThat(approved.get("origin").asString()).isEqualTo("AI");
+        JsonNode evaluated = postJson("/api/datasets/" + datasetId + "/versions/" + versionId + "/rules/evaluate");
+        assertThat(evaluated.get("summary").get("total").asInt()).isEqualTo(1);
+        assertThat(evaluated.get("summary").get("passed").asInt()).isEqualTo(1);
+
+        // Turned down: hidden, and the same suggestion does not come back on the next run.
+        long dismissedId = rules.get(1).get("id").asLong();
+        mvc.perform(post("/api/datasets/" + datasetId + "/rules/" + dismissedId + "/dismiss")
+            .header("Authorization", "Bearer " + token)).andExpect(status().isOk());
+        assertThat(getJson("/api/datasets/" + datasetId + "/rules").size()).isEqualTo(1);
+        clearInvocations(eventStreamService);
+        mvc.perform(post("/api/pipeline/" + runId + "/rule-suggestions").header("X-Pipeline-Token", PIPELINE_TOKEN)
+                .contentType(MediaType.APPLICATION_JSON).content(body))
+            .andExpect(status().isOk());
+        assertThat(getJson("/api/datasets/" + datasetId + "/rules").size()).isEqualTo(1);
+        verify(eventStreamService, never()).publish(argThat((LiveEvent event) -> event.type().equals("RULES_SUGGESTED")));
+    }
+
     // ------------------------------------------------------------------ recovery after a restart
 
     @Test
@@ -331,6 +459,14 @@ class QualityFeaturesTest {
              "data_signature": {"row_count": %d, "column_count": %d, "content_hash": "%s", "schema_hash": "s%d"}}
             """.formatted(table, rows, columns.length, Math.round(rows * duplicatePercent / 100), duplicatePercent,
             String.join(",", columns), rows, columns.length, hash, columns.length);
+        mvc.perform(post("/api/pipeline/" + runId + "/table-analysis")
+                .header("X-Pipeline-Token", PIPELINE_TOKEN)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body))
+            .andExpect(status().isOk());
+    }
+
+    private void postTableRaw(String runId, String body) throws Exception {
         mvc.perform(post("/api/pipeline/" + runId + "/table-analysis")
                 .header("X-Pipeline-Token", PIPELINE_TOKEN)
                 .contentType(MediaType.APPLICATION_JSON)

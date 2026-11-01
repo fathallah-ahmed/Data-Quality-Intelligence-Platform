@@ -34,6 +34,7 @@ from dq_pipeline.analyzers.langgraph_analyzer import (
 from dq_pipeline.analyzers.llm_analyzer import analyze_table_metrics
 from dq_pipeline.analyzers import llm_global_analyzer
 from dq_pipeline.extractors.comprehensive_sweetviz_extractor import extract_sweetviz_metrics, read_csv_flex
+from dq_pipeline.extractors.format_profile import date_order_checks, profile_formats
 
 
 class PipelineRunner:
@@ -235,6 +236,7 @@ class PipelineRunner:
                     # Unique floats (amounts, measures) are not identifiers.
                     is_id_like=len(df) > 0 and distinct_count == len(df) and not pd.api.types.is_float_dtype(col_data),
                     is_date_like=False,  # Simplified
+                    format_stats=profile_formats(col_data),
                 )
 
                 # Numeric stats. Boolean columns are intentionally excluded:
@@ -258,6 +260,15 @@ class PipelineRunner:
         except Exception as e:
             self._error(f"Metric extraction failed: {e}")
             raise
+
+    def _cross_checks(self, df: pd.DataFrame, column_metrics: List[ColumnMetrics]) -> Dict[str, Any]:
+        """Checks that compare columns row by row (date order); a failure here never stops the run."""
+        try:
+            profiles = {column.name: column.format_stats for column in column_metrics}
+            return {"date_order": date_order_checks(df, profiles)}
+        except Exception as exc:
+            self._warn(f"Cross-column checks skipped: {exc}")
+            return {}
 
     def _apply_runtime_quality_overrides(
         self,

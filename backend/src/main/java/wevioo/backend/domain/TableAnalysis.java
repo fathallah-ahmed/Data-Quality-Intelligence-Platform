@@ -55,6 +55,11 @@ public class TableAnalysis {
     @Column(name = "relationships_json")
     private String relationshipsJson;
 
+    /** Checks that compare columns row by row, e.g. the order of two dates. */
+    @Lob
+    @Column(name = "cross_checks_json")
+    private String crossChecksJson;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();
 
@@ -88,6 +93,8 @@ public class TableAnalysis {
     public void setLlmStatus(String llmStatus) { this.llmStatus = llmStatus; }
     public String getRelationshipsJson() { return relationshipsJson; }
     public void setRelationshipsJson(String relationshipsJson) { this.relationshipsJson = relationshipsJson; }
+    public String getCrossChecksJson() { return crossChecksJson; }
+    public void setCrossChecksJson(String crossChecksJson) { this.crossChecksJson = crossChecksJson; }
     public Instant getCreatedAt() { return createdAt; }
     public List<ColumnMetric> getColumnMetrics() { return columnMetrics; }
 }

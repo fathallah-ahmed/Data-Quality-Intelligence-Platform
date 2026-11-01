@@ -30,7 +30,20 @@ public class PipelineDtos {
         Double missingPercent,
         Long distinctCount,
         Double minValue,
-        Double maxValue
+        Double maxValue,
+        Map<String, Object> formatStats
+    ) {}
+
+    /** One rule the pipeline proposes from the user's goal; the user approves or turns it down. */
+    public record SuggestedRule(
+        String tableName,
+        String columnName,
+        String type,
+        String format,
+        String secondColumn,
+        Double threshold,
+        String severity,
+        String rationale
     ) {}
 
     public record TableAnalysisRequest(
@@ -48,7 +61,8 @@ public class PipelineDtos {
         Map<String, Object> dataSignature,
         List<Map<String, Object>> relationships,
         String changeStatus,
-        String status
+        String status,
+        Map<String, Object> crossChecks
     ) {}
 
     public record GlobalAnalysisRequest(

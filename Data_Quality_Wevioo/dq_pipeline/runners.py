@@ -193,6 +193,7 @@ def phase_analyze_tables(dataset_id, version_id, pipeline_run_id, file_path, bac
                 if df.attrs.get("csv_reader_warning"):
                     result.data_signature["csv_reader_warning"] = df.attrs.get("csv_reader_warning")
                     result.data_signature["csv_bad_line_policy"] = df.attrs.get("csv_bad_line_policy")
+                result.cross_checks = runner._cross_checks(df, column_metrics)
                 result.change_status = "UNKNOWN"
                 result.deterministic_relationships = runner._relationships_for_table(
                     deterministic_relationships,
@@ -292,6 +293,71 @@ def phase_publish_table_results(dataset_id, version_id, pipeline_run_id, file_pa
         if not published:
             raise RuntimeError("No table results were published")
         return published
+    finally:
+        close_backend_client()
+
+
+def phase_suggest_rules(dataset_id, version_id, pipeline_run_id, file_path, backend_url=None, debug=False):
+    """
+    Propose quality rules from the user's goal and send them to the backend for approval.
+
+    A best-effort phase: it reports what went wrong in its result and never raises, so the run is
+    not marked failed because no rule could be suggested.
+    """
+    from dq_pipeline.analyzers import rule_suggester
+    from dq_pipeline.analyzers.llm_analyzer import call_ollama, parse_llm_response
+
+    runner = _phase_runner(dataset_id, version_id, pipeline_run_id, file_path, backend_url, debug)
+    try:
+        if not settings.RULE_SUGGESTION_ENABLED:
+            return {"suggested": 0, "skipped": "disabled"}
+        manifest = _read_manifest(runner, "publish_manifest.json", {"published": []})
+        table_results = []
+        for table in manifest.get("published", []):
+            with open(table["analysis_json_path"], "r", encoding="utf-8") as handle:
+                table_results.append(_table_result_from_dict(json.load(handle)))
+        if not table_results:
+            return {"suggested": 0, "skipped": "no tables"}
+
+        outcome = rule_suggester.suggest_rules(
+            table_results,
+            runner._business_context(),
+            llm_call=lambda prompt, **options: call_ollama(
+                prompt,
+                model=settings.OLLAMA_MODEL,
+                ollama_url=str(settings.OLLAMA_URL) if settings.OLLAMA_URL else None,
+                temperature=0.1,
+                top_p=0.9,
+                num_predict=settings.RULE_LLM_NUM_PREDICT,
+                **options,
+            ),
+            parse=parse_llm_response,
+        )
+        for note in outcome["notes"]:
+            runner._warn(f"Rule suggestions: {note}")
+        sent = False
+        if outcome["rules"]:
+            payload = [
+                {
+                    "table_name": rule["table_name"],
+                    "column_name": rule.get("column_name"),
+                    "type": rule["type"],
+                    "format": rule.get("format"),
+                    "second_column": rule.get("second_column"),
+                    "threshold": rule.get("threshold"),
+                    "severity": rule["severity"],
+                    "rationale": rule["rationale"],
+                }
+                for rule in outcome["rules"]
+            ]
+            sent = runner.backend_client.post_rule_suggestions(runner.pipeline_run_id, payload, debug=debug)
+            if not sent:
+                runner._warn("Rule suggestions could not be sent to the backend")
+        runner._log(f"Suggested {len(outcome['rules'])} rule(s) from {outcome['source']}")
+        return {"suggested": len(outcome["rules"]), "source": outcome["source"], "sent": sent}
+    except Exception as exc:
+        runner._warn(f"Rule suggestions skipped: {exc}")
+        return {"suggested": 0, "error": str(exc)}
     finally:
         close_backend_client()
 

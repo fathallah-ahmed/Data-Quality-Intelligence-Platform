@@ -68,6 +68,41 @@
     }
   </section>
 
+  <!-- Rules proposed from the goal given at upload -->
+  @if (goalSuggestions().length > 0) {
+    <section class="card" aria-labelledby="goal-title">
+      <header class="card__header">
+        <div class="card__heading">
+          <span class="card__icon"><app-icon name="sparkles" /></span>
+          <div>
+            <h2 class="card__title" id="goal-title">Suggested from your goal</h2>
+            <p class="card__subtitle">Proposed by the analysis. Nothing is checked until you approve a rule.</p>
+          </div>
+        </div>
+        @if (goalSuggestions().length > 1) {
+          <button type="button" class="btn btn--secondary btn--sm" [disabled]="busy()" (click)="approveAll()">Approve all {{ goalSuggestions().length }}</button>
+        }
+      </header>
+      <ul class="suggestions">
+        @for (rule of goalSuggestions(); track rule.id) {
+          <li>
+            <span class="suggestions__text">
+              <span class="rule__title">{{ rule.description }}</span>
+              @if (rule.rationale) {
+                <span class="suggestions__why">{{ rule.rationale }}</span>
+              }
+            </span>
+            @if (rule.severity === 'CRITICAL') {
+              <span class="tag" data-tone="danger">critical</span>
+            }
+            <button type="button" class="btn btn--secondary btn--sm" [disabled]="busy()" (click)="approve(rule)" [attr.aria-label]="'Approve rule: ' + rule.description"><app-icon name="checkCircle" [size]="16" /> Approve</button>
+            <button type="button" class="btn btn--ghost btn--sm btn--icon" [disabled]="busy()" (click)="dismiss(rule)" [attr.aria-label]="'Dismiss suggestion: ' + rule.description"><app-icon name="x" [size]="16" /></button>
+          </li>
+        }
+      </ul>
+    </section>
+  }
+
   <div class="columns">
     <!-- New rule -->
     <section class="card" aria-labelledby="new-rule-title">
@@ -102,6 +137,26 @@
               <select class="input" (change)="formColumn.set($any($event.target).value)">
                 @for (name of columns(); track name) {
                   <option [value]="name" [selected]="name === column()">{{ name }}</option>
+                }
+              </select>
+            </label>
+          }
+          @if (typeInfo().needsFormat) {
+            <label class="field">
+              <span class="field__label">Format</span>
+              <select class="input" (change)="formFormat.set($any($event.target).value)">
+                @for (item of ruleFormats; track item.value) {
+                  <option [value]="item.value" [selected]="item.value === formFormat()">{{ item.label }}</option>
+                }
+              </select>
+            </label>
+          }
+          @if (typeInfo().needsSecondColumn) {
+            <label class="field">
+              <span class="field__label">Must not be after</span>
+              <select class="input" (change)="formSecond.set($any($event.target).value)">
+                @for (name of secondColumns(); track name) {
+                  <option [value]="name" [selected]="name === secondColumn()">{{ name }}</option>
                 }
               </select>
             </label>
@@ -174,7 +229,10 @@
           <li class="rule" [class.rule--paused]="!rule.enabled">
             <span class="rule__text">
               <span class="rule__title">{{ rule.description }}</span>
-              <span class="rule__meta">{{ rule.type.toLowerCase().replaceAll('_', ' ') }}</span>
+              <span class="rule__meta">{{ rule.type.toLowerCase().replaceAll('_', ' ') }}@if (rule.origin === 'AI') { · suggested from your goal}</span>
+              @if (rule.rationale) {
+                <span class="suggestions__why">{{ rule.rationale }}</span>
+              }
             </span>
             <span class="tag" [attr.data-tone]="rule.severity === 'CRITICAL' ? 'danger' : 'warning'">{{ rule.severity.toLowerCase() }}</span>
             <button type="button" class="btn btn--ghost btn--sm" [disabled]="busy()" [attr.aria-pressed]="rule.enabled" (click)="toggle(rule)">{{ rule.enabled ? 'Pause' : 'Enable' }}</button>

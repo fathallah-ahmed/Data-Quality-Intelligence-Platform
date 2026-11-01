@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import wevioo.backend.domain.*;
 import wevioo.backend.dto.LiveEvent;
+import wevioo.backend.dto.PipelineDtos.SuggestedRule;
 import wevioo.backend.dto.RuleDtos.*;
 import wevioo.backend.exception.NotFoundException;
 import wevioo.backend.repository.*;
@@ -28,6 +29,7 @@ public class RuleService {
     private final PipelineRunRepository pipelineRunRepository;
     private final QualityRuleRepository ruleRepository;
     private final RuleResultRepository resultRepository;
+    private final JsonService jsonService;
 
     public RuleService(
         DatasetRepository datasetRepository,
@@ -35,7 +37,8 @@ public class RuleService {
         TableVersionRepository tableVersionRepository,
         PipelineRunRepository pipelineRunRepository,
         QualityRuleRepository ruleRepository,
-        RuleResultRepository resultRepository
+        RuleResultRepository resultRepository,
+        JsonService jsonService
     ) {
         this.datasetRepository = datasetRepository;
         this.versionRepository = versionRepository;
@@ -43,14 +46,93 @@ public class RuleService {
         this.pipelineRunRepository = pipelineRunRepository;
         this.ruleRepository = ruleRepository;
         this.resultRepository = resultRepository;
+        this.jsonService = jsonService;
     }
 
     // ------------------------------------------------------------------ management
 
+    /** The rules to show: active ones and suggestions waiting for a decision (turned-down ones are hidden). */
     @Transactional(readOnly = true)
     public List<RuleView> list(Long datasetId) {
         requireDataset(datasetId);
-        return ruleRepository.findByDatasetIdOrderByIdAsc(datasetId).stream().map(RuleService::toView).toList();
+        return ruleRepository.findByDatasetIdOrderByIdAsc(datasetId).stream()
+            .filter(rule -> rule.getState() != RuleState.DISMISSED)
+            .map(RuleService::toView)
+            .toList();
+    }
+
+    /** Switch on a suggested rule: from now on it is checked on every version. */
+    @Transactional
+    public RuleView approve(Long datasetId, Long ruleId) {
+        QualityRule rule = requireRule(datasetId, ruleId);
+        rule.setState(RuleState.ACTIVE);
+        rule.setEnabled(true);
+        return toView(rule);
+    }
+
+    /** Turn down a suggested rule; it is hidden and the same suggestion is not made again. */
+    @Transactional
+    public void dismiss(Long datasetId, Long ruleId) {
+        requireRule(datasetId, ruleId).setState(RuleState.DISMISSED);
+    }
+
+    /**
+     * Store the rules the pipeline proposed from the user's goal, as suggestions waiting for approval.
+     * A suggestion that is invalid, or that repeats a rule the dataset already has (even a turned-down
+     * one), is dropped. Returns the live event when something new was added.
+     */
+    @Transactional
+    public Optional<LiveEvent> saveSuggestions(String externalRunId, List<SuggestedRule> suggestions) {
+        PipelineRun run = pipelineRunRepository.findByExternalRunId(externalRunId)
+            .orElseThrow(() -> new NotFoundException("Unknown pipeline run: " + externalRunId));
+        DatasetVersion version = run.getDatasetVersion();
+        Dataset dataset = version.getDataset();
+        List<QualityRule> known = new ArrayList<>(ruleRepository.findByDatasetIdOrderByIdAsc(dataset.getId()));
+        int added = 0;
+        for (SuggestedRule suggestion : suggestions == null ? List.<SuggestedRule>of() : suggestions) {
+            QualityRule rule = new QualityRule();
+            try {
+                apply(rule, new RuleRequest(
+                    suggestion.tableName(), suggestion.columnName(), suggestion.type(), suggestion.threshold(),
+                    suggestion.severity(), true, suggestion.format(), suggestion.secondColumn()
+                ));
+            } catch (IllegalArgumentException e) {
+                log.info("Dropped an invalid rule suggestion for run {}: {}", externalRunId, e.getMessage());
+                continue;
+            }
+            if (known.stream().anyMatch(existing -> sameCheck(existing, rule))) {
+                continue;
+            }
+            rule.setDataset(dataset);
+            rule.setState(RuleState.SUGGESTED);
+            rule.setOrigin(RuleOrigin.AI);
+            rule.setRationale(clip(suggestion.rationale(), 1000));
+            known.add(ruleRepository.save(rule));
+            added++;
+        }
+        if (added == 0) {
+            return Optional.empty();
+        }
+        return Optional.of(new LiveEvent(
+            "RULES_SUGGESTED", dataset.getId(), version.getId(), version.getVersionNumber(), externalRunId,
+            run.getStatus().name(), null, added + " quality rule(s) suggested from your goal", Instant.now()
+        ));
+    }
+
+    private static boolean sameCheck(QualityRule a, QualityRule b) {
+        return a.getType() == b.getType()
+            && Objects.equals(a.getTableName(), b.getTableName())
+            && Objects.equals(a.getColumnName(), b.getColumnName())
+            && Objects.equals(a.getFormat(), b.getFormat())
+            && Objects.equals(a.getSecondColumnName(), b.getSecondColumnName());
+    }
+
+    private static String clip(String value, int max) {
+        if (value == null) {
+            return null;
+        }
+        String text = value.trim();
+        return text.length() <= max ? text : text.substring(0, max - 1) + "…";
     }
 
     @Transactional
@@ -90,6 +172,22 @@ public class RuleService {
             throw new IllegalArgumentException("This rule type needs a column");
         }
         Double threshold = request.threshold();
+        if (type == RuleType.DATE_ORDER && threshold == null) {
+            threshold = 0.0;
+        }
+        RuleFormat format = null;
+        if (type.needsFormat()) {
+            format = parse(RuleFormat.class, request.format(), "format");
+        }
+        String secondColumn = request.secondColumn() == null ? "" : request.secondColumn().trim();
+        if (type.needsSecondColumn()) {
+            if (secondColumn.isEmpty()) {
+                throw new IllegalArgumentException("This rule type needs a second column");
+            }
+            if (secondColumn.equals(column)) {
+                throw new IllegalArgumentException("The two columns must be different");
+            }
+        }
         if (type.needsThreshold()) {
             if (threshold == null || threshold.isNaN() || threshold.isInfinite() || threshold < 0) {
                 throw new IllegalArgumentException("This rule type needs a threshold of 0 or more");
@@ -102,6 +200,8 @@ public class RuleService {
         rule.setTableName(table);
         rule.setColumnName(type.needsColumn() ? column : null);
         rule.setThreshold(type.needsThreshold() ? threshold : null);
+        rule.setFormat(format == null ? null : format.name());
+        rule.setSecondColumnName(type.needsSecondColumn() ? secondColumn : null);
         rule.setSeverity(request.severity() == null || request.severity().isBlank()
             ? RuleSeverity.WARNING
             : parse(RuleSeverity.class, request.severity(), "severity"));
@@ -123,7 +223,7 @@ public class RuleService {
     public RuleResults evaluate(Long datasetId, Long versionId) {
         requireVersion(datasetId, versionId);
         List<QualityRule> rules = ruleRepository.findByDatasetIdOrderByIdAsc(datasetId).stream()
-            .filter(QualityRule::isEnabled)
+            .filter(QualityRule::isChecked)
             .toList();
         resultRepository.deleteByVersion(versionId);
 
@@ -144,7 +244,7 @@ public class RuleService {
             result.setColumnName(rule.getColumnName());
             result.setType(rule.getType());
             result.setSeverity(rule.getSeverity());
-            result.setDescription(describe(rule.getType(), rule.getTableName(), rule.getColumnName(), rule.getThreshold()));
+            result.setDescription(describe(rule));
             result.setStatus(outcome.status());
             result.setActual(outcome.actual());
             result.setMessage(outcome.message());
@@ -170,7 +270,7 @@ public class RuleService {
             Long versionId = version.getId();
             Integer versionNumber = version.getVersionNumber();
             String status = run.getStatus().name();
-            if (ruleRepository.findByDatasetIdOrderByIdAsc(datasetId).stream().noneMatch(QualityRule::isEnabled)) {
+            if (ruleRepository.findByDatasetIdOrderByIdAsc(datasetId).stream().noneMatch(QualityRule::isChecked)) {
                 return Optional.empty();
             }
             RuleSummary summary = evaluate(datasetId, versionId).summary();
@@ -229,6 +329,8 @@ public class RuleService {
                         ? Outcome.skipped("The column has no values")
                         : Outcome.of(repeated == 0, repeated, repeated == 0 ? "All values are distinct" : repeated + " repeated value(s)");
                 }
+                case MIN_FORMAT_VALID_PERCENT -> formatOutcome(rule, column, threshold);
+                case DATE_ORDER -> dateOrderOutcome(rule, analysis, threshold);
                 default -> Outcome.skipped("Unsupported rule");
             };
         }
@@ -271,10 +373,23 @@ public class RuleService {
 
     // ------------------------------------------------------------------ mapping
 
+    public static String describe(QualityRule rule) {
+        return describe(rule.getType(), rule.getTableName(), rule.getColumnName(), rule.getThreshold(),
+            rule.getFormat(), rule.getSecondColumnName());
+    }
+
     public static String describe(RuleType type, String table, String column, Double threshold) {
+        return describe(type, table, column, threshold, null, null);
+    }
+
+    public static String describe(RuleType type, String table, String column, Double threshold, String format, String secondColumn) {
         String target = table + (column == null ? "" : "." + column);
         String limit = threshold == null ? "" : fmt(threshold);
         return switch (type) {
+            case MIN_FORMAT_VALID_PERCENT -> target + " has at least " + limit + "% of its values as "
+                + formatLabel(format);
+            case DATE_ORDER -> target + " is not after " + table + "." + secondColumn
+                + (threshold == null || threshold == 0 ? "" : " (up to " + limit + "% of rows may break this)");
             case NOT_NULL -> target + " has no missing values";
             case MAX_MISSING_PERCENT -> target + " has at most " + limit + "% missing values";
             case UNIQUE -> target + " is unique";
@@ -283,6 +398,73 @@ public class RuleService {
             case MIN_QUALITY_SCORE -> table + " scores at least " + limit;
             case MAX_ROW_DROP_PERCENT -> table + " loses at most " + limit + "% of its rows between versions";
         };
+    }
+
+    private static String formatLabel(String format) {
+        try {
+            return RuleFormat.valueOf(format).article();
+        } catch (IllegalArgumentException | NullPointerException e) {
+            return String.valueOf(format);
+        }
+    }
+
+    // ------------------------------------------------------------------ checks that read the measured values
+
+    /** At least `threshold` percent of the filled values must match the format the pipeline measured. */
+    private Outcome formatOutcome(QualityRule rule, ColumnMetric column, double threshold) {
+        Map<String, Object> measured = mapValue(jsonService.toMap(column.getFormatStatsJson()).get(rule.getFormat()));
+        long checked = longValue(measured.get("checked"));
+        if (measured.isEmpty() || checked == 0) {
+            return Outcome.skipped("No text values were measured for " + rule.getColumnName()
+                + " in this version (the column is not text, or it is empty)");
+        }
+        double percent = longValue(measured.get("valid")) * 100.0 / checked;
+        List<Object> examples = listValue(measured.get("invalid_examples"));
+        String example = percent < 100 && !examples.isEmpty() ? ", for example '" + clip(String.valueOf(examples.get(0)), 60) + "'" : "";
+        return Outcome.of(percent >= threshold, percent,
+            clip(fmt(percent) + "% of the filled values are " + formatLabel(rule.getFormat())
+                + " (minimum " + fmt(threshold) + "%)" + example, 480));
+    }
+
+    /** On rows where both dates are filled, the first column must not be after the second. */
+    private Outcome dateOrderOutcome(QualityRule rule, TableAnalysis analysis, double threshold) {
+        String first = rule.getColumnName();
+        String second = rule.getSecondColumnName();
+        boolean secondExists = analysis.getColumnMetrics().stream().anyMatch(metric -> metric.getColumnName().equals(second));
+        if (!secondExists) {
+            return Outcome.of(false, 0, "Column " + second + " does not exist in this version");
+        }
+        for (Object item : listValue(jsonService.toMap(analysis.getCrossChecksJson()).get("date_order"))) {
+            Map<String, Object> pair = mapValue(item);
+            boolean sameOrder = first.equals(pair.get("first")) && second.equals(pair.get("second"));
+            boolean reversed = second.equals(pair.get("first")) && first.equals(pair.get("second"));
+            if (!sameOrder && !reversed) {
+                continue;
+            }
+            long compared = longValue(pair.get("compared"));
+            long violations = longValue(pair.get(sameOrder ? "first_after_second" : "second_after_first"));
+            List<Object> examples = listValue(pair.get(sameOrder ? "first_after_second_examples" : "second_after_first_examples"));
+            double percent = compared == 0 ? 0 : violations * 100.0 / compared;
+            String example = violations > 0 && !examples.isEmpty() ? ", for example " + clip(String.valueOf(examples.get(0)), 100) : "";
+            return Outcome.of(percent <= threshold, percent, clip(
+                violations + " of " + compared + " row(s) have " + first + " after " + second
+                    + " (" + fmt(percent) + "%, limit " + fmt(threshold) + "%)" + example, 480));
+        }
+        return Outcome.skipped(first + " and " + second + " were not measured as dates, or no row has both filled");
+    }
+
+    private static long longValue(Object value) {
+        return value instanceof Number number ? number.longValue() : 0;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<String, Object> mapValue(Object value) {
+        return value instanceof Map<?, ?> map ? (Map<String, Object>) map : Map.of();
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<Object> listValue(Object value) {
+        return value instanceof List<?> list ? (List<Object>) list : List.of();
     }
 
     public static RuleSummary summarize(List<RuleResult> results) {
@@ -334,8 +516,13 @@ public class RuleService {
             rule.getThreshold(),
             rule.getSeverity().name(),
             rule.isEnabled(),
-            describe(rule.getType(), rule.getTableName(), rule.getColumnName(), rule.getThreshold()),
-            rule.getCreatedAt()
+            describe(rule),
+            rule.getCreatedAt(),
+            rule.getFormat(),
+            rule.getSecondColumnName(),
+            rule.getState().name(),
+            rule.getOrigin().name(),
+            rule.getRationale()
         );
     }
 

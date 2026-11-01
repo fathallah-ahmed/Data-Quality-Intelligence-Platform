@@ -96,6 +96,9 @@ public class PipelineIngestionService {
             : jsonService.toJson(request.relationships()));
         analysis.setLlmInterpretationJson(jsonService.toJson(request.llmInterpretation()));
         analysis.setLlmSummary(jsonService.summaryFromInterpretation(request.llmInterpretation()));
+        analysis.setCrossChecksJson(request.crossChecks() == null || request.crossChecks().isEmpty()
+            ? null
+            : jsonService.toJson(request.crossChecks()));
         analysis.setMissingCount(totalMissing(request.columnMetrics()));
         analysis.setQualityScore(qualityScore(request));
         analysis.getColumnMetrics().clear();
@@ -111,6 +114,9 @@ public class PipelineIngestionService {
                 metric.setUniqueCount(incoming.distinctCount());
                 metric.setMinValue(incoming.minValue());
                 metric.setMaxValue(incoming.maxValue());
+                metric.setFormatStatsJson(incoming.formatStats() == null || incoming.formatStats().isEmpty()
+                    ? null
+                    : jsonService.toJson(incoming.formatStats()));
                 analysis.getColumnMetrics().add(metric);
             }
         }

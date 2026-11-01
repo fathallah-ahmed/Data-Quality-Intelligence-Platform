@@ -86,6 +86,22 @@ class BackendClient:
 
         return self._post_with_retry(url, payload, "global-analysis", debug, max_retries=self._callback_attempts())
 
+    def post_rule_suggestions(
+        self,
+        pipeline_run_id: str,
+        rules: List[Dict[str, Any]],
+        debug: bool = False,
+    ) -> bool:
+        """
+        POST the quality rules proposed from the user's goal; they wait for approval in the UI.
+
+        Endpoint: POST /api/pipeline/{pipeline_run_id}/rule-suggestions
+        """
+        url = f"{self.backend_url}/api/pipeline/{pipeline_run_id}/rule-suggestions"
+        return self._post_with_retry(
+            url, {"rules": rules}, "rule-suggestions", debug, max_retries=self._callback_attempts()
+        )
+
     def post_pipeline_run_started(
         self,
         pipeline_run_id: str,

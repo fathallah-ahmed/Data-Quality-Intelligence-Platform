@@ -61,7 +61,18 @@ describe('rule suggestions', () => {
 
   it('describes rules like the backend does', () => {
     expect(describeRule({ type: 'MAX_DUPLICATE_PERCENT', tableName: 't', threshold: 2.5 })).toBe('t has at most 2.5% duplicate rows');
-    expect(ruleKey({ type: 'MIN_ROWS', tableName: 't' })).toBe('MIN_ROWS|t|');
+    expect(ruleKey({ type: 'MIN_ROWS', tableName: 't' })).toBe('MIN_ROWS|t|||');
+  });
+
+  it('describes format and date-order rules and tells them apart by key', () => {
+    expect(describeRule({ type: 'MIN_FORMAT_VALID_PERCENT', tableName: 'c', columnName: 'email', threshold: 99, format: 'EMAIL' }))
+      .toBe('c.email has at least 99% of its values as an email address');
+    expect(describeRule({ type: 'DATE_ORDER', tableName: 'a', columnName: 'opened', threshold: 0, secondColumn: 'closed' }))
+      .toBe('a.opened is not after a.closed');
+    expect(describeRule({ type: 'DATE_ORDER', tableName: 'a', columnName: 'opened', threshold: 2.5, secondColumn: 'closed' }))
+      .toBe('a.opened is not after a.closed (up to 2.5% of rows may break this)');
+    expect(ruleKey({ type: 'MIN_FORMAT_VALID_PERCENT', tableName: 'c', columnName: 'x', format: 'EMAIL' }))
+      .not.toBe(ruleKey({ type: 'MIN_FORMAT_VALID_PERCENT', tableName: 'c', columnName: 'x', format: 'PHONE' }));
   });
 });
 
