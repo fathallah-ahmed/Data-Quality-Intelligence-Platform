@@ -26,6 +26,9 @@ public class AppProperties {
     private String ollamaUrl = "http://localhost:11434";
     private String ollamaModel = "";
     private int ollamaTimeoutMs = 120000;
+    private String neo4jUri = "bolt://localhost:7687";
+    private String neo4jUser = "neo4j";
+    private String neo4jPassword = "dq-neo4j-dev";
 
     public String getStorageRoot() { return storageRoot; }
     public void setStorageRoot(String storageRoot) { this.storageRoot = storageRoot; }
@@ -71,4 +74,10 @@ public class AppProperties {
     public void setOllamaModel(String ollamaModel) { this.ollamaModel = ollamaModel; }
     public int getOllamaTimeoutMs() { return ollamaTimeoutMs; }
     public void setOllamaTimeoutMs(int ollamaTimeoutMs) { this.ollamaTimeoutMs = ollamaTimeoutMs; }
+    public String getNeo4jUri() { return neo4jUri; }
+    public void setNeo4jUri(String neo4jUri) { this.neo4jUri = neo4jUri; }
+    public String getNeo4jUser() { return neo4jUser; }
+    public void setNeo4jUser(String neo4jUser) { this.neo4jUser = neo4jUser; }
+    public String getNeo4jPassword() { return neo4jPassword; }
+    public void setNeo4jPassword(String neo4jPassword) { this.neo4jPassword = neo4jPassword; }
 }

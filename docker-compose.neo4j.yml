@@ -1,0 +1,31 @@
+# The graph database the Graph tab builds into.
+#
+#   docker compose -f docker-compose.neo4j.yml up -d     (start-dev.ps1 does this for you)
+#
+# Neo4j Browser: http://localhost:7474   Bolt: bolt://localhost:7687
+# The password below is a development default: set NEO4J_PASSWORD before sharing this instance.
+# It is also included by docker-compose.yml, so the backend reaches it as bolt://neo4j:7687.
+name: data-quality-neo4j
+
+services:
+  neo4j:
+    image: neo4j:5-community
+    restart: unless-stopped
+    environment:
+      NEO4J_AUTH: neo4j/${NEO4J_PASSWORD:-dq-neo4j-dev}
+      NEO4J_server_memory_heap_initial__size: 512m
+      NEO4J_server_memory_heap_max__size: 1g
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    volumes:
+      - neo4j_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "cypher-shell -u neo4j -p \"$${NEO4J_AUTH#neo4j/}\" 'RETURN 1' || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+      start_period: 20s
+
+volumes:
+  neo4j_data:

@@ -107,6 +107,9 @@
         @case ('corrections') {
           <app-corrections-tab [datasetId]="datasetIdNumber()" [details]="details" />
         }
+        @case ('graph') {
+          <app-graph-tab [datasetId]="datasetIdNumber()" [details]="details" />
+        }
       }
     } @else {
       <div class="loading-grid" aria-busy="true" aria-label="Loading version">

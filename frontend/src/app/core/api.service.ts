@@ -10,6 +10,9 @@ import {
   CorrectionPreview,
   CorrectionSuggestions,
   DatasetSummary,
+  GraphBuild,
+  GraphSchema,
+  GraphStatus,
   LoginResponse,
   RuleRequest,
   RuleResults,
@@ -121,6 +124,27 @@ export class ApiService {
   /** Check the rules against a version (after adding or editing a rule). */
   evaluateRules(datasetId: number, versionId: number): Observable<RuleResults> {
     return this.http.post<RuleResults>(`${this.base}/datasets/${datasetId}/versions/${versionId}/rules/evaluate`, null);
+  }
+
+  graphStatus(datasetId: number, versionId: number): Observable<GraphStatus> {
+    return this.http.get<GraphStatus>(`${this.base}/datasets/${datasetId}/versions/${versionId}/graph/status`);
+  }
+
+  /** How the rows would become a graph; `refine` asks the local model to name the parts. */
+  graphSchema(datasetId: number, versionId: number, promote: string[], refine: boolean): Observable<GraphSchema> {
+    return this.http.get<GraphSchema>(`${this.base}/datasets/${datasetId}/versions/${versionId}/graph/schema`, {
+      params: { promote: promote.join(','), refine: String(refine) }
+    });
+  }
+
+  /** Builds the graph in Neo4j, replacing the one built before for this version. */
+  buildGraph(datasetId: number, versionId: number, promote: string[], renames: Record<string, string>): Observable<GraphBuild> {
+    return this.http.post<GraphBuild>(`${this.base}/datasets/${datasetId}/versions/${versionId}/graph/build`, { promote, renames });
+  }
+
+  /** The last build of a version; an empty object when there is none. */
+  lastGraph(datasetId: number, versionId: number): Observable<Partial<GraphBuild>> {
+    return this.http.get<Partial<GraphBuild>>(`${this.base}/datasets/${datasetId}/versions/${versionId}/graph`);
   }
 
   /** Corrections found by reading a table: spaces, placeholders, date formats, spellings, repeated rows. */

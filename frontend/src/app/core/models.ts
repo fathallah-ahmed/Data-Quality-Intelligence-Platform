@@ -172,6 +172,79 @@ export interface RuleView {
   rationale?: string | null;
 }
 
+export interface GraphProperty {
+  column: string;
+  role: string;
+}
+
+/** A kind of node: what identifies it and which columns are its properties. */
+export interface GraphNodeType {
+  label: string;
+  table: string;
+  /** Null when the table has no identifier: each row is then its own node. */
+  keyColumn?: string | null;
+  /** The node stands for something the rows refer to (a customer in a table of accounts), not for the rows. */
+  derived: boolean;
+  /** Why this node exists. */
+  origin: string;
+  description?: string | null;
+  properties: GraphProperty[];
+}
+
+export interface GraphRelType {
+  type: string;
+  fromLabel: string;
+  toLabel: string;
+  table: string;
+  fromColumn?: string | null;
+  toColumn?: string | null;
+  basis: string;
+}
+
+export interface GraphFinding {
+  severity: 'info' | 'warning' | 'conflict' | string;
+  kind: string;
+  message: string;
+  examples: string[];
+}
+
+/** A column that could become a node of its own. */
+export interface GraphPromotable {
+  table: string;
+  column: string;
+  distinct: number;
+}
+
+export interface GraphSchema {
+  nodes: GraphNodeType[];
+  relationships: GraphRelType[];
+  findings: GraphFinding[];
+  promotable: GraphPromotable[];
+  /** Names chosen for labels ("label:Customer") and relationship types ("type:HAS_ACCOUNT"). */
+  renames: Record<string, string>;
+}
+
+export interface GraphBuildResult {
+  scope: string;
+  nodes: Record<string, number>;
+  relationships: Record<string, number>;
+  findings: GraphFinding[];
+  durationMs: number;
+  builtAt: string;
+}
+
+export interface GraphBuild {
+  schema: GraphSchema;
+  result: GraphBuildResult;
+}
+
+export interface GraphStatus {
+  available: boolean;
+  message: string;
+  browserUrl: string;
+  scope: string;
+}
+
 /** One correction: a known operation on a column (none for a whole-row operation) with its settings. */
 export interface CorrectionOp {
   type: string;

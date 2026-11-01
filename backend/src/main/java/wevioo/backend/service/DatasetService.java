@@ -14,6 +14,7 @@ import wevioo.backend.dto.LiveEvent;
 import wevioo.backend.dto.RuleDtos;
 import wevioo.backend.dto.UploadResponse;
 import wevioo.backend.exception.ConflictException;
+import wevioo.backend.graph.GraphStore;
 import wevioo.backend.exception.NotFoundException;
 import wevioo.backend.repository.*;
 
@@ -52,6 +53,7 @@ public class DatasetService {
     private final AirflowClient airflowClient;
     private final EventStreamService eventStreamService;
     private final QualityDimensionsService dimensionsService;
+    private final GraphStore graphStore;
     private final TransactionTemplate transactionTemplate;
 
     public DatasetService(
@@ -66,6 +68,7 @@ public class DatasetService {
         AirflowClient airflowClient,
         EventStreamService eventStreamService,
         QualityDimensionsService dimensionsService,
+        GraphStore graphStore,
         PlatformTransactionManager transactionManager
     ) {
         this.properties = properties;
@@ -79,6 +82,7 @@ public class DatasetService {
         this.airflowClient = airflowClient;
         this.eventStreamService = eventStreamService;
         this.dimensionsService = dimensionsService;
+        this.graphStore = graphStore;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
     }
 
@@ -279,6 +283,12 @@ public class DatasetService {
         datasetRepository.flush();
 
         deleteDatasetArtifacts(datasetId);
+        try {
+            // The graphs built for the dataset go with it; Neo4j being down must not block the deletion.
+            graphStore.clearPrefix("d" + datasetId + "v");
+        } catch (RuntimeException e) {
+            log.warn("Could not remove the graph of dataset {} from Neo4j: {}", datasetId, e.getMessage());
+        }
     }
 
     // ---------------------------------------------------------------- upload planning

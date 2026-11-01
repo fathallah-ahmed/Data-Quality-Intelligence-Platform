@@ -33,6 +33,11 @@ public class ApiExceptionHandler {
         return error(HttpStatus.SERVICE_UNAVAILABLE, exception.getMessage());
     }
 
+    @ExceptionHandler(wevioo.backend.graph.GraphStore.GraphUnavailableException.class)
+    public ResponseEntity<Map<String, String>> graphUnavailable(wevioo.backend.graph.GraphStore.GraphUnavailableException exception) {
+        return error(HttpStatus.SERVICE_UNAVAILABLE, exception.getMessage());
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Map<String, String>> badRequest(IllegalArgumentException exception) {
         return error(HttpStatus.BAD_REQUEST, exception.getMessage());

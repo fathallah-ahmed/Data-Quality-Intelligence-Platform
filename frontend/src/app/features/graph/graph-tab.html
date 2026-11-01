@@ -1,0 +1,211 @@
+@if (!ready()) {
+  <app-empty-state title="The graph needs an analysed version" message="Once the analysis of this version has finished, its rows can be organised as a graph." icon="network" />
+} @else {
+  <section class="card" aria-labelledby="graph-title">
+    <header class="card__header">
+      <div class="card__heading">
+        <span class="card__icon"><app-icon name="network" /></span>
+        <div>
+          <h2 class="card__title" id="graph-title">Graph</h2>
+          <p class="card__subtitle">Entities, their properties and how they relate, drawn from the roles of your columns and from what the values do.</p>
+        </div>
+      </div>
+      <div class="head-actions">
+        @if (renamed()) {
+          <button type="button" class="btn btn--ghost btn--sm" (click)="resetNames()">Default names</button>
+        }
+        <button type="button" class="btn btn--secondary btn--sm" [disabled]="naming() || loading() || !schema()" (click)="nameWithAi()">
+          <app-icon name="sparkles" [size]="15" /> {{ naming() ? 'Naming…' : 'Name with AI' }}
+        </button>
+      </div>
+    </header>
+
+    @if (status(); as neo) {
+      @if (!neo.available) {
+        <div class="callout" data-tone="warning" role="alert">
+          <app-icon name="alert" />
+          <div>
+            <strong>Neo4j is not running.</strong> {{ neo.message }}
+            <pre class="command">docker compose -f docker-compose.neo4j.yml up -d</pre>
+          </div>
+        </div>
+      }
+    }
+    @if (nameError()) {
+      <div class="callout" data-tone="danger" role="alert"><app-icon name="xCircle" /><span>{{ nameError() }}</span></div>
+    }
+    @if (error()) {
+      <div class="callout" data-tone="danger" role="alert"><app-icon name="xCircle" /><span>{{ error() }}</span></div>
+    }
+  </section>
+
+  @if (loading() && !schema()) {
+    <div class="card"><app-skeleton [count]="4" [height]="22" /></div>
+  } @else if (schema(); as schema) {
+    <!-- The nodes -->
+    <section class="card" aria-labelledby="nodes-title">
+      <header class="card__header">
+        <div class="card__heading">
+          <span class="card__icon"><app-icon name="database" /></span>
+          <div>
+            <h2 class="card__title" id="nodes-title">Entities</h2>
+            <p class="card__subtitle">{{ schema.nodes.length }} kind(s) of node. A node is created once however many rows mention it.</p>
+          </div>
+        </div>
+      </header>
+      <div class="nodes">
+        @for (node of schema.nodes; track node.label) {
+          <article class="node" [attr.data-derived]="node.derived">
+            <header>
+              <h3 class="node__label">{{ node.label }}</h3>
+              <span class="tag" [attr.data-tone]="node.derived ? 'info' : 'success'">{{ node.derived ? 'found inside the rows' : 'one per row' }}</span>
+            </header>
+            @if (node.description) {
+              <p class="node__description">{{ node.description }}</p>
+            }
+            <p class="node__origin">{{ node.origin }}</p>
+            <dl class="node__facts">
+              <div><dt>Table</dt><dd><code>{{ node.table }}</code></dd></div>
+              <div><dt>Identified by</dt><dd>@if (node.keyColumn) { <code>{{ node.keyColumn }}</code> } @else { <span class="muted">the row number</span> }</dd></div>
+            </dl>
+            @if (node.properties.length > 0) {
+              <ul class="props" aria-label="Properties">
+                @for (property of node.properties; track property.column) {
+                  <li [attr.title]="roleText(property.role)"><code>{{ property.column }}</code></li>
+                }
+              </ul>
+            } @else {
+              <p class="muted node__none">No property besides its key.</p>
+            }
+          </article>
+        }
+      </div>
+    </section>
+
+    <!-- The relationships -->
+    <section class="card" aria-labelledby="rels-title">
+      <header class="card__header">
+        <div class="card__heading">
+          <span class="card__icon"><app-icon name="link" /></span>
+          <div>
+            <h2 class="card__title" id="rels-title">Relationships</h2>
+            <p class="card__subtitle">Only relationships the data supports are drawn</p>
+          </div>
+        </div>
+      </header>
+      @if (schema.relationships.length === 0) {
+        <p class="muted">No relationship was found: no column refers to another entity.</p>
+      } @else {
+        <ul class="rels">
+          @for (relationship of schema.relationships; track relationship.type + relationship.fromLabel + relationship.toLabel) {
+            <li>
+              <span class="rel__line">
+                <span class="chip">{{ relationship.fromLabel }}</span>
+                <span class="rel__arrow">— {{ relationship.type }} →</span>
+                <span class="chip">{{ relationship.toLabel }}</span>
+              </span>
+              <span class="rel__basis">{{ relationship.basis }}</span>
+            </li>
+          }
+        </ul>
+      }
+
+      @if (schema.promotable.length > 0) {
+        <div class="promote">
+          <h3>Make a column an entity of its own</h3>
+          <p class="muted">A country or a status shared by many rows can be a node that rows point to, instead of a property.</p>
+          <div class="promote__list">
+            @for (item of schema.promotable; track item.table + item.column) {
+              <label class="check">
+                <input type="checkbox" [checked]="isPromoted(item.table, item.column)" (change)="togglePromote(item.table, item.column)" />
+                <code>{{ item.column }}</code> <span class="muted">({{ item.distinct }} values)</span>
+              </label>
+            }
+          </div>
+        </div>
+      }
+    </section>
+
+    <!-- What the model found in the data -->
+    @if (findings().length > 0) {
+      <section class="card" aria-labelledby="findings-title">
+        <header class="card__header">
+          <div class="card__heading">
+            <span class="card__icon card__icon--warn"><app-icon name="alert" /></span>
+            <div>
+              <h2 class="card__title" id="findings-title">What to know before building</h2>
+              <p class="card__subtitle">A conflict is never settled by choosing a value: all of them are kept.</p>
+            </div>
+          </div>
+        </header>
+        <ul class="findings">
+          @for (finding of findings(); track $index) {
+            <li [attr.data-severity]="finding.severity">
+              <span class="tag" [attr.data-tone]="finding.severity === 'conflict' ? 'danger' : finding.severity === 'warning' ? 'warning' : 'info'">{{ finding.severity }}</span>
+              <span class="finding__text">
+                {{ finding.message }}
+                @if (finding.examples.length > 0) {
+                  <span class="finding__examples">e.g. {{ finding.examples.join(' · ') }}</span>
+                }
+              </span>
+            </li>
+          }
+        </ul>
+      </section>
+    }
+
+    <!-- Build -->
+    <section class="card" aria-labelledby="build-title">
+      <header class="card__header">
+        <div class="card__heading">
+          <span class="card__icon"><app-icon name="upload" /></span>
+          <div>
+            <h2 class="card__title" id="build-title">Build in Neo4j</h2>
+            <p class="card__subtitle">Replaces the graph built before for this version. Other versions are not touched.</p>
+          </div>
+        </div>
+        <button type="button" class="btn btn--primary" [disabled]="building() || loading() || status()?.available === false" (click)="build()">
+          <app-icon name="network" [size]="16" /> {{ building() ? 'Building…' : built() ? 'Rebuild the graph' : 'Build the graph' }}
+        </button>
+      </header>
+
+      @if (built(); as build) {
+        <div class="result">
+          <div class="result__counts">
+            @for (entry of nodeEntries(); track entry[0]) {
+              <div class="stat"><strong>{{ entry[1] | dqNumber }}</strong><span>{{ entry[0] }}</span></div>
+            }
+            @for (entry of relationshipEntries(); track entry[0]) {
+              <div class="stat stat--rel"><strong>{{ entry[1] | dqNumber }}</strong><span>{{ entry[0] }}</span></div>
+            }
+          </div>
+          <p class="muted">Built {{ build.result.builtAt | relativeTime }} in {{ build.result.durationMs | dqNumber }} ms.</p>
+
+          @if (builtFindings().length > 0) {
+            <ul class="findings">
+              @for (finding of builtFindings(); track $index) {
+                <li [attr.data-severity]="finding.severity">
+                  <span class="tag" [attr.data-tone]="finding.severity === 'conflict' ? 'danger' : finding.severity === 'warning' ? 'warning' : 'info'">{{ finding.severity }}</span>
+                  <span class="finding__text">
+                    {{ finding.message }}
+                    @if (finding.examples.length > 0) {
+                      <span class="finding__examples">e.g. {{ finding.examples.join(' · ') }}</span>
+                    }
+                  </span>
+                </li>
+              }
+            </ul>
+          }
+
+          <div class="browse">
+            <p class="muted">See it in Neo4j Browser (sign in with the Neo4j user), then run:</p>
+            <pre class="command">{{ query() }}</pre>
+            @if (status(); as neo) {
+              <a class="btn btn--secondary btn--sm" [href]="neo.browserUrl" target="_blank" rel="noopener"><app-icon name="arrowRight" [size]="15" /> Open Neo4j Browser</a>
+            }
+          </div>
+        </div>
+      }
+    </section>
+  }
+}

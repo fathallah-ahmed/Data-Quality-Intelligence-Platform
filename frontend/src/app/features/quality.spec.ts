@@ -1,5 +1,6 @@
 import { RuleResults, VersionDetails, VersionDiff } from '../core/models';
 import { deltaInfo } from '../shared/format';
+import { browseQuery, sortFindings } from './graph/graph-tab';
 import { qualityDimensions } from './overview/version-metrics';
 import { buildReport, reportFileName, reportMarkdown } from './report/report';
 import { roleExplanation } from './tables/table-profile';
@@ -75,6 +76,23 @@ describe('rule suggestions', () => {
       .toBe('a.opened is not after a.closed (up to 2.5% of rows may break this)');
     expect(ruleKey({ type: 'MIN_FORMAT_VALID_PERCENT', tableName: 'c', columnName: 'x', format: 'EMAIL' }))
       .not.toBe(ruleKey({ type: 'MIN_FORMAT_VALID_PERCENT', tableName: 'c', columnName: 'x', format: 'PHONE' }));
+  });
+});
+
+describe('graph', () => {
+  it('puts conflicts before warnings before notes, without changing the list it is given', () => {
+    const findings = [
+      { severity: 'info', kind: 'BUILT', message: 'built', examples: [] },
+      { severity: 'warning', kind: 'BLANK_KEY', message: 'blank', examples: [] },
+      { severity: 'conflict', kind: 'DEPENDENCY', message: 'conflict', examples: [] }
+    ];
+
+    expect(sortFindings(findings).map((finding) => finding.kind)).toEqual(['DEPENDENCY', 'BLANK_KEY', 'BUILT']);
+    expect(findings[0].kind).toBe('BUILT');
+  });
+
+  it('gives the query that shows what a build wrote, limited to its own version', () => {
+    expect(browseQuery('d150v155')).toBe("MATCH (n {_scope: 'd150v155'}) OPTIONAL MATCH (n)-[r]->(m) RETURN n, r, m LIMIT 200");
   });
 });
 

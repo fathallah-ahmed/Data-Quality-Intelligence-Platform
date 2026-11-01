@@ -104,15 +104,33 @@ Spring Boot -> Angular : SSE /api/events/stream (repli automatique en polling)
 | Data model | Diagramme des tables et relations (recouvrement de valeurs) |
 | Insights | Analyse sémantique (rôles des colonnes, contrat de données, surveillance, causes, impacts) |
 | Compare | Écarts avec une version plus ancienne : score, lignes, colonnes ajoutées/supprimées, changements de type, valeurs manquantes |
-| Rules | Règles qualité du dataset et résultat pour cette version, avec des règles suggérées à partir des données |
+| Rules | Règles qualité du dataset et résultat pour cette version ; règles proposées à partir de l'objectif donné à l'envoi (à approuver) et à partir des données |
+| Corrections | Corrections trouvées dans les données ou écrites en langage naturel, aperçu chiffré, puis application sur une copie (nouvelle version) |
+| Graph | Modèle de graphe proposé (entités, propriétés, relations), conflits, et construction dans Neo4j |
 
-Le bouton **Report** ouvre une page imprimable de la version (Imprimer / Enregistrer en PDF, ou téléchargement Markdown).
+Le bouton **Report** ouvre une page imprimable de la version (Imprimer / Enregistrer en PDF, ou téléchargement Markdown), avec la définition de chaque score.
 
-Raccourcis : `Ctrl/⌘ K` ou `/` (recherche et actions), `N` (nouvelle analyse), `1`–`6` (changer d'onglet).
+Raccourcis : `Ctrl/⌘ K` ou `/` (recherche et actions), `N` (nouvelle analyse), `1`–`8` (changer d'onglet).
+
+### Contexte de l'analyse
+
+À l'envoi, on peut donner un **domaine**, un **objectif** et ce que **représente une ligne** (un client, un compte, une opération). Ils sont enregistrés dans `dataset_context.json` à côté des CSV, conservés lors d'un Retry, et lus par le pipeline pour orienter l'analyse (un identifiant répété est normal si une ligne n'est pas l'entité qu'il nomme).
+
+### Rôles de colonnes et dimensions de qualité
+
+Chaque colonne reçoit un rôle (identifiant, référence, email, date, montant…) calculé à partir de son nom, de ses valeurs et de leurs formats ; les indices sont conservés. Seules les colonnes restées floues sont tranchées par le modèle. La vue d'ensemble affiche complétude, unicité, validité et cohérence avec leur numérateur et leur dénominateur, ou « not measured » avec la raison.
 
 ### Règles qualité
 
-Types : colonne sans valeur manquante, au plus X % de valeurs manquantes, valeurs uniques, au moins N lignes, au plus X % de doublons, score minimal, baisse maximale du nombre de lignes par rapport à la version précédente. Chaque règle est `WARNING` ou `CRITICAL`, peut être mise en pause, et visée sur une table (et une colonne). Elles sont évaluées à la fin de chaque run et à la demande (**Check now**).
+Types : colonne sans valeur manquante, au plus X % de valeurs manquantes, valeurs uniques, au moins N lignes, au plus X % de doublons, score minimal, baisse maximale du nombre de lignes par rapport à la version précédente, **valeurs au bon format** (email, téléphone, URL, date, nombre) et **ordre de deux dates**. Chaque règle est `WARNING` ou `CRITICAL`, peut être mise en pause, et visée sur une table (et une colonne). Elles sont évaluées à la fin de chaque run et à la demande (**Check now**). Le pipeline propose des règles à partir de l'objectif : elles restent des **suggestions** (non vérifiées) jusqu'à approbation.
+
+### Corrections
+
+Une table peut être corrigée à partir de ce que l'application trouve (espaces, marqueurs `N/A`, dates en plusieurs formats, une valeur écrite de plusieurs façons, doublons) ou d'une demande écrite en langage naturel, lue par le modèle local (`OLLAMA_MODEL` doit être défini pour le backend). Le modèle ne choisit que parmi 12 opérations vérifiées contre les colonnes. L'aperçu donne le nombre de valeurs touchées, des exemples et des avertissements ; une date ambiguë (`01/02/2024`) n'est jamais devinée. L'application crée une **nouvelle version** (analysée comme un envoi) avec un journal ; la version d'origine n'est jamais modifiée. Les fichiers corrigés sont écrits en UTF-8 avec des virgules, en-tête inchangé.
+
+### Graphe (Neo4j)
+
+Le modèle est déduit des rôles et des données : une ligne de comptes est un *Account*, et le *Customer* qu'elle référence devient un nœud à part dont les colonnes constantes pour un client sont les propriétés. Les relations viennent des liens trouvés par l'analyse. Quand les lignes d'une même clé se contredisent (deux emails pour un client), le graphe garde **toutes** les valeurs (`email__candidates`), marque le nœud `_conflict` et ne choisit rien ; les références vers un nœud inexistant sont signalées. Neo4j se lance avec `docker compose -f docker-compose.neo4j.yml up -d` (fait par `start-dev.ps1`), Browser sur http://localhost:7474 (utilisateur `neo4j`, mot de passe de développement `dq-neo4j-dev`, à changer via `NEO4J_PASSWORD`). Chaque nœud porte `_scope` (`d<dataset>v<version>`) : les versions ne se mélangent pas.
 
 ### Reprise après un redémarrage
 
@@ -153,9 +171,16 @@ Tous les endpoints `/api/**` (sauf login et callbacks pipeline) exigent `Authori
 | `PUT` `DELETE` | `/api/datasets/{id}/rules/{ruleId}` | Modification (pause comprise) / suppression |
 | `GET` | `/api/datasets/{id}/versions/{versionId}/rule-results` | Résultat des règles pour une version |
 | `POST` | `/api/datasets/{id}/versions/{versionId}/rules/evaluate` | Réévalue les règles sur une version |
-| `DELETE` | `/api/datasets/{id}` | Supprime le dataset et ses fichiers (409 pendant un run) |
+| `POST` | `/api/datasets/{id}/rules/{ruleId}/approve` \| `dismiss` | Approuve / écarte une règle suggérée |
+| `GET` | `/api/datasets/{id}/versions/{versionId}/corrections/suggestions?table=` | Corrections trouvées dans une table |
+| `POST` | `/api/datasets/{id}/versions/{versionId}/corrections/interpret` \| `preview` \| `apply` | Lit une demande écrite / aperçu chiffré / crée la version corrigée |
+| `GET` | `/api/datasets/{id}/versions/{versionId}/corrections` | Journal des corrections d'une version corrigée |
+| `GET` | `/api/datasets/{id}/versions/{versionId}/graph/schema?promote=&refine=` | Modèle de graphe proposé (`refine` : noms proposés par le modèle) |
+| `POST` | `/api/datasets/{id}/versions/{versionId}/graph/build` | Construit le graphe dans Neo4j (`promote`, `renames`) |
+| `GET` | `/api/datasets/{id}/versions/{versionId}/graph` \| `graph/status` | Dernière construction / état de Neo4j |
+| `DELETE` | `/api/datasets/{id}` | Supprime le dataset, ses fichiers et ses graphes (409 pendant un run) |
 | `GET` | `/api/events/stream` | Flux SSE |
-| `POST` | `/api/pipeline/{runId}/start` \| `table-analysis` \| `global-analysis` \| `complete` | Callbacks Airflow (`X-Pipeline-Token`) |
+| `POST` | `/api/pipeline/{runId}/start` \| `table-analysis` \| `rule-suggestions` \| `global-analysis` \| `complete` | Callbacks Airflow (`X-Pipeline-Token`) |
 
 Codes d'erreur : 400 requête invalide, 401 jeton absent/invalide (y compris jeton pipeline), 404 ressource ou route inconnue, 409 conflit, 413 upload trop gros, 500 erreur interne (message générique, détail dans les logs).
 

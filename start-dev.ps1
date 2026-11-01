@@ -91,6 +91,20 @@ if (-not $NoAirflow) {
     }
 }
 
+# --- Neo4j (the graph the Graph tab builds) -------------------------------------------------
+if (-not $NoAirflow) {
+    if (Test-Port 7687) {
+        Write-Host '  neo4j already running'
+    } else {
+        docker compose -f (Join-Path $root 'docker-compose.neo4j.yml') up -d *> $null
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host '  started: Neo4j (http://localhost:7474, user neo4j)'
+        } else {
+            Write-Host '  Neo4j could not be started: the Graph tab will say so. Run docker compose -f docker-compose.neo4j.yml up -d to see why.' -ForegroundColor Yellow
+        }
+    }
+}
+
 # --- Backend and frontend -----------------------------------------------------------------
 if (Test-Port 8081) {
     Write-Host '  backend already running'

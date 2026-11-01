@@ -7,6 +7,7 @@ import wevioo.backend.correction.CorrectionEngine.RunResult;
 import wevioo.backend.correction.CorrectionPlanner;
 import wevioo.backend.correction.Operations;
 import wevioo.backend.correction.Operations.OpSpec;
+import wevioo.backend.correction.TableFiles;
 import wevioo.backend.correction.TableScanner;
 import wevioo.backend.correction.TableScanner.Scan;
 import wevioo.backend.dto.CorrectionDtos.*;
@@ -160,25 +161,8 @@ public class CorrectionService {
         }
     }
 
-    /** The CSV of a table in a version folder. The name must match a file there; it is never used as a path. */
     private static Path tableFile(Path folder, String table) {
-        if (table == null || table.isBlank()) {
-            throw new IllegalArgumentException("Choose the table to correct");
-        }
-        try (Stream<Path> files = Files.list(folder)) {
-            return files
-                .filter(Files::isRegularFile)
-                .filter(file -> {
-                    String name = file.getFileName().toString();
-                    return name.toLowerCase(Locale.ROOT).endsWith(".csv")
-                        && !name.equalsIgnoreCase(DATASET_CONFIG_FILE)
-                        && name.substring(0, name.length() - 4).equalsIgnoreCase(table.strip());
-                })
-                .findFirst()
-                .orElseThrow(() -> new NotFoundException("Table not found in this version: " + table));
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
+        return TableFiles.find(folder, table);
     }
 
     private Preview toPreview(String table, RunResult result) {
