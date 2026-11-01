@@ -41,6 +41,15 @@
       </dl>
     </section>
 
+    <section>
+      <h2>How the scores are computed</h2>
+      <ul>
+        @for (definition of report.scoreDefinitions; track definition.label) {
+          <li><strong>{{ definition.label }}:</strong> {{ definition.text }}</li>
+        }
+      </ul>
+    </section>
+
     @if (report.changes; as changes) {
       <section>
         <h2>{{ changes.heading }}</h2>

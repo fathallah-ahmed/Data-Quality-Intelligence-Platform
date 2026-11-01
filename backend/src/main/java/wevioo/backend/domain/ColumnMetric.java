@@ -39,6 +39,22 @@ public class ColumnMetric {
     @Column(name = "format_stats_json")
     private String formatStatsJson;
 
+    /** What the column is for (IDENTIFIER, EMAIL, AMOUNT...) and how sure the analysis is, 0..1. */
+    @Column(name = "role", length = 30)
+    private String role;
+
+    @Column(name = "role_confidence")
+    private Double roleConfidence;
+
+    /** rules, or llm when the model settled a column the clues left unclear. */
+    @Column(name = "role_source", length = 20)
+    private String roleSource;
+
+    /** The clues behind the role, as a JSON list of sentences. */
+    @Lob
+    @Column(name = "role_evidence_json")
+    private String roleEvidenceJson;
+
     public Long getId() { return id; }
     public TableAnalysis getTableAnalysis() { return tableAnalysis; }
     public void setTableAnalysis(TableAnalysis tableAnalysis) { this.tableAnalysis = tableAnalysis; }
@@ -58,4 +74,12 @@ public class ColumnMetric {
     public void setMaxValue(Double maxValue) { this.maxValue = maxValue; }
     public String getFormatStatsJson() { return formatStatsJson; }
     public void setFormatStatsJson(String formatStatsJson) { this.formatStatsJson = formatStatsJson; }
+    public String getRole() { return role; }
+    public void setRole(String role) { this.role = role; }
+    public Double getRoleConfidence() { return roleConfidence; }
+    public void setRoleConfidence(Double roleConfidence) { this.roleConfidence = roleConfidence; }
+    public String getRoleSource() { return roleSource; }
+    public void setRoleSource(String roleSource) { this.roleSource = roleSource; }
+    public String getRoleEvidenceJson() { return roleEvidenceJson; }
+    public void setRoleEvidenceJson(String roleEvidenceJson) { this.roleEvidenceJson = roleEvidenceJson; }
 }

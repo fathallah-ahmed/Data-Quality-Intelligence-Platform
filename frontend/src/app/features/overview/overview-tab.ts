@@ -11,15 +11,15 @@ import {
   businessView,
   changeCounts,
   columnsToReview,
-  completeness,
   expectedTables,
   finalAssessment,
+  qualityDimensions,
   qualityPosture,
   readyTables,
+  SCORE_DEFINITION,
   tableMissingPercent,
   totalColumns,
-  totalRows,
-  uniqueness
+  totalRows
 } from './version-metrics';
 
 @Component({
@@ -48,19 +48,11 @@ export class OverviewTab {
   readonly scoreTone = computed(() => scoreTone(this.score()));
 
   readonly dimensions = computed(() => [
-    {
-      label: 'Completeness',
-      value: completeness(this.details()),
-      hint: 'Share of filled cells across all tables.'
-    },
-    {
-      label: 'Uniqueness',
-      value: uniqueness(this.details()),
-      hint: 'Share of rows that are not exact duplicates.'
-    },
+    ...qualityDimensions(this.details()),
     {
       label: 'AI coverage',
       value: aiCoverage(this.details()),
+      detail: '',
       hint: 'Share of tables whose insights come from a validated LLM answer.'
     }
   ].map((dimension) => ({ ...dimension, tone: scoreTone(dimension.value) })));
@@ -80,6 +72,5 @@ export class OverviewTab {
   readonly posture = computed(() => qualityPosture(this.details()));
   readonly assessment = computed(() => finalAssessment(this.details()));
 
-  readonly scoreHelp = 'Each table scores 100 minus its average missing-value % across columns minus its duplicate-row %. '
-    + 'The version score is the average of the table scores weighted by row count. A: 90+, B: 75–90, C: 60–75, D: below 60.';
+  readonly scoreHelp = SCORE_DEFINITION;
 }

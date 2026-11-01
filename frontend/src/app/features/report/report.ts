@@ -4,16 +4,16 @@ import {
   aiCoverage,
   businessView,
   columnsToReview,
-  completeness,
   expectedTables,
   finalAssessment,
   presentTables,
+  qualityDimensions,
   qualityPosture,
   readyTables,
+  SCORE_DEFINITION,
   tableMissingPercent,
   totalColumns,
-  totalRows,
-  uniqueness
+  totalRows
 } from '../overview/version-metrics';
 
 export interface ReportInput {
@@ -45,6 +45,8 @@ export interface ReportModel {
   gradeLabel: string;
   stats: { label: string; value: string }[];
   dimensions: { label: string; value: string }[];
+  /** What each score measures and what it is based on, so a number can be checked. */
+  scoreDefinitions: { label: string; text: string }[];
   runIssue: string | null;
   changes: { heading: string; lines: string[] } | null;
   tables: ReportTableRow[];
@@ -78,9 +80,18 @@ export function buildReport(input: ReportInput): ReportModel {
       { label: 'Missing cells', value: formatNumber(ready.reduce((sum, table) => sum + (table.missingCount ?? 0), 0)) }
     ],
     dimensions: [
-      { label: 'Completeness', value: formatPercent(completeness(details)) },
-      { label: 'Uniqueness', value: formatPercent(uniqueness(details)) },
+      ...qualityDimensions(details).map((dimension) => ({
+        label: dimension.label,
+        value: dimension.value === null
+          ? 'not measured'
+          : dimension.detail ? `${formatPercent(dimension.value)} (${dimension.detail})` : formatPercent(dimension.value)
+      })),
       { label: 'AI coverage', value: formatPercent(aiCoverage(details)) }
+    ],
+    scoreDefinitions: [
+      { label: 'Quality score', text: SCORE_DEFINITION },
+      ...(details.dimensions ?? []).map((dimension) => ({ label: dimension.label, text: `${dimension.definition} ${dimension.basis}` })),
+      { label: 'AI coverage', text: 'Share of tables whose insights come from a validated LLM answer.' }
     ],
     runIssue: (status === 'FAILED' || status === 'PARTIAL') && version.errorMessage ? version.errorMessage : null,
     changes: diff ? changeSection(diff) : null,
@@ -172,6 +183,10 @@ export function reportMarkdown(report: ReportModel): string {
   if (report.runIssue) {
     out.push('', `> **The run finished with issues.** ${report.runIssue}`);
   }
+  out.push('');
+
+  out.push('## How the scores are computed', '');
+  report.scoreDefinitions.forEach((definition) => out.push(`- **${definition.label}:** ${definition.text}`));
   out.push('');
 
   if (report.changes) {

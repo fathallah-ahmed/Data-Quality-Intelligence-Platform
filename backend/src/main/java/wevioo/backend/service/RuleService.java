@@ -434,23 +434,16 @@ public class RuleService {
         if (!secondExists) {
             return Outcome.of(false, 0, "Column " + second + " does not exist in this version");
         }
-        for (Object item : listValue(jsonService.toMap(analysis.getCrossChecksJson()).get("date_order"))) {
-            Map<String, Object> pair = mapValue(item);
-            boolean sameOrder = first.equals(pair.get("first")) && second.equals(pair.get("second"));
-            boolean reversed = second.equals(pair.get("first")) && first.equals(pair.get("second"));
-            if (!sameOrder && !reversed) {
-                continue;
-            }
-            long compared = longValue(pair.get("compared"));
-            long violations = longValue(pair.get(sameOrder ? "first_after_second" : "second_after_first"));
-            List<Object> examples = listValue(pair.get(sameOrder ? "first_after_second_examples" : "second_after_first_examples"));
-            double percent = compared == 0 ? 0 : violations * 100.0 / compared;
-            String example = violations > 0 && !examples.isEmpty() ? ", for example " + clip(String.valueOf(examples.get(0)), 100) : "";
-            return Outcome.of(percent <= threshold, percent, clip(
-                violations + " of " + compared + " row(s) have " + first + " after " + second
-                    + " (" + fmt(percent) + "%, limit " + fmt(threshold) + "%)" + example, 480));
+        CrossChecks.DateOrder order = CrossChecks.dateOrder(jsonService.toMap(analysis.getCrossChecksJson()), first, second);
+        if (order == null) {
+            return Outcome.skipped(first + " and " + second + " were not measured as dates, or no row has both filled");
         }
-        return Outcome.skipped(first + " and " + second + " were not measured as dates, or no row has both filled");
+        double percent = order.compared() == 0 ? 0 : order.violations() * 100.0 / order.compared();
+        String example = order.violations() > 0 && !order.examples().isEmpty()
+            ? ", for example " + clip(String.valueOf(order.examples().get(0)), 100) : "";
+        return Outcome.of(percent <= threshold, percent, clip(
+            order.violations() + " of " + order.compared() + " row(s) have " + first + " after " + second
+                + " (" + fmt(percent) + "%, limit " + fmt(threshold) + "%)" + example, 480));
     }
 
     private static long longValue(Object value) {

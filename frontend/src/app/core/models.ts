@@ -51,6 +51,24 @@ export interface ColumnMetricView {
   uniqueCount?: number | null;
   minValue?: number | null;
   maxValue?: number | null;
+  /** What the column is for (IDENTIFIER, EMAIL, AMOUNT...); missing on versions analysed before roles existed. */
+  role?: string | null;
+  roleConfidence?: number | null;
+  /** The clues behind the role. */
+  roleEvidence?: string[] | null;
+  /** rules, or llm when the model settled a column the clues left unclear. */
+  roleSource?: string | null;
+}
+
+/** One quality dimension with the figures it is made of. A null percent means it could not be measured. */
+export interface QualityDimension {
+  key: string;
+  label: string;
+  percent: number | null;
+  numerator: number | null;
+  denominator: number | null;
+  definition: string;
+  basis: string;
 }
 
 export interface TableAnalysisView {
@@ -100,6 +118,8 @@ export interface VersionDetails {
   qualityScore?: number | null;
   /** Null until the quality rules have been evaluated for this version. */
   ruleSummary?: RuleSummary | null;
+  /** Completeness, uniqueness, validity and consistency, each with the figures behind it. */
+  dimensions?: QualityDimension[];
 }
 
 export type RuleType =

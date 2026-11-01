@@ -198,7 +198,11 @@ public class PipelineController {
                 longValue(column.get("distinct_count")),
                 doubleValue(column.get("min_value")),
                 doubleValue(column.get("max_value")),
-                mapValue(column.get("format_stats"))
+                mapValue(column.get("format_stats")),
+                stringValue(column, "role"),
+                doubleValue(column.get("role_confidence")),
+                listValue(column.get("role_evidence")),
+                stringValue(column, "role_source")
             ))
             .toList();
     }

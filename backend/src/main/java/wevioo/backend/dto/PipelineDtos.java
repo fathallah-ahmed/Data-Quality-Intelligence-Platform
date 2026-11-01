@@ -31,7 +31,11 @@ public class PipelineDtos {
         Long distinctCount,
         Double minValue,
         Double maxValue,
-        Map<String, Object> formatStats
+        Map<String, Object> formatStats,
+        String role,
+        Double roleConfidence,
+        List<Object> roleEvidence,
+        String roleSource
     ) {}
 
     /** One rule the pipeline proposes from the user's goal; the user approves or turns it down. */

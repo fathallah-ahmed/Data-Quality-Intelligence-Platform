@@ -37,7 +37,33 @@ public class DatasetDtos {
         Double missingPercentage,
         Long uniqueCount,
         Double minValue,
-        Double maxValue
+        Double maxValue,
+        /** What the column is for, e.g. EMAIL or IDENTIFIER (null on versions analysed before roles existed). */
+        String role,
+        Double roleConfidence,
+        /** The clues that led to the role. */
+        List<String> roleEvidence,
+        /** rules, or llm when the model settled a column the clues left unclear. */
+        String roleSource
+    ) {}
+
+    /**
+     * One quality dimension of a version, with how it was computed.
+     *
+     * @param percent     0..100, or null when nothing could be measured (see {@code basis})
+     * @param numerator   the values that meet the dimension
+     * @param denominator the values that were checked
+     * @param definition  what the dimension measures, in words
+     * @param basis       which columns or rules it is based on, or why it could not be measured
+     */
+    public record QualityDimension(
+        String key,
+        String label,
+        Double percent,
+        Long numerator,
+        Long denominator,
+        String definition,
+        String basis
     ) {}
 
     public record TableAnalysisView(
@@ -88,6 +114,8 @@ public class DatasetDtos {
         List<FailedTableView> failedTables,
         Double qualityScore,
         /** Null until the quality rules have been evaluated for this version. */
-        RuleDtos.RuleSummary ruleSummary
+        RuleDtos.RuleSummary ruleSummary,
+        /** Completeness, uniqueness, validity and consistency, each with the figures behind it. */
+        List<QualityDimension> dimensions
     ) {}
 }

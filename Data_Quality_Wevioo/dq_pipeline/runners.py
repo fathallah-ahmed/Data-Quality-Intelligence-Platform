@@ -8,6 +8,7 @@ from pathlib import Path
 import json
 import time
 
+from dq_pipeline.analyzers.column_roles import describe_roles
 from dq_pipeline.analyzers.langgraph_analyzer import LLM_STATUS_DISABLED, LLM_STATUS_OK
 from dq_pipeline.backend_client import close_backend_client
 from dq_pipeline.config.settings import settings
@@ -223,7 +224,8 @@ def phase_analyze_tables(dataset_id, version_id, pipeline_run_id, file_path, bac
                 if empty_table:
                     continue
 
-                llm_result = runner._run_llm_analysis(table_name, sweetviz_data)
+                runner._refine_column_roles(table_name, dataset_metrics.row_count, column_metrics)
+                llm_result = runner._run_llm_analysis(table_name, sweetviz_data, describe_roles(column_metrics))
                 result.llm_status = llm_result.get("llm_status") or LLM_STATUS_DISABLED
                 if llm_result.get("analysis"):
                     result.llm_interpretation = llm_result.get("analysis")

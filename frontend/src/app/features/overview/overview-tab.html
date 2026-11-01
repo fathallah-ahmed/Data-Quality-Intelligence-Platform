@@ -18,6 +18,9 @@
           <strong>{{ dimension.value | dqPercent }}</strong>
         </div>
         <span class="meter"><span [style.width.%]="dimension.value ?? 0"></span></span>
+        @if (dimension.detail) {
+          <span class="dim__basis">{{ dimension.detail }}</span>
+        }
       </div>
     }
   </div>

@@ -104,6 +104,40 @@ export function uniqueness(details: VersionDetails): number | null {
   return Math.max(0, 100 - (duplicates / rows) * 100);
 }
 
+/** How the quality score of a table and of a version is computed (shown in the overview and the report). */
+export const SCORE_DEFINITION = 'Each table scores 100 minus its average missing-value % across columns minus its duplicate-row %. '
+  + 'The version score is the average of the table scores weighted by row count. A: 90+, B: 75–90, C: 60–75, D: below 60.';
+
+export interface DimensionRow {
+  label: string;
+  value: number | null;
+  /** The figures behind the value, e.g. "280 of 300", or why it could not be measured. */
+  detail: string;
+  /** What it measures and what it is based on. */
+  hint: string;
+}
+
+/**
+ * The data-quality dimensions as the backend measured them, each with its numerator and denominator.
+ * A version loaded from an older backend has none: completeness and uniqueness are then derived here.
+ */
+export function qualityDimensions(details: VersionDetails): DimensionRow[] {
+  if (details.dimensions && details.dimensions.length > 0) {
+    return details.dimensions.map((dimension) => ({
+      label: dimension.label,
+      value: dimension.percent,
+      detail: dimension.percent === null || dimension.numerator === null || dimension.denominator === null
+        ? 'not measured'
+        : `${formatNumber(dimension.numerator)} of ${formatNumber(dimension.denominator)}`,
+      hint: `${dimension.definition} ${dimension.basis}`
+    }));
+  }
+  return [
+    { label: 'Completeness', value: completeness(details), detail: '', hint: 'Share of filled cells across all tables.' },
+    { label: 'Uniqueness', value: uniqueness(details), detail: '', hint: 'Share of rows that are not exact duplicates.' }
+  ];
+}
+
 /** Share of tables whose insights come from a validated LLM answer, 0–100. */
 export function aiCoverage(details: VersionDetails): number | null {
   const tables = readyTables(details).filter((table) => table.llmStatus && table.llmStatus !== 'pending' && table.llmStatus !== 'disabled');

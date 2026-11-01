@@ -1,6 +1,8 @@
 import { RuleResults, VersionDetails, VersionDiff } from '../core/models';
 import { deltaInfo } from '../shared/format';
+import { qualityDimensions } from './overview/version-metrics';
 import { buildReport, reportFileName, reportMarkdown } from './report/report';
+import { roleExplanation } from './tables/table-profile';
 import { describeRule, ruleKey, suggestRules } from './rules/rule-types';
 
 function column(columnName: string, uniqueCount: number, missingCount = 0, missingPercentage = 0) {
@@ -76,6 +78,35 @@ describe('rule suggestions', () => {
   });
 });
 
+describe('column roles and dimensions', () => {
+  it('explains a role with its confidence, who decided and the clues', () => {
+    expect(roleExplanation({
+      columnName: 'email', dataType: 'object', role: 'EMAIL', roleConfidence: 1, roleSource: 'rules',
+      roleEvidence: ["the name contains 'email'", '95% of its values look like email values']
+    })).toBe("email, 100% sure (from the name, values and formats): the name contains 'email'; 95% of its values look like email values");
+    expect(roleExplanation({ columnName: 'zip', dataType: 'object', role: 'POSTAL_CODE', roleConfidence: 0.6, roleSource: 'llm', roleEvidence: [] }))
+      .toBe('postal code, 60% sure (chosen by the model)');
+    expect(roleExplanation({ columnName: 'old', dataType: 'object' })).toBe('');
+  });
+
+  it('turns the backend dimensions into rows with their figures, or says they were not measured', () => {
+    const rows = qualityDimensions({
+      ...details,
+      dimensions: [
+        { key: 'COMPLETENESS', label: 'Completeness', percent: 93.3, numerator: 280, denominator: 300, definition: 'D.', basis: 'B.' },
+        { key: 'CONSISTENCY', label: 'Consistency', percent: null, numerator: null, denominator: null, definition: 'D2.', basis: 'Not measured.' }
+      ]
+    });
+
+    expect(rows[0]).toEqual({ label: 'Completeness', value: 93.3, detail: '280 of 300', hint: 'D. B.' });
+    expect(rows[1]).toEqual({ label: 'Consistency', value: null, detail: 'not measured', hint: 'D2. Not measured.' });
+  });
+
+  it('falls back to completeness and uniqueness for a version without dimensions', () => {
+    expect(qualityDimensions(details).map((row) => row.label)).toEqual(['Completeness', 'Uniqueness']);
+  });
+});
+
 describe('report', () => {
   const rules: RuleResults = {
     summary: { total: 2, passed: 1, failed: 1, skipped: 0, criticalFailed: 1 },
@@ -117,6 +148,23 @@ describe('report', () => {
     expect(markdown).not.toContain('## Changes since');
     expect(markdown).not.toContain('## Quality rules');
     expect(reportFileName(report)).toBe('shop-data-2026-v2-quality-report.md');
+  });
+
+  it('shows each dimension with its figures and explains how every score is computed', () => {
+    const measured: VersionDetails = {
+      ...details,
+      dimensions: [
+        { key: 'COMPLETENESS', label: 'Completeness', percent: 93.3, numerator: 280, denominator: 300, definition: 'Filled cells out of all cells.', basis: 'All columns of 1 table(s).' },
+        { key: 'VALIDITY', label: 'Validity', percent: null, numerator: null, denominator: null, definition: 'Values that follow their format.', basis: 'Not measured: no column was recognised as an email.' }
+      ]
+    };
+    const markdown = reportMarkdown(buildReport({ datasetName: 'Shop', details: measured, rules: null, diff: null }));
+
+    expect(markdown).toContain('**Completeness:** 93.3% (280 of 300)');
+    expect(markdown).toContain('**Validity:** not measured');
+    expect(markdown).toContain('## How the scores are computed');
+    expect(markdown).toContain('- **Validity:** Values that follow their format. Not measured: no column was recognised as an email.');
+    expect(markdown).toContain('- **Quality score:** Each table scores 100 minus');
   });
 
   it('reports a failed run prominently', () => {

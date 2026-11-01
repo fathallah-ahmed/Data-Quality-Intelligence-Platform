@@ -117,6 +117,12 @@ public class PipelineIngestionService {
                 metric.setFormatStatsJson(incoming.formatStats() == null || incoming.formatStats().isEmpty()
                     ? null
                     : jsonService.toJson(incoming.formatStats()));
+                metric.setRole(incoming.role());
+                metric.setRoleConfidence(incoming.roleConfidence());
+                metric.setRoleSource(incoming.roleSource());
+                metric.setRoleEvidenceJson(incoming.roleEvidence() == null || incoming.roleEvidence().isEmpty()
+                    ? null
+                    : jsonService.toJson(incoming.roleEvidence()));
                 analysis.getColumnMetrics().add(metric);
             }
         }

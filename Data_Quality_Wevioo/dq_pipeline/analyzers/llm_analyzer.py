@@ -114,6 +114,7 @@ def analyze_table_metrics(
     debug: bool = False,
     dataset_config_path: str = None,
     business_context: dict = None,
+    column_roles: str = "",
 ) -> dict:
     """
     Analyze a single table from its profiling metrics.
@@ -135,6 +136,8 @@ def analyze_table_metrics(
     business = describe_business_context(business_context)
     if business:
         description = f"{business}\n{description}" if description else business
+    if column_roles:
+        description = f"{description}\n{column_roles}" if description else column_roles
     _debug_log(debug, f"{table_name}: running controlled LLM workflow")
     return analyze_table_with_langgraph(
         table_name=table_name,

@@ -90,6 +90,9 @@
                   @if (column.idLike) {
                     <span class="tag" data-tone="info" title="Unique for every row">key</span>
                   }
+                  @if (column.role && column.role !== 'UNKNOWN') {
+                    <span class="tag" [attr.data-tone]="(column.roleConfidence ?? 0) >= 0.65 ? 'success' : 'warning'" [attr.title]="column.roleWhy">{{ column.role.toLowerCase().replace('_', ' ') }}</span>
+                  }
                 </button>
               </th>
               <td><span class="type" [attr.title]="column.dtype"><app-icon [name]="typeIcon(column.type)" [size]="14" />{{ column.type }}</span></td>

@@ -75,6 +75,9 @@ class Settings:
         # Rules proposed from the user's goal (one extra model call per run, never fatal).
         self.RULE_SUGGESTION_ENABLED = _env_bool("RULE_SUGGESTION_ENABLED", True)
         self.RULE_LLM_NUM_PREDICT = _env_number("RULE_LLM_NUM_PREDICT", 3072, int)
+        # The model settles the columns whose role the name, values and formats leave unclear.
+        self.COLUMN_ROLE_LLM_ENABLED = _env_bool("COLUMN_ROLE_LLM_ENABLED", True)
+        self.COLUMN_ROLE_NUM_PREDICT = _env_number("COLUMN_ROLE_NUM_PREDICT", 2048, int)
         # Read timeout of one table call; large local models need more than the old 180 s.
         self.TABLE_LLM_TIMEOUT_SECONDS = _env_number("TABLE_LLM_TIMEOUT_SECONDS", 300, int)
         self.GLOBAL_LLM_TIMEOUT_SECONDS = _env_number("GLOBAL_LLM_TIMEOUT_SECONDS", 420, int)

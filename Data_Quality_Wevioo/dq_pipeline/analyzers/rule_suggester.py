@@ -82,6 +82,7 @@ def build_evidence(table_results: List[Any]) -> List[Dict[str, Any]]:
             columns.append({
                 "name": column.name,
                 "type": column.data_type,
+                "role": column.role,
                 "missing_percent": round(column.missing_percent, 2),
                 "distinct_percent": round(column.distinct_percent, 2),
                 "is_id_like": bool(column.is_id_like),
@@ -122,6 +123,7 @@ Propose between 3 and 12 rules that matter for the goal. Allowed rule types:
 HARD RULES:
 - Use only the exact table and column names of the evidence. Never invent a column or a format.
 - A column that repeats on purpose (for example a customer id when one row is an account) must not be UNIQUE.
+  Each column carries a "role"; only an IDENTIFIER names the entity one row represents, a REFERENCE may repeat.
 - severity is CRITICAL when the goal cannot be reached if the rule fails, otherwise WARNING.
 - Choose thresholds a person would accept for the goal, not the value that is observed today.
 - rationale is one sentence: name the column, quote the observed figure from the evidence and say why the goal needs it.

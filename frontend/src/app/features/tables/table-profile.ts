@@ -1,4 +1,4 @@
-import { TableAnalysisView } from '../../core/models';
+import { ColumnMetricView, TableAnalysisView } from '../../core/models';
 import { asRecord, asRecordArray } from '../../shared/insight';
 import { isNumericType, typeLabel } from '../../shared/format';
 
@@ -21,6 +21,11 @@ export interface ColumnProfile {
   std: number | null;
   idLike: boolean;
   topValues: TopValue[];
+  /** What the column is for, e.g. EMAIL; null on versions analysed before roles existed. */
+  role: string | null;
+  roleConfidence: number | null;
+  /** The clues behind the role, plus who decided: the rules or the model. */
+  roleWhy: string;
 }
 
 export interface TopValue {
@@ -37,6 +42,17 @@ export interface AssociationPair {
 
 function num(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+/** "email, 100% sure (rules): the name contains 'email'; 95% of its values look like email values". */
+export function roleExplanation(column: ColumnMetricView): string {
+  if (!column.role) {
+    return '';
+  }
+  const sure = column.roleConfidence === null || column.roleConfidence === undefined ? '' : `, ${Math.round(column.roleConfidence * 100)}% sure`;
+  const who = column.roleSource === 'llm' ? 'chosen by the model' : 'from the name, values and formats';
+  const clues = (column.roleEvidence ?? []).join('; ');
+  return `${column.role.toLowerCase().replace('_', ' ')}${sure} (${who})${clues ? `: ${clues}` : ''}`;
 }
 
 /**
@@ -69,7 +85,10 @@ export function columnProfiles(table: TableAnalysisView, detail: TableAnalysisVi
       mean: num(raw['mean_value']) ?? num(stats['mean']),
       std: num(raw['std_value']) ?? num(stats['std']),
       idLike: raw['is_id_like'] === true,
-      topValues: topValues(feature)
+      topValues: topValues(feature),
+      role: column.role ?? null,
+      roleConfidence: column.roleConfidence ?? null,
+      roleWhy: roleExplanation(column)
     };
   });
 }

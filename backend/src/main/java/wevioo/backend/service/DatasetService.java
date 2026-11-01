@@ -51,6 +51,7 @@ public class DatasetService {
     private final JsonService jsonService;
     private final AirflowClient airflowClient;
     private final EventStreamService eventStreamService;
+    private final QualityDimensionsService dimensionsService;
     private final TransactionTemplate transactionTemplate;
 
     public DatasetService(
@@ -64,6 +65,7 @@ public class DatasetService {
         JsonService jsonService,
         AirflowClient airflowClient,
         EventStreamService eventStreamService,
+        QualityDimensionsService dimensionsService,
         PlatformTransactionManager transactionManager
     ) {
         this.properties = properties;
@@ -76,6 +78,7 @@ public class DatasetService {
         this.jsonService = jsonService;
         this.airflowClient = airflowClient;
         this.eventStreamService = eventStreamService;
+        this.dimensionsService = dimensionsService;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
     }
 
@@ -173,7 +176,8 @@ public class DatasetService {
             tables,
             failedTables(latestRun(version)),
             QualityScores.rowWeighted(tables),
-            ruleSummary(versionId)
+            ruleSummary(versionId),
+            dimensionsService.forVersion(datasetId, tableVersions)
         );
     }
 
@@ -609,7 +613,11 @@ public class DatasetService {
                 column.getMissingPercentage(),
                 column.getUniqueCount(),
                 column.getMinValue(),
-                column.getMaxValue()
+                column.getMaxValue(),
+                column.getRole(),
+                column.getRoleConfidence(),
+                jsonService.toList(column.getRoleEvidenceJson()).stream().map(String::valueOf).toList(),
+                column.getRoleSource()
             ))
             .toList();
         return new TableAnalysisView(

@@ -42,6 +42,16 @@ class ColumnMetrics:
     # Text columns: per format (EMAIL, PHONE, URL, DATE, NUMBER) how many values match, with a few that do not.
     format_stats: Dict[str, Any] = field(default_factory=dict)
 
+    # Shape of the values (length, digits, examples...), used to decide the role and to explain it.
+    traits: Dict[str, Any] = field(default_factory=dict)
+
+    # What the column is for (see analyzers/column_roles.py) and why: clues, how sure, and who decided.
+    role: Optional[str] = None
+    role_confidence: float = 0.0
+    role_evidence: List[str] = field(default_factory=list)
+    role_source: str = "rules"  # rules or llm
+    role_alternatives: List[Dict[str, Any]] = field(default_factory=list)
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
         return asdict(self)

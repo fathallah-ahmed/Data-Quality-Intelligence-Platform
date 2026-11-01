@@ -35,6 +35,12 @@ from dq_pipeline.analyzers.llm_analyzer import analyze_table_metrics
 from dq_pipeline.analyzers import llm_global_analyzer
 from dq_pipeline.extractors.comprehensive_sweetviz_extractor import extract_sweetviz_metrics, read_csv_flex
 from dq_pipeline.extractors.format_profile import date_order_checks, profile_formats
+from dq_pipeline.analyzers.column_roles import (
+    assign_roles,
+    describe_roles,
+    refine_with_model,
+    value_traits,
+)
 
 
 class PipelineRunner:
@@ -237,6 +243,7 @@ class PipelineRunner:
                     is_id_like=len(df) > 0 and distinct_count == len(df) and not pd.api.types.is_float_dtype(col_data),
                     is_date_like=False,  # Simplified
                     format_stats=profile_formats(col_data),
+                    traits=value_traits(col_data),
                 )
 
                 # Numeric stats. Boolean columns are intentionally excluded:
@@ -255,6 +262,7 @@ class PipelineRunner:
 
                 column_metrics.append(metric)
 
+            assign_roles(column_metrics, row_count)
             return dataset_metrics, column_metrics
 
         except Exception as e:
@@ -558,7 +566,35 @@ class PipelineRunner:
                 parts.append(part)
         return "_".join(parts)
 
-    def _run_llm_analysis(self, table_name: str, sweetviz_data: Dict[str, Any]) -> Dict[str, Any]:
+    def _refine_column_roles(self, table_name: str, row_count: int, column_metrics: List[ColumnMetrics]) -> None:
+        """Let the model settle the columns whose role the clues left unclear. Never fails the run."""
+        if not settings.TABLE_LLM_ENABLED or not settings.COLUMN_ROLE_LLM_ENABLED:
+            return
+        try:
+            from dq_pipeline.analyzers.llm_analyzer import call_ollama, parse_llm_response
+
+            notes = refine_with_model(
+                column_metrics,
+                table_name,
+                row_count,
+                self._business_context(),
+                llm_call=lambda prompt, **options: call_ollama(
+                    prompt,
+                    model=settings.OLLAMA_MODEL,
+                    ollama_url=str(settings.OLLAMA_URL) if settings.OLLAMA_URL else None,
+                    temperature=0.1,
+                    top_p=0.9,
+                    num_predict=settings.COLUMN_ROLE_NUM_PREDICT,
+                    **options,
+                ),
+                parse=parse_llm_response,
+            )
+            for note in notes:
+                self._warn(f"Column roles of {table_name}: {note}")
+        except Exception as exc:
+            self._warn(f"Column roles of {table_name} left to the rules: {exc}")
+
+    def _run_llm_analysis(self, table_name: str, sweetviz_data: Dict[str, Any], column_roles: str = "") -> Dict[str, Any]:
         """
         Run the table LLM analysis on the profiling data.
 
@@ -577,6 +613,7 @@ class PipelineRunner:
                 debug=self.debug,
                 dataset_config_path=str(dataset_config_path) if dataset_config_path else None,
                 business_context=self._business_context(),
+                column_roles=column_roles,
             )
 
         except LlmUnavailableError as e:

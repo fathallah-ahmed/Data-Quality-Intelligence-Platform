@@ -278,6 +278,76 @@ class QualityFeaturesTest {
         assertRule(datasetId, "{\"tableName\":\"t\",\"columnName\":\"a\",\"type\":\"MIN_FORMAT_VALID_PERCENT\",\"format\":\"email\",\"threshold\":90}", 201);
     }
 
+    // ------------------------------------------------------------------ column roles and quality dimensions
+
+    @Test
+    void columnRolesAndDimensionsComeWithTheFiguresTheyAreMadeOf() throws Exception {
+        JsonNode v1 = upload("dimensions-" + UUID.randomUUID(), csv("accounts.csv", "id\n1\n"));
+        long datasetId = v1.get("datasetId").asLong();
+        String runId = v1.get("pipelineRunId").asString();
+        postTableRaw(runId, """
+            {"table_name": "accounts", "status": "completed", "llm_status": "unavailable",
+             "dataset_metrics": {"row_count": 100, "column_count": 3, "duplicate_rows": 5, "duplicate_percent": 5},
+             "column_metrics": [
+               {"name": "email", "data_type": "object", "missing_count": 0, "missing_percent": 0, "distinct_count": 100,
+                "role": "EMAIL", "role_confidence": 1.0, "role_source": "rules",
+                "role_evidence": ["the name contains 'email'", "95% of its values look like email values"],
+                "format_stats": {"EMAIL": {"checked": 100, "valid": 95, "invalid_examples": []}}},
+               {"name": "opened_on", "data_type": "object", "missing_count": 0, "missing_percent": 0, "distinct_count": 90,
+                "role": "DATE", "role_confidence": 0.9, "role_source": "llm", "role_evidence": ["the model chose it: opening date"],
+                "format_stats": {"DATE": {"checked": 100, "valid": 100, "invalid_examples": []}}},
+               {"name": "closed_on", "data_type": "object", "missing_count": 20, "missing_percent": 20, "distinct_count": 70,
+                "role": "DATE", "role_confidence": 0.9, "role_source": "rules", "role_evidence": ["its values look like dates"],
+                "format_stats": {"DATE": {"checked": 80, "valid": 80, "invalid_examples": []}}}],
+             "cross_checks": {"date_order": [{"first": "opened_on", "second": "closed_on", "compared": 80,
+                "first_after_second": 4, "second_after_first": 70, "first_after_second_examples": [], "second_after_first_examples": []}]},
+             "data_signature": {"row_count": 100, "column_count": 3, "content_hash": "dim", "schema_hash": "s3"}}
+            """);
+        completeRun(runId);
+        String url = "/api/datasets/" + datasetId + "/versions/" + v1.get("versionId").asLong();
+
+        JsonNode details = getJson(url);
+        JsonNode email = details.get("tables").get(0).get("columns").get(0);
+        assertThat(email.get("role").asString()).isEqualTo("EMAIL");
+        assertThat(email.get("roleConfidence").asDouble()).isEqualTo(1.0);
+        assertThat(email.get("roleSource").asString()).isEqualTo("rules");
+        assertThat(email.get("roleEvidence").size()).isEqualTo(2);
+        assertThat(details.get("tables").get(0).get("columns").get(1).get("roleSource").asString()).isEqualTo("llm");
+
+        // 20 of 300 cells are empty; 5 of 100 rows repeat; 275 of 280 filled email/date values follow their format.
+        assertThat(dimension(details, "COMPLETENESS").get("numerator").asLong()).isEqualTo(280);
+        assertThat(dimension(details, "COMPLETENESS").get("denominator").asLong()).isEqualTo(300);
+        assertThat(dimension(details, "UNIQUENESS").get("percent").asDouble()).isEqualTo(95.0);
+        JsonNode validity = dimension(details, "VALIDITY");
+        assertThat(validity.get("numerator").asLong()).isEqualTo(275);
+        assertThat(validity.get("denominator").asLong()).isEqualTo(280);
+        assertThat(validity.get("basis").asString()).contains("accounts.email (email)", "accounts.closed_on (date)");
+
+        // Consistency is only measured once a date-order rule is approved.
+        JsonNode before = dimension(details, "CONSISTENCY");
+        assertThat(before.get("percent").isNull()).isTrue();
+        assertThat(before.get("basis").asString()).contains("no date-order rule is approved");
+        createRule(datasetId, "{\"tableName\":\"accounts\",\"columnName\":\"opened_on\",\"type\":\"DATE_ORDER\",\"secondColumn\":\"closed_on\"}");
+        JsonNode consistency = dimension(getJson(url), "CONSISTENCY");
+        assertThat(consistency.get("numerator").asLong()).isEqualTo(76);
+        assertThat(consistency.get("denominator").asLong()).isEqualTo(80);
+        assertThat(consistency.get("percent").asDouble()).isEqualTo(95.0);
+    }
+
+    @Test
+    void dimensionsAreNotMadeUpWhenNothingCanBeMeasured() throws Exception {
+        JsonNode v1 = upload("no-formats-" + UUID.randomUUID(), csv("t.csv", "a\n1\n"));
+        postTable(v1.get("pipelineRunId").asString(), "t", 10, "nf", 0, col("a", "int64", 0, 0, 10));
+        completeRun(v1.get("pipelineRunId").asString());
+
+        JsonNode details = getJson("/api/datasets/" + v1.get("datasetId").asLong() + "/versions/" + v1.get("versionId").asLong());
+
+        assertThat(dimension(details, "VALIDITY").get("percent").isNull()).isTrue();
+        assertThat(dimension(details, "VALIDITY").get("basis").asString()).startsWith("Not measured");
+        assertThat(dimension(details, "COMPLETENESS").get("percent").asDouble()).isEqualTo(100.0);
+        assertThat(details.get("tables").get(0).get("columns").get(0).get("role").isNull()).isTrue();
+    }
+
     // ------------------------------------------------------------------ rules suggested from the goal
 
     @Test
@@ -507,6 +577,15 @@ class QualityFeaturesTest {
             }
         }
         throw new AssertionError("No table " + name + " in the diff");
+    }
+
+    private JsonNode dimension(JsonNode details, String key) {
+        for (JsonNode dimension : details.get("dimensions")) {
+            if (dimension.get("key").asString().equals(key)) {
+                return dimension;
+            }
+        }
+        throw new AssertionError("No dimension " + key);
     }
 
     private JsonNode result(JsonNode results, String description) {
