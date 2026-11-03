@@ -105,6 +105,16 @@ if (-not $NoAirflow) {
     }
 }
 
+# --- Question service (Python, answers questions about the graph) -------------------------
+$qa = Join-Path $root 'graphrag'
+if (Test-Port 8090) {
+    Write-Host '  question service already running'
+} else {
+    $python = Join-Path $qa '.venv\Scripts\python.exe'
+    $setup = if (Test-Path $python) { '' } else { "python -m venv .venv; & '$python' -m pip install -r requirements.txt; " }
+    Start-Window 'Questions' $qa "${setup}& '$python' -m uvicorn app.main:app --port 8090"
+}
+
 # --- Backend and frontend -----------------------------------------------------------------
 if (Test-Port 8081) {
     Write-Host '  backend already running'

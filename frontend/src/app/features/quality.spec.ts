@@ -1,5 +1,6 @@
 import { RuleResults, VersionDetails, VersionDiff } from '../core/models';
 import { deltaInfo } from '../shared/format';
+import { cellText, EXAMPLE_QUESTIONS } from './ask/ask-tab';
 import { browseQuery, sortFindings } from './graph/graph-tab';
 import { qualityDimensions } from './overview/version-metrics';
 import { buildReport, reportFileName, reportMarkdown } from './report/report';
@@ -188,5 +189,12 @@ describe('report', () => {
   it('reports a failed run prominently', () => {
     const failed: VersionDetails = { ...details, version: { ...details.version, status: 'FAILED', errorMessage: 'Airflow is not reachable' } };
     expect(reportMarkdown(buildReport({ datasetName: 'Shop', details: failed, rules: null, diff: null }))).toContain('> **The run finished with issues.** Airflow is not reachable');
+  });
+
+  it('shows the cells of an answer as plain text', () => {
+    expect(cellText(null)).toBe('');
+    expect(cellText(12)).toBe('12');
+    expect(cellText(['a', 'b'])).toBe('["a","b"]');
+    expect(EXAMPLE_QUESTIONS.every((question) => question.length <= 1000)).toBe(true);
   });
 });

@@ -29,6 +29,9 @@ public class AppProperties {
     private String neo4jUri = "bolt://localhost:7687";
     private String neo4jUser = "neo4j";
     private String neo4jPassword = "dq-neo4j-dev";
+    private String qaUrl = "http://localhost:8090";
+    private String qaToken = "dev-qa-token";
+    private int qaTimeoutMs = 180000;
 
     public String getStorageRoot() { return storageRoot; }
     public void setStorageRoot(String storageRoot) { this.storageRoot = storageRoot; }
@@ -80,4 +83,10 @@ public class AppProperties {
     public void setNeo4jUser(String neo4jUser) { this.neo4jUser = neo4jUser; }
     public String getNeo4jPassword() { return neo4jPassword; }
     public void setNeo4jPassword(String neo4jPassword) { this.neo4jPassword = neo4jPassword; }
+    public String getQaUrl() { return qaUrl; }
+    public void setQaUrl(String qaUrl) { this.qaUrl = qaUrl; }
+    public String getQaToken() { return qaToken; }
+    public void setQaToken(String qaToken) { this.qaToken = qaToken; }
+    public int getQaTimeoutMs() { return qaTimeoutMs; }
+    public void setQaTimeoutMs(int qaTimeoutMs) { this.qaTimeoutMs = qaTimeoutMs; }
 }

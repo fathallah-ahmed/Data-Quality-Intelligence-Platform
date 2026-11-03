@@ -13,6 +13,7 @@ import {
   GraphBuild,
   GraphSchema,
   GraphStatus,
+  QuestionAnswer,
   LoginResponse,
   RuleRequest,
   RuleResults,
@@ -145,6 +146,11 @@ export class ApiService {
   /** The last build of a version; an empty object when there is none. */
   lastGraph(datasetId: number, versionId: number): Observable<Partial<GraphBuild>> {
     return this.http.get<Partial<GraphBuild>>(`${this.base}/datasets/${datasetId}/versions/${versionId}/graph`);
+  }
+
+  /** Asks a question in plain language about the graph of a version (it must have been built). */
+  askQuestion(datasetId: number, versionId: number, question: string): Observable<QuestionAnswer> {
+    return this.http.post<QuestionAnswer>(`${this.base}/datasets/${datasetId}/versions/${versionId}/ask`, { question });
   }
 
   /** Corrections found by reading a table: spaces, placeholders, date formats, spellings, repeated rows. */

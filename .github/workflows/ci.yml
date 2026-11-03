@@ -72,6 +72,23 @@ jobs:
       - name: Test
         run: python -m pytest
 
+  questions:
+    name: Question service (Python)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: graphrag
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: graphrag/requirements.txt
+      - run: pip install -r requirements.txt pytest httpx
+      - name: Test
+        run: python -m pytest
+
   compose:
     name: Compose file
     runs-on: ubuntu-latest

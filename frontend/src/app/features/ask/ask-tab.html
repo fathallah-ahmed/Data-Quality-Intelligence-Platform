@@ -1,0 +1,91 @@
+@if (!ready()) {
+  <app-empty-state title="Questions need an analysed version" message="Once the analysis of this version has finished and its graph is built, you can ask about it." icon="search" />
+} @else if (graphBuilt() === false) {
+  <app-empty-state title="Build the graph first" message="Questions are answered from the graph of this version, and it has not been built yet." icon="network">
+    <a class="btn btn--primary btn--sm" [routerLink]="graphLink()">Go to the Graph tab</a>
+  </app-empty-state>
+} @else {
+  <section class="card" aria-labelledby="ask-title">
+    <header class="card__header">
+      <div class="card__heading">
+        <span class="card__icon"><app-icon name="search" /></span>
+        <div>
+          <h2 class="card__title" id="ask-title">Ask about this version</h2>
+          <p class="card__subtitle">Answered from the graph and from the quality results. The query that was run is shown with the answer, so you can check it.</p>
+        </div>
+      </div>
+    </header>
+
+    <label class="field">
+      <span class="field__label">Your question</span>
+      <textarea
+        class="input"
+        rows="3"
+        maxlength="1000"
+        placeholder="e.g. Which five users have the most posts?"
+        [value]="question()"
+        (input)="question.set($any($event.target).value)"
+        (keydown.control.enter)="ask()"
+      ></textarea>
+    </label>
+    <div class="examples" aria-label="Example questions">
+      @for (example of examples; track example) {
+        <button type="button" class="chip" (click)="use(example)">{{ example }}</button>
+      }
+    </div>
+    <div class="actions">
+      <button type="button" class="btn btn--primary" [disabled]="asking() || !question().trim()" (click)="ask()">
+        <app-icon name="sparkles" [size]="16" /> {{ asking() ? 'Looking…' : 'Ask' }}
+      </button>
+      <span class="hint">Ctrl+Enter to send</span>
+    </div>
+  </section>
+
+  @for (exchange of history(); track $index) {
+    <section class="card exchange" aria-live="polite">
+      <p class="exchange__question">{{ exchange.question }}</p>
+      @if (exchange.error) {
+        <div class="callout" data-tone="danger" role="alert"><app-icon name="xCircle" /><span>{{ exchange.error }}</span></div>
+      }
+      @if (exchange.answer; as answer) {
+        <p class="exchange__answer">{{ answer.answer }}</p>
+        @for (warning of answer.warnings; track warning) {
+          <div class="callout" data-tone="warning"><app-icon name="alert" /><span>{{ warning }}</span></div>
+        }
+        @if (answer.cypher) {
+          <details class="exchange__detail">
+            <summary>Query and rows ({{ answer.rowCount }})</summary>
+            <pre class="command">{{ answer.cypher }}</pre>
+            @if (answer.rows.length) {
+              <div class="scroll">
+                <table class="rows">
+                  <thead>
+                    <tr>
+                      @for (column of answer.columns; track $index) {
+                        <th scope="col">{{ column }}</th>
+                      }
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (row of answer.rows; track $index) {
+                      <tr>
+                        @for (cell of row; track $index) {
+                          <td>{{ cellText(cell) }}</td>
+                        }
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+              @if (answer.truncated) {
+                <p class="hint">Only the first {{ answer.rows.length }} of {{ answer.rowCount }} rows are shown.</p>
+              }
+            }
+          </details>
+        } @else {
+          <p class="hint">No query was run for this answer.</p>
+        }
+      }
+    </section>
+  }
+}

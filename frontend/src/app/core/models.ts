@@ -498,3 +498,14 @@ export interface DataModelMap {
   nodes: DataModelNode[];
   edges: DataModelEdge[];
 }
+
+/** The answer of the question service: the sentence, and the query and rows it rests on. */
+export interface QuestionAnswer {
+  answer: string;
+  cypher: string | null;
+  columns: string[];
+  rows: unknown[][];
+  rowCount: number;
+  truncated: boolean;
+  warnings: string[];
+}

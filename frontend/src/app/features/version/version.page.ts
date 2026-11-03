@@ -11,6 +11,7 @@ import { DQ_PIPES } from '../../shared/pipes';
 import { ignoreShortcut } from '../../shared/keyboard';
 import { CompareTab } from '../compare/compare-tab';
 import { CorrectionsTab } from '../corrections/corrections-tab';
+import { AskTab } from '../ask/ask-tab';
 import { GraphTab } from '../graph/graph-tab';
 import { DataModelTab } from '../data-model/data-model-tab';
 import { InsightsTab } from '../insights/insights-tab';
@@ -18,13 +19,13 @@ import { OverviewTab } from '../overview/overview-tab';
 import { RulesTab } from '../rules/rules-tab';
 import { TablesTab } from '../tables/tables-tab';
 
-export const VERSION_TABS = ['overview', 'tables', 'model', 'insights', 'compare', 'rules', 'corrections', 'graph'] as const;
+export const VERSION_TABS = ['overview', 'tables', 'model', 'insights', 'compare', 'rules', 'corrections', 'graph', 'ask'] as const;
 export type VersionTab = (typeof VERSION_TABS)[number];
 
 /** /datasets/:datasetId/versions/:versionId/:tab?table=name — the URL holds the whole selection. */
 @Component({
   selector: 'app-version-page',
-  imports: [RouterLink, Icon, Tabs, StatusBadge, EmptyState, Skeleton, ConfirmDialog, OverviewTab, TablesTab, DataModelTab, InsightsTab, CompareTab, RulesTab, CorrectionsTab, GraphTab, ...DQ_PIPES],
+  imports: [RouterLink, Icon, Tabs, StatusBadge, EmptyState, Skeleton, ConfirmDialog, OverviewTab, TablesTab, DataModelTab, InsightsTab, CompareTab, RulesTab, CorrectionsTab, GraphTab, AskTab, ...DQ_PIPES],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './version.page.html',
   styleUrl: './version.page.css'
@@ -82,7 +83,8 @@ export class VersionPage {
       { id: 'compare', label: 'Compare', icon: 'swap', link: [...base, 'compare'], shortcut: '5' },
       { id: 'rules', label: 'Rules', icon: 'shield', link: [...base, 'rules'], shortcut: '6' },
       { id: 'corrections', label: 'Corrections', icon: 'sparkles', link: [...base, 'corrections'], shortcut: '7' },
-      { id: 'graph', label: 'Graph', icon: 'network', link: [...base, 'graph'], shortcut: '8' }
+      { id: 'graph', label: 'Graph', icon: 'network', link: [...base, 'graph'], shortcut: '8' },
+      { id: 'ask', label: 'Ask', icon: 'search', link: [...base, 'ask'], shortcut: '9' }
     ];
   });
 

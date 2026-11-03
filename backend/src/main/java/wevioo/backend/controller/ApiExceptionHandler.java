@@ -38,6 +38,11 @@ public class ApiExceptionHandler {
         return error(HttpStatus.SERVICE_UNAVAILABLE, exception.getMessage());
     }
 
+    @ExceptionHandler(wevioo.backend.qa.QaClient.QaUnavailableException.class)
+    public ResponseEntity<Map<String, String>> questionServiceUnavailable(wevioo.backend.qa.QaClient.QaUnavailableException exception) {
+        return error(HttpStatus.SERVICE_UNAVAILABLE, exception.getMessage());
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Map<String, String>> badRequest(IllegalArgumentException exception) {
         return error(HttpStatus.BAD_REQUEST, exception.getMessage());

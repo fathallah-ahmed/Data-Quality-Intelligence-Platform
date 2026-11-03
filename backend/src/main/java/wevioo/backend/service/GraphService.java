@@ -170,7 +170,11 @@ public class GraphService {
         return new Loaded(tables, links, context(folder), folder);
     }
 
-    /** The domain, goal and row grain the user gave at upload. */
+    /** The domain, goal and row grain the user gave at upload (empty when none was given). */
+    public Map<String, String> businessContext(Long datasetId, Long versionId) {
+        return context(datasetService.versionFolder(datasetId, versionId));
+    }
+
     private Map<String, String> context(Path folder) {
         Map<String, String> context = new LinkedHashMap<>();
         Path file = folder.resolve("dataset_context.json");

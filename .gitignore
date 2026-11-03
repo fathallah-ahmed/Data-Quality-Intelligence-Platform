@@ -28,6 +28,11 @@ Data_Quality_Wevioo/postgres_data/
 Data_Quality_Wevioo/venv/
 Data_Quality_Wevioo/.venv/
 Data_Quality_Wevioo/__pycache__/
+
+# Question service (Python)
+graphrag/.venv/
+graphrag/.pytest_cache/
+graphrag/**/__pycache__/
 Data_Quality_Wevioo/**/*.pyc
 Data_Quality_Wevioo/sweetviz_extracted/
 Data_Quality_Wevioo/sweetviz_reports/
