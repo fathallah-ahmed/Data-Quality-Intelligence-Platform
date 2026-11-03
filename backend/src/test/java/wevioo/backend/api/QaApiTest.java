@@ -126,13 +126,19 @@ class QaApiTest {
     }
 
     @Test
-    void aQuestionNeedsTheGraphToBeBuiltFirst() throws Exception {
+    void aQuestionIsAnsweredEvenBeforeTheGraphIsBuilt() throws Exception {
         JsonNode upload = analysedAccounts();
+        when(qaClient.ask(anyString(), anyString(), anyMap())).thenReturn(Map.of("answer", "Open the Rules tab.", "mode", "help"));
 
-        JsonNode error = postJson(base(upload) + "/ask", "{\"question\": \"How many customers are there?\"}", 409);
+        JsonNode answer = postJson(base(upload) + "/ask", "{\"question\": \"How do I check my rules?\"}", 200);
 
-        assertThat(error.get("error").asString()).contains("Build the graph");
-        verifyNoInteractions(qaClient);
+        assertThat(answer.get("mode").asString()).isEqualTo("help");
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<Map<String, Object>> facts = ArgumentCaptor.forClass(Map.class);
+        verify(qaClient).ask(anyString(), anyString(), facts.capture());
+        // No graph facts (it was not built), but the quality facts and the guide are there.
+        assertThat(facts.getValue()).doesNotContainKey("graph").containsKeys("rules", "dimensions", "columns", "guide");
+        assertThat(facts.getValue().get("guide").toString()).contains("Rules", "Corrections", "Graph", "Ask");
     }
 
     @Test

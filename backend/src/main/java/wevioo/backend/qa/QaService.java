@@ -7,7 +7,6 @@ import wevioo.backend.dto.DatasetDtos.QualityDimension;
 import wevioo.backend.dto.DatasetDtos.TableAnalysisView;
 import wevioo.backend.dto.DatasetDtos.VersionDetails;
 import wevioo.backend.dto.RuleDtos.RuleResultView;
-import wevioo.backend.exception.ConflictException;
 import wevioo.backend.exception.NotFoundException;
 import wevioo.backend.repository.DatasetRepository;
 import wevioo.backend.service.DatasetService;
@@ -29,6 +28,16 @@ import java.util.Map;
 public class QaService {
     static final int MAX_QUESTION_CHARS = 1000;
     private static final int MAX_COLUMNS = 150;
+    /** How to use the application, kept in a file so it is written and reviewed like documentation. */
+    static final String GUIDE = readGuide();
+
+    private static String readGuide() {
+        try (java.io.InputStream in = QaService.class.getResourceAsStream("/help/app-guide.md")) {
+            return in == null ? "" : new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+        } catch (java.io.IOException e) {
+            return "";
+        }
+    }
 
     private final GraphService graph;
     private final DatasetService datasets;
@@ -52,10 +61,8 @@ public class QaService {
         if (text.length() > MAX_QUESTION_CHARS) {
             throw new IllegalArgumentException("The question is limited to " + MAX_QUESTION_CHARS + " characters");
         }
+        // The graph is optional: quality and how-to questions do not need it, and the service says so when a question does.
         Map<String, Object> built = graph.last(datasetId, versionId);
-        if (built.isEmpty()) {
-            throw new ConflictException("Build the graph of this version first (Graph tab): questions are answered from it.");
-        }
         return client.ask(text, GraphService.scope(datasetId, versionId), facts(datasetId, versionId, built));
     }
 
@@ -72,10 +79,13 @@ public class QaService {
         facts.put("dimensions", dimensionFacts(details.dimensions()));
         facts.put("findings", result.getOrDefault("findings", List.of()));
         facts.put("columns", columnFacts(details.tables()));
-        Map<String, Object> graphFacts = new LinkedHashMap<>();
-        graphFacts.put("schema", built.get("schema"));
-        graphFacts.put("built", Map.of("nodes", result.getOrDefault("nodes", Map.of()), "relationships", result.getOrDefault("relationships", Map.of())));
-        facts.put("graph", graphFacts);
+        if (!built.isEmpty()) {
+            Map<String, Object> graphFacts = new LinkedHashMap<>();
+            graphFacts.put("schema", built.get("schema"));
+            graphFacts.put("built", Map.of("nodes", result.getOrDefault("nodes", Map.of()), "relationships", result.getOrDefault("relationships", Map.of())));
+            facts.put("graph", graphFacts);
+        }
+        facts.put("guide", GUIDE);
         return facts;
     }
 

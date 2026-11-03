@@ -1,11 +1,15 @@
 """
-Answering a question about the graph of one dataset version.
+Answering a question about one dataset version.
 
-The model is used twice and trusted never. First it turns the question into a Cypher query (prompt template and
-Cypher extraction come from neo4j-graphrag); the query is checked by :mod:`app.guard`, confirmed read-only by Neo4j,
-and run inside a time limit. Then the model writes the answer from what came back and from the quality facts the
-backend gathered (rules, dimensions, findings), and from nothing else. The query and its rows are returned with
-the answer so a person can check it.
+A question is first sorted: about the data itself (answered from the graph), about quality (rules, scores, findings:
+answered from the facts the backend gathered) or about how to use the application (answered from its guide). Only the
+first kind needs Neo4j, so the other two work before a graph is built.
+
+For a question about the data the model is used twice and trusted never. First it turns the question into a Cypher
+query (prompt template and Cypher extraction come from neo4j-graphrag); the query is checked by :mod:`app.guard`,
+confirmed read-only by Neo4j, and run inside a time limit. Then the model writes the answer from what came back, from
+the quality facts and from the guide, and from nothing else. The query and its rows are returned with the answer so a
+person can check it.
 """
 import json
 import logging
@@ -17,7 +21,7 @@ from neo4j_graphrag.generation.prompts import Text2CypherTemplate
 from neo4j_graphrag.retrievers.text2cypher import extract_cypher
 
 from app.guard import CypherRejected, validate_cypher
-from app.schema import examples, facts_text, schema_text
+from app.schema import examples, facts_text, graph_schema, guide_text, schema_text
 
 log = logging.getLogger("qa")
 
@@ -26,6 +30,18 @@ MAX_ROWS = 50
 ROWS_IN_ANSWER_PROMPT = 30
 ROWS_RETURNED = 15
 MAX_ATTEMPTS = 2
+
+GRAPH, QUALITY, HELP = "graph", "quality", "help"
+
+ROUTE_PROMPT = """ROUTING. Sort the question into exactly one of these words and reply with that word only.
+
+graph   - about the content of the data: counts, which records or people, relationships between entities, rankings, a specific value
+quality - about data quality: rules and why one fails, scores, completeness, uniqueness, validity, missing values, findings, columns to fix, what to do about a problem
+help    - about the application itself: how to do something, what a tab, button or term means, where to find something
+
+Question: {question}
+
+Word: """
 
 CYPHER_PROMPT = """Task: write ONE Cypher query that answers the question about this graph. The graph of this dataset version is
 identified by the scope '{scope}'.
@@ -50,12 +66,15 @@ Question: {query_text}
 
 Cypher query: """
 
-ANSWER_PROMPT = """You answer a question about a dataset using ONLY the quality facts and the query result below.
+ANSWER_PROMPT = """You answer a question about a dataset and about the data quality application, using ONLY what is below.
 
 QUESTION: {question}
 
 QUALITY FACTS (rules and their results, quality dimensions, findings of the graph build, column roles):
 {facts}
+
+APPLICATION GUIDE (how to use the application):
+{guide}
 
 GRAPH QUERY RUN (read-only, limited to this dataset version):
 {cypher}
@@ -65,10 +84,11 @@ QUERY RESULT ({row_count} row(s){truncated}):
 
 RULES:
 - Answer in the language of the question, in a few sentences.
-- Quote figures and names exactly as they appear above. Never invent a value, a column, a customer or a rule.
+- Quote figures and names exactly as they appear above. Never invent a value, a column, a customer, a rule or a button.
 - If the result is empty, say that nothing was found; do not guess why unless a quality fact explains it.
-- If the question asks why something is invalid or failing, use the matching rule, its message and its examples, and say which rule it is.
-- If no query could be run, answer from the quality facts alone and say the graph was not consulted.
+- If the question asks why something is invalid or failing, use the matching rule, its message and its examples, and say which rule it is. If the facts list no rules, say that no rule is defined or evaluated for this version, which is not the same as everything being fine.
+- If the question is about how to use the application, answer from the guide with the steps and the tab names, and say so when the guide does not cover it.
+- {graph_note}
 - Mention a conflict (a property with several candidate values) when it is relevant: it means the data disagrees with itself.
 """
 
@@ -93,6 +113,16 @@ class Answerer:
         self.driver = driver
         self.llm = llm
         self.query_timeout = query_timeout
+
+    # ------------------------------------------------------------------ which kind of question
+
+    def _route(self, question: str, graph_built: bool) -> str:
+        """The model sorts the question; anything it says that is not one of the three words counts as quality."""
+        reply = self.llm.invoke(ROUTE_PROMPT.format(question=question)).content.strip().lower()
+        words = reply.replace(".", " ").replace(",", " ").split()
+        choice = next((word for word in words if word in (GRAPH, QUALITY, HELP)), QUALITY)
+        # Without a graph there is nothing to query: the question is answered from the quality facts.
+        return QUALITY if choice == GRAPH and not graph_built else choice
 
     # ------------------------------------------------------------------ the query
 
@@ -138,18 +168,34 @@ class Answerer:
         question = (question or "").strip()
         if not question:
             raise ValueError("Write a question")
-        result = self._query(question, scope, facts)
-        rows_text = json.dumps(result["rows"][:ROWS_IN_ANSWER_PROMPT], ensure_ascii=False, default=str) if result["cypher"] else "(no query was run)"
+        graph_built = bool(graph_schema(facts).get("nodes"))
+        mode = self._route(question, graph_built)
+        result: Optional[Dict[str, Any]] = self._query(question, scope, facts) if mode == GRAPH else None
+        ran = bool(result and result["cypher"])
+        if ran:
+            graph_note = "The graph query above was run: base the answer on its rows."
+        elif mode == GRAPH:
+            graph_note = "No allowed query could be written, so the graph was not consulted: say so and answer from the quality facts alone."
+        elif graph_built:
+            graph_note = "No graph query was needed for this question."
+        else:
+            graph_note = ("The graph of this version has not been built, so questions about the data itself cannot be answered yet: "
+                          "if the question needs the content of the data, say that the graph must be built in the Graph tab first.")
+        result = result or {"cypher": None, "columns": [], "rows": [], "count": 0, "warnings": []}
+        rows_text = json.dumps(result["rows"][:ROWS_IN_ANSWER_PROMPT], ensure_ascii=False, default=str) if ran else "(no query was run)"
         answer = self.llm.invoke(ANSWER_PROMPT.format(
             question=question,
             facts=facts_text(facts),
-            cypher=result["cypher"] or "(none: no allowed query could be written)",
+            guide=guide_text(facts),
+            cypher=result["cypher"] or "(none)",
             row_count=result["count"],
             truncated=f", only the first {MAX_ROWS} kept" if result["count"] > MAX_ROWS else "",
             rows=rows_text,
+            graph_note=graph_note,
         )).content.strip()
         return {
             "answer": answer,
+            "mode": mode,
             "cypher": result["cypher"],
             "columns": result["columns"],
             "rows": result["rows"][:ROWS_RETURNED],

@@ -1,6 +1,6 @@
 import { RuleResults, VersionDetails, VersionDiff } from '../core/models';
 import { deltaInfo } from '../shared/format';
-import { cellText, EXAMPLE_QUESTIONS } from './ask/ask-tab';
+import { cellText, EXAMPLE_QUESTIONS, sourceLabel } from './ask/ask-tab';
 import { browseQuery, sortFindings } from './graph/graph-tab';
 import { qualityDimensions } from './overview/version-metrics';
 import { buildReport, reportFileName, reportMarkdown } from './report/report';
@@ -196,5 +196,8 @@ describe('report', () => {
     expect(cellText(12)).toBe('12');
     expect(cellText(['a', 'b'])).toBe('["a","b"]');
     expect(EXAMPLE_QUESTIONS.every((question) => question.length <= 1000)).toBe(true);
+    expect(sourceLabel('graph')).toBe('From the graph');
+    expect(sourceLabel('help')).toBe('From the guide of the application');
+    expect(sourceLabel(undefined)).toBe('From the quality results');
   });
 });

@@ -502,6 +502,8 @@ export interface DataModelMap {
 /** The answer of the question service: the sentence, and the query and rows it rests on. */
 export interface QuestionAnswer {
   answer: string;
+  /** What the answer rests on: the graph, the quality results, or the guide of the application. */
+  mode?: 'graph' | 'quality' | 'help';
   cypher: string | null;
   columns: string[];
   rows: unknown[][];

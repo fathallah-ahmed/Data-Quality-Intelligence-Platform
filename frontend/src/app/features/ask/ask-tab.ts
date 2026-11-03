@@ -1,5 +1,4 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, input, signal, untracked } from '@angular/core';
-import { RouterLink } from '@angular/router';
 import { ApiService, apiErrorMessage } from '../../core/api.service';
 import { QuestionAnswer, VersionDetails } from '../../core/models';
 import { EmptyState } from '../../shared/components';
@@ -14,11 +13,25 @@ export interface Exchange {
 }
 
 export const EXAMPLE_QUESTIONS = [
-  'How many nodes of each kind are in the graph?',
   'Which rules failed and why?',
   'Which column has the most missing values?',
+  'How is the quality score computed?',
+  'How do I correct the dates of a table?',
+  'How many nodes of each kind are in the graph?',
   'Which entities have conflicting values?'
 ];
+
+/** Where an answer comes from, in words. */
+export function sourceLabel(mode: QuestionAnswer['mode']): string {
+  switch (mode) {
+    case 'graph':
+      return 'From the graph';
+    case 'help':
+      return 'From the guide of the application';
+    default:
+      return 'From the quality results';
+  }
+}
 
 /** Shows a cell of a result row as text (objects and lists as JSON). */
 export function cellText(value: unknown): string {
@@ -34,7 +47,7 @@ export function cellText(value: unknown): string {
  */
 @Component({
   selector: 'app-ask-tab',
-  imports: [EmptyState, Icon, RouterLink],
+  imports: [EmptyState, Icon],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './ask-tab.html',
   styleUrl: './ask-tab.css'
@@ -49,25 +62,18 @@ export class AskTab {
   readonly question = signal('');
   readonly asking = signal(false);
   readonly history = signal<Exchange[]>([]);
-  /** null while it is being checked, then whether the graph of this version was built. */
-  readonly graphBuilt = signal<boolean | null>(null);
 
   readonly versionId = computed(() => this.details().version.id);
   readonly ready = computed(() => !isActiveStatus(this.details().version.status) && this.details().tables.length > 0);
-  readonly graphLink = computed(() => ['/datasets', this.datasetId(), 'versions', this.versionId(), 'graph']);
   readonly cellText = cellText;
+  readonly sourceLabel = sourceLabel;
 
   constructor() {
     effect(() => {
-      const datasetId = this.datasetId();
-      const versionId = this.versionId();
+      this.datasetId();
+      this.versionId();
       untracked(() => {
         this.history.set([]);
-        this.graphBuilt.set(null);
-        this.api.lastGraph(datasetId, versionId).subscribe({
-          next: (last) => this.graphBuilt.set(!!last.result),
-          error: () => this.graphBuilt.set(false)
-        });
       });
     });
   }

@@ -3,6 +3,7 @@ import json
 from typing import Any, Dict, List
 
 MAX_FACTS_CHARS = 7000
+MAX_GUIDE_CHARS = 6000
 
 
 def graph_schema(facts: Dict[str, Any]) -> Dict[str, Any]:
@@ -58,3 +59,11 @@ def facts_text(facts: Dict[str, Any]) -> str:
     keep = {key: facts[key] for key in ("dataset", "version", "context", "rules", "dimensions", "findings", "columns") if key in facts}
     text = json.dumps(keep, ensure_ascii=False, default=str)
     return text if len(text) <= MAX_FACTS_CHARS else text[:MAX_FACTS_CHARS] + " …(shortened)"
+
+
+def guide_text(facts: Dict[str, Any]) -> str:
+    """How to use the application, as the backend wrote it."""
+    text = str(facts.get("guide") or "").strip()
+    if not text:
+        return "(no guide was provided)"
+    return text if len(text) <= MAX_GUIDE_CHARS else text[:MAX_GUIDE_CHARS] + " …(shortened)"

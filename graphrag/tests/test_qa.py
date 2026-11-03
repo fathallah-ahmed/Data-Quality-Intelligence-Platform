@@ -32,13 +32,21 @@ FACTS = {
 
 
 class FakeLlm:
-    """Answers with the next scripted text and remembers every prompt it was given."""
+    """Answers with the next scripted text and remembers every prompt it was given.
 
-    def __init__(self, *replies):
+    The routing question is answered apart (with `route`) so the scripted replies are only the query and the answer.
+    """
+
+    def __init__(self, *replies, route="graph"):
         self.replies = list(replies)
         self.prompts = []
+        self.route = route
+        self.routed = 0
 
     def invoke(self, prompt):
+        if prompt.startswith("ROUTING."):
+            self.routed += 1
+            return SimpleNamespace(content=self.route)
         self.prompts.append(prompt)
         return SimpleNamespace(content=self.replies.pop(0))
 
@@ -123,7 +131,7 @@ def test_when_no_allowed_query_can_be_written_the_answer_comes_from_the_facts_al
     assert result["cypher"] is None and result["rows"] == []
     assert len(result["warnings"]) == 2
     assert driver.queries == []
-    assert "no allowed query could be written" in llm.prompts[2]
+    assert "graph was not consulted" in llm.prompts[2]
     assert result["answer"].startswith("The graph was not consulted")
 
 
@@ -167,6 +175,55 @@ def test_schema_text_and_examples_use_the_labels_of_this_graph():
     assert "(:Order) key=order_id; properties: total [120 nodes]" in schema_text(FACTS)
     assert any("Which Customer have the most Order?" in example for example in examples(FACTS, SCOPE))
     assert examples({}, SCOPE) == []
+
+
+# ------------------------------------------------------------------ questions that do not need the graph
+
+GUIDE = "Tabs of a version: 6. Rules: quality rules and their result. Click Check now to evaluate them."
+
+
+def asked_with(llm, question, facts):
+    return Answerer(FakeDriver(error=AssertionError("Neo4j must not be used")), llm).ask(question, SCOPE, facts)
+
+
+def test_a_quality_question_is_answered_from_the_facts_without_touching_neo4j():
+    llm = FakeLlm("The email rule fails: 92.8% instead of 95%.", route="quality")
+
+    result = asked_with(llm, "Which rules failed?", FACTS)
+
+    assert result["mode"] == "quality" and result["cypher"] is None and result["rows"] == []
+    assert "92.8%" in llm.prompts[0] and "No graph query was needed" in llm.prompts[0]
+
+
+def test_a_how_to_question_is_answered_from_the_guide():
+    llm = FakeLlm("Open the Rules tab and click Check now.", route="help")
+
+    result = asked_with(llm, "How do I run the rules again?", {**FACTS, "guide": GUIDE})
+
+    assert result["mode"] == "help" and result["cypher"] is None
+    assert "Click Check now" in llm.prompts[0] and "answer from the guide" in llm.prompts[0]
+
+
+def test_without_a_graph_a_data_question_is_answered_from_the_facts_and_says_to_build_it():
+    facts = {key: value for key, value in FACTS.items() if key != "graph"}
+    llm = FakeLlm("The graph has not been built yet.", route="graph")
+
+    result = asked_with(llm, "How many customers are there?", facts)
+
+    assert result["mode"] == "quality" and result["cypher"] is None
+    assert "has not been built" in llm.prompts[0] and "Graph tab" in llm.prompts[0]
+
+
+def test_a_routing_reply_that_is_not_a_known_word_falls_back_to_quality():
+    llm = FakeLlm("Something.", route="I think it is about the moon")
+
+    assert asked_with(llm, "Why?", FACTS)["mode"] == "quality"
+
+
+def test_the_routing_reply_is_read_even_with_punctuation_and_capitals():
+    llm = FakeLlm(GOOD, "Done.", route="Graph.")
+
+    assert Answerer(FakeDriver(rows=[{"customer": "C1"}]), llm).ask("Who?", SCOPE, FACTS)["mode"] == "graph"
 
 
 # ------------------------------------------------------------------ the HTTP service
