@@ -26,7 +26,7 @@ Everything in Docker (Airflow, Neo4j, question service, backend, frontend; Ollam
 docker compose --env-file Data_Quality_Wevioo/.env up --build
 ```
 
-Application: `http://localhost:4200` · API: `http://localhost:8081` · Airflow: `http://localhost:8080` · Neo4j Browser: `http://localhost:7474` · Questions: `http://localhost:8090`. The file `Data_Quality_Wevioo\.env` must exist (copy `.env.example`): it holds the secrets and the Ollama model (`OLLAMA_MODEL`), hence the `--env-file` option.
+Application: `http://localhost:4200` (public landing page; "Sign in" leads to the application) · API: `http://localhost:8081` · Airflow: `http://localhost:8080` · Neo4j Browser: `http://localhost:7474` · Questions: `http://localhost:8090`. The file `Data_Quality_Wevioo\.env` must exist (copy `.env.example`): it holds the secrets and the Ollama model (`OLLAMA_MODEL`), hence the `--env-file` option.
 
 The root `docker-compose.yml` includes the worker's and Neo4j's compose files: all services share one network and the same secrets, and the backend reaches Airflow, Neo4j and the question service by their service names. The development ports (8081, 4200, 8090, 7687) are the same as Docker's: stop one before starting the other.
 
@@ -239,7 +239,7 @@ Error codes: 400 invalid request, 401 missing or invalid token (pipeline token i
 
 ```powershell
 cd .\backend; .\mvnw.cmd test                                                   # 110 tests
-cd .\frontend; npm run build; npm test                                         # 48 tests
+cd .\frontend; npm run build; npm test                                         # 57 tests
 cd .\Data_Quality_Wevioo; .\venv\Scripts\python.exe -m pip install -r requirements-dev.txt; .\venv\Scripts\python.exe -m pytest   # 67 tests
 cd .\graphrag; .\.venv\Scripts\python.exe -m pytest                            # 39 tests
 ```

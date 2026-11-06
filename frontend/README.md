@@ -40,7 +40,8 @@ URLs are in `src/environments/`:
 
 | URL | Screen |
 | --- | --- |
-| `/login` | Sign-in (JWT kept in `sessionStorage`) |
+| `/` | **Landing page**, public (no sign-in needed): presentation, features, how it works, preview, and a "Sign in" button ("Open the app" when already signed in) |
+| `/login` | Sign-in (JWT kept in `sessionStorage`), with a link back to the landing page |
 | `/datasets` | Opens the most recent dataset, or the welcome screen with "New analysis" when there is none |
 | `/datasets/:id/versions/:versionId/overview` | Run status (steps, duration, errors, Retry), score and grade, dimensions, changes, global insights |
 | `.../tables?table=orders` | List of tables + detail (columns and their role, frequent values, missing values, associations, insights) |
@@ -52,6 +53,8 @@ URLs are in `src/environments/`:
 | `.../graph` | Proposed graph model, AI names, build and delete in Neo4j |
 | `.../ask` | Plain-language questions about the data, quality and how to use the application |
 | `.../report` | Printable report of the version (PDF through print, or Markdown) |
+
+Only `/` and `/login` are public. Every other route is behind `authGuard`, which sends a visitor who is not signed in to `/login?returnUrl=…` and brings them back after sign-in; `guestGuard` sends someone already signed in from `/login` to `/datasets`.
 
 The URL holds the whole selection: a shared link or a refresh reopens the same dataset, version, tab and table.
 
@@ -72,7 +75,7 @@ Shortcuts: `Ctrl/⌘ K` or `/` opens the command palette (datasets, tables, tabs
 | Folder | Role |
 | --- | --- |
 | `src/app/core` | `ApiService` (all HTTP calls), `AuthService` + guard + interceptor (token, 401), `LiveEventsService` (SSE through `fetch`, then polling every 5 s), `WorkspaceStore` (shared state in signals), theme, layout, toasts, data models (`models.ts`) |
-| `src/app/features` | one folder per screen: `login`, `shell` (top bar, side panel, command palette), `datasets`, `version` (host of the tabs), `overview`, `tables`, `data-model`, `insights`, `compare`, `rules`, `corrections`, `graph`, `ask`, `report`, `upload` |
+| `src/app/features` | one folder per screen: `landing` (public front page, written for non-technical visitors), `login`, `shell` (top bar, side panel, command palette), `datasets`, `version` (host of the tabs), `overview`, `tables`, `data-model`, `insights`, `compare`, `rules`, `corrections`, `graph`, `ask`, `report`, `upload` |
 | `src/app/shared` | formatting (`format.ts`), reading of model answers (`insight.ts`), pipes, icons, keyboard shortcuts, common components (badges, empty state, modal, confirmation, tabs, score ring, skeleton, tooltip) |
 | `src/styles.css` | design system: variables (colours, spacing, radii, shadows), dark theme, buttons, badges, cards, tables, forms |
 
@@ -80,7 +83,7 @@ Derived values are `computed()`, not method calls in templates. Silent refreshes
 
 ## Tests
 
-`npm test` runs 48 tests: sign-in and API calls, reading of SSE events, formatting, quality grades and dimensions, report, rules, data model, table profile, file selection at upload, order of the graph's findings and small helpers of the Ask tab.
+`npm test` runs 57 tests: sign-in and API calls, reading of SSE events, formatting, quality grades and dimensions, report, rules, data model, table profile, file selection at upload, order of the graph's findings, small helpers of the Ask tab, the route guards and the landing page.
 
 ## Accessibility and responsive design
 

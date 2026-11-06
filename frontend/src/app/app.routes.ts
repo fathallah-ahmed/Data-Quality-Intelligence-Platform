@@ -2,6 +2,12 @@ import { Routes } from '@angular/router';
 import { authGuard, guestGuard } from './core/auth.guard';
 
 export const routes: Routes = [
+  // Public front page: no guard, so it can be seen without signing in.
+  {
+    path: '',
+    pathMatch: 'full',
+    loadComponent: () => import('./features/landing/landing.page').then((m) => m.LandingPage)
+  },
   {
     path: 'login',
     canActivate: [guestGuard],
@@ -12,7 +18,6 @@ export const routes: Routes = [
     canActivate: [authGuard],
     loadComponent: () => import('./features/shell/shell.page').then((m) => m.ShellPage),
     children: [
-      { path: '', pathMatch: 'full', redirectTo: 'datasets' },
       {
         path: 'datasets',
         loadComponent: () => import('./features/datasets/datasets-home.page').then((m) => m.DatasetsHomePage)

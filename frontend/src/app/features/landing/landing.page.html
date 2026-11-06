@@ -1,0 +1,237 @@
+<a class="skip" href="#content" (click)="$event.preventDefault(); scrollTo('content')">Skip to the content</a>
+
+<header class="top">
+  <div class="top__inner">
+    <a class="brand" routerLink="/" aria-label="Data Quality Wevioo, home">
+      <span class="brand__mark" aria-hidden="true">
+        <svg viewBox="0 0 32 32" width="22" height="22"><rect x="5" y="17" width="5" height="10" rx="1.5" /><rect x="13.5" y="11" width="5" height="16" rx="1.5" /><rect x="22" y="5" width="5" height="22" rx="1.5" /></svg>
+      </span>
+      <span>Data Quality <small>Wevioo</small></span>
+    </a>
+
+    <nav class="top__nav" aria-label="Sections">
+      <button type="button" (click)="scrollTo('benefits')">Why</button>
+      <button type="button" (click)="scrollTo('features')">Features</button>
+      <button type="button" (click)="scrollTo('how')">How it works</button>
+      <button type="button" (click)="scrollTo('preview')">Preview</button>
+    </nav>
+
+    <div class="top__actions">
+      <button
+        type="button"
+        class="btn btn--ghost btn--icon"
+        [attr.aria-label]="theme.isDark() ? 'Switch to light theme' : 'Switch to dark theme'"
+        (click)="theme.toggle()"
+      ><app-icon [name]="theme.isDark() ? 'sun' : 'moon'" /></button>
+      @if (signedIn()) {
+        <a class="btn btn--primary" routerLink="/datasets">Open the app</a>
+      } @else {
+        <a class="btn btn--primary" routerLink="/login">Sign in</a>
+      }
+    </div>
+  </div>
+</header>
+
+<main id="content">
+  <!-- ------------------------------------------------------------ hero -->
+  <section class="hero">
+    <div class="hero__text">
+      <p class="eyebrow">Data quality, made simple</p>
+      <h1>Know if your data can be trusted, <span>before you use it.</span></h1>
+      <p class="hero__lead">
+        Add your spreadsheet files and get a clear health score, a short list of what to fix, and an assistant that answers your questions in plain words.
+      </p>
+      <div class="hero__actions">
+        @if (signedIn()) {
+          <a class="btn btn--primary lg" routerLink="/datasets">Open the app <app-icon name="arrowRight" [size]="18" /></a>
+        } @else {
+          <a class="btn btn--primary lg" routerLink="/login">Sign in <app-icon name="arrowRight" [size]="18" /></a>
+        }
+        <button type="button" class="btn btn--secondary lg" (click)="scrollTo('how')">See how it works</button>
+      </div>
+      <ul class="hero__points" aria-label="Good to know">
+        <li><app-icon name="check" [size]="16" /> Your original files are never changed</li>
+        <li><app-icon name="check" [size]="16" /> Every answer shows where it comes from</li>
+        <li><app-icon name="check" [size]="16" /> Results appear while the analysis runs</li>
+      </ul>
+    </div>
+
+    <div class="hero__visual" aria-hidden="true">
+      <div class="mock">
+        <div class="mock__head">
+          <span class="mock__title"><app-icon name="table" [size]="16" /> Customers</span>
+          <span class="pill pill--ok">Healthy</span>
+        </div>
+        <div class="mock__body">
+          <app-score-ring [value]="92" [size]="116" [stroke]="9" caption="Quality" />
+          <ul class="bars">
+            <li><span>Complete</span><i style="--w: 98%"></i><b>98%</b></li>
+            <li><span>No duplicates</span><i style="--w: 100%"></i><b>100%</b></li>
+            <li><span>Well written</span><i style="--w: 91%"></i><b>91%</b></li>
+            <li><span>Consistent</span><i style="--w: 87%" class="warn"></i><b>87%</b></li>
+          </ul>
+        </div>
+        <ul class="issues">
+          <li><app-icon name="alert" [size]="15" /> 12% of phone numbers are missing</li>
+          <li><app-icon name="alert" [size]="15" /> 3 closing dates come before the opening date</li>
+        </ul>
+      </div>
+      <p class="mock__note">Illustration with sample data</p>
+    </div>
+  </section>
+
+  <!-- ------------------------------------------------------------ benefits -->
+  <section class="section" id="benefits" aria-labelledby="benefits-title">
+    <div class="section__head">
+      <p class="eyebrow">Why Data Quality</p>
+      <h2 id="benefits-title">Stop wondering whether the numbers are right</h2>
+      <p>Bad data quietly costs time and money. Data Quality tells you what is wrong, where, and how much it matters.</p>
+    </div>
+    <div class="benefits">
+      @for (item of benefits; track item.title) {
+        <article class="benefit">
+          <span class="benefit__icon"><app-icon [name]="item.icon" [size]="22" /></span>
+          <h3>{{ item.title }}</h3>
+          <p>{{ item.text }}</p>
+        </article>
+      }
+    </div>
+  </section>
+
+  <!-- ------------------------------------------------------------ features -->
+  <section class="section section--tinted" id="features" aria-labelledby="features-title">
+    <div class="section__head">
+      <p class="eyebrow">Features</p>
+      <h2 id="features-title">Everything you need in one place</h2>
+      <p>From the first check to the final report, without leaving the page.</p>
+    </div>
+    <ul class="features">
+      @for (item of features; track item.title) {
+        <li class="feature">
+          <span class="feature__icon"><app-icon [name]="item.icon" [size]="20" /></span>
+          <div>
+            <h3>{{ item.title }}</h3>
+            <p>{{ item.text }}</p>
+          </div>
+        </li>
+      }
+    </ul>
+  </section>
+
+  <!-- ------------------------------------------------------------ how it works -->
+  <section class="section" id="how" aria-labelledby="how-title">
+    <div class="section__head">
+      <p class="eyebrow">How it works</p>
+      <h2 id="how-title">From files to answers in three steps</h2>
+    </div>
+    <ol class="steps">
+      @for (step of steps; track step.title; let index = $index) {
+        <li class="step">
+          <span class="step__number" aria-hidden="true">{{ index + 1 }}</span>
+          <span class="step__icon"><app-icon [name]="step.icon" [size]="22" /></span>
+          <h3>{{ step.title }}</h3>
+          <p>{{ step.text }}</p>
+        </li>
+      }
+    </ol>
+  </section>
+
+  <!-- ------------------------------------------------------------ preview -->
+  <section class="section section--tinted" id="preview" aria-labelledby="preview-title">
+    <div class="section__head">
+      <p class="eyebrow">Preview</p>
+      <h2 id="preview-title">A look inside</h2>
+      <p>Sample screens, built with made-up data.</p>
+    </div>
+
+    <div class="tabs" role="tablist" aria-label="Preview screens">
+      @for (tab of previewTabs; track tab.id) {
+        <button
+          type="button"
+          role="tab"
+          class="tab"
+          [id]="'tab-' + tab.id"
+          [attr.aria-selected]="preview() === tab.id"
+          [attr.aria-controls]="'panel-' + tab.id"
+          [class.tab--active]="preview() === tab.id"
+          (click)="show(tab.id)"
+        ><app-icon [name]="tab.icon" [size]="16" /> {{ tab.label }}</button>
+      }
+    </div>
+
+    <div class="stage" role="tabpanel" [id]="'panel-' + preview()" [attr.aria-labelledby]="'tab-' + preview()">
+      @switch (preview()) {
+        @case ('health') {
+          <div class="screen">
+            <div class="screen__side">
+              <app-score-ring [value]="88" [size]="132" [stroke]="9" caption="Whole set" />
+              <p class="screen__caption">Grade <strong>B</strong> · 3 tables</p>
+            </div>
+            <div class="screen__main">
+              <h3>Your tables at a glance</h3>
+              <ul class="tables">
+                <li><span>Customers</span><i style="--w: 92%"></i><b>92</b></li>
+                <li><span>Orders</span><i style="--w: 88%"></i><b>88</b></li>
+                <li><span>Products</span><i style="--w: 71%" class="warn"></i><b>71</b></li>
+              </ul>
+              <p class="screen__hint"><app-icon name="alert" [size]="15" /> Products: 29% of descriptions are empty.</p>
+            </div>
+          </div>
+        }
+        @case ('fixes') {
+          <div class="screen screen--column">
+            <h3>Fix what is wrong, on a copy</h3>
+            <div class="request"><app-icon name="sparkles" [size]="16" /> “Write every country the same way and remove the spaces around names.”</div>
+            <ul class="changes">
+              <li><span class="before">france</span><app-icon name="arrowRight" [size]="14" /><span class="after">France</span></li>
+              <li><span class="before">FRANCE </span><app-icon name="arrowRight" [size]="14" /><span class="after">France</span></li>
+              <li><span class="before">  Marie Dupont</span><app-icon name="arrowRight" [size]="14" /><span class="after">Marie Dupont</span></li>
+            </ul>
+            <p class="screen__hint"><app-icon name="check" [size]="15" /> 128 values would change. Your original file stays exactly as it is.</p>
+          </div>
+        }
+        @case ('ask') {
+          <div class="screen screen--column">
+            <h3>Ask your data a question</h3>
+            <div class="chat">
+              <p class="chat__q">Which customers have two different emails?</p>
+              <p class="chat__a">
+                <span class="chat__source">From your data</span>
+                Twelve customers have two different emails. The first ones are C0004, C0012 and C0015.
+              </p>
+              <p class="chat__q">Why is the phone rule failing?</p>
+              <p class="chat__a">
+                <span class="chat__source">From your quality results</span>
+                91% of phone numbers are well written, and your rule asks for at least 95%.
+              </p>
+            </div>
+          </div>
+        }
+      }
+    </div>
+  </section>
+
+  <!-- ------------------------------------------------------------ final call -->
+  <section class="cta" aria-labelledby="cta-title">
+    <h2 id="cta-title">Ready to check your data?</h2>
+    <p>Sign in, add your files, and see your first results in a few minutes.</p>
+    @if (signedIn()) {
+      <a class="btn btn--primary lg" routerLink="/datasets">Open the app <app-icon name="arrowRight" [size]="18" /></a>
+    } @else {
+      <a class="btn btn--primary lg" routerLink="/login">Sign in <app-icon name="arrowRight" [size]="18" /></a>
+    }
+  </section>
+</main>
+
+<footer class="foot">
+  <span>© {{ year }} Wevioo Data Quality</span>
+  <nav aria-label="Footer">
+    <button type="button" (click)="scrollTo('features')">Features</button>
+    <button type="button" (click)="scrollTo('how')">How it works</button>
+    @if (signedIn()) {
+      <a routerLink="/datasets">Open the app</a>
+    } @else {
+      <a routerLink="/login">Sign in</a>
+    }
+  </nav>
+</footer>

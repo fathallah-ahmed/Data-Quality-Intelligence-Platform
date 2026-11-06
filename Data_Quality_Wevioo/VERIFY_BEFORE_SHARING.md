@@ -20,7 +20,7 @@
 ```powershell
 .\venv\Scripts\python.exe -m pytest                  # worker: 67 tests
 cd ..\backend; .\mvnw.cmd test                        # backend: 110 tests
-cd ..\frontend; npm test                              # frontend: 48 tests
+cd ..\frontend; npm test                              # frontend: 57 tests
 cd ..\graphrag; .\.venv\Scripts\python.exe -m pytest  # question service: 39 tests
 ```
 
