@@ -116,7 +116,7 @@ Token login: `POST /api/auth/login` with `{"username", "password"}` returns a si
 | `POST` | `/api/auth/login` | Returns a JWT |
 | `GET` | `/api/auth/me` | Current user and roles |
 | `POST` | `/api/datasets/upload` | CSV upload and Airflow trigger |
-| `GET` | `/api/datasets` | Datasets (with `versionCount`, latest version, failed rules) |
+| `GET` | `/api/datasets` | Datasets (with `versionCount`, latest version, failed rules, `latestScore` (row-weighted score of the latest version) and `tableCount`) |
 | `GET` | `/api/datasets/{id}/versions` | Versions of a dataset |
 | `GET` | `/api/datasets/{id}/versions/{versionId}` | Version details: tables, `failedTables`, `qualityScore`, `ruleSummary`, `dimensions` |
 | `GET` | `/api/datasets/{id}/versions/{versionId}/tables/{tableVersionId}` | One table with its raw metrics |

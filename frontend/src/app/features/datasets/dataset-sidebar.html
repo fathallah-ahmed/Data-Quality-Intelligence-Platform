@@ -1,3 +1,19 @@
+<a
+  class="side__home"
+  routerLink="/datasets"
+  routerLinkActive="side__home--active"
+  [routerLinkActiveOptions]="{ exact: true }"
+  [attr.title]="collapsed() ? 'All datasets' : null"
+  (click)="layout.sidebarOpen.set(false)"
+>
+  <app-icon name="overview" [size]="18" />
+  @if (!collapsed()) {
+    <span>All datasets</span>
+  } @else {
+    <span class="sr-only">All datasets</span>
+  }
+</a>
+
 @if (!collapsed()) {
   <div class="side__head">
     <span class="side__title">Datasets</span>

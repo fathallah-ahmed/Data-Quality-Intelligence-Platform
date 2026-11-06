@@ -79,6 +79,7 @@ export class CommandPalette {
       }
     }
     commands.push(
+      { id: 'all-datasets', group: 'Go to', label: 'All datasets', hint: 'The dashboard', icon: 'overview', run: () => this.router.navigate(['/datasets']) },
       { id: 'new', group: 'Actions', label: 'New analysis', hint: 'Upload CSV files', icon: 'upload', shortcut: 'N', run: () => this.layout.openUpload() },
       { id: 'theme', group: 'Actions', label: this.theme.isDark() ? 'Switch to light theme' : 'Switch to dark theme', icon: this.theme.isDark() ? 'sun' : 'moon', run: () => this.theme.toggle() },
       { id: 'sidebar', group: 'Actions', label: this.layout.sidebarCollapsed() ? 'Expand sidebar' : 'Collapse sidebar', icon: 'sidebar', run: () => this.layout.toggleCollapsed() },

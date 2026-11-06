@@ -8,6 +8,32 @@
   color: var(--side-text);
 }
 
+.side__home {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 40px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-md);
+  color: var(--side-text);
+  font-weight: 600;
+  text-decoration: none;
+  transition: background 150ms var(--ease);
+}
+
+.side__home:hover {
+  background: var(--side-hover);
+}
+
+.side__home--active {
+  background: var(--side-active);
+}
+
+:host(.collapsed) .side__home {
+  justify-content: center;
+  padding: 0;
+}
+
 .side__head {
   display: flex;
   align-items: center;

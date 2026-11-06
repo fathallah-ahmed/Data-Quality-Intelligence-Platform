@@ -294,3 +294,20 @@ export function deltaInfo(from: number | null | undefined, to: number | null | u
     percent: from === 0 ? null : (change / Math.abs(from)) * 100
   };
 }
+
+const AVATAR_HUES = [245, 262, 200, 335, 28, 160];
+
+/** Two letters for a dataset's avatar: "Sales Orders" gives SO. */
+export function initialsOf(name: string): string {
+  const words = name.replace(/[^a-zA-Z0-9]+/g, ' ').trim().split(' ').filter(Boolean);
+  return ((words[0]?.[0] ?? '?') + (words[1]?.[0] ?? words[0]?.[1] ?? '')).toUpperCase();
+}
+
+/** A stable colour for a name, so a dataset keeps the same avatar everywhere. */
+export function avatarHue(name: string): number {
+  let hash = 0;
+  for (const char of name) {
+    hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
+  }
+  return AVATAR_HUES[hash % AVATAR_HUES.length];
+}

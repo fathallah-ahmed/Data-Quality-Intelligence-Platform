@@ -187,6 +187,9 @@ class QualityFeaturesTest {
         assertThat(details.get("ruleSummary").get("failed").asInt()).isEqualTo(2);
         JsonNode datasets = getJson("/api/datasets");
         assertThat(findDataset(datasets, datasetId).get("failedRules").asInt()).isEqualTo(2);
+        // The list also carries what the dashboard shows on each card: the latest score and the number of tables.
+        assertThat(findDataset(datasets, datasetId).get("tableCount").asInt()).isEqualTo(1);
+        assertThat(findDataset(datasets, datasetId).has("latestScore")).isTrue();
 
         // Deleting a rule removes its results; re-evaluating applies an edited rule.
         mvc.perform(delete("/api/datasets/" + datasetId + "/rules/" + notNullId).header("Authorization", "Bearer " + token))

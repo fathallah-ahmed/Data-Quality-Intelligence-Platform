@@ -270,23 +270,23 @@ function edgePoints(
 /** Standalone SVG file of the diagram (light colours, for documents). */
 export function dataModelSvg(model: DataModelMap): string {
   const edges = model.edges.map((edge) => `
-    <path d="${xml(edge.path)}" fill="none" stroke="#2f766b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arrowHead)"><title>${xml(edge.reason)}</title></path>`).join('');
+    <path d="${xml(edge.path)}" fill="none" stroke="#4f46e5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arrowHead)"><title>${xml(edge.reason)}</title></path>`).join('');
   const labels = model.edges.map((edge) => `
-    <rect x="${edge.labelX - edge.labelWidth / 2}" y="${edge.labelY - 14}" width="${edge.labelWidth}" height="18" rx="9" fill="#f8fbfa" stroke="#c8d8d3"/>
-    <text x="${edge.labelX}" y="${edge.labelY}" text-anchor="middle" font-size="11" font-weight="700" fill="#24594f">${xml(edge.label)}</text>
-    <text x="${edge.sourceCardinalityX}" y="${edge.sourceCardinalityY}" text-anchor="middle" font-size="11" font-weight="700" fill="#1f5e55">${xml(edge.sourceCardinality)}</text>
-    <text x="${edge.targetCardinalityX}" y="${edge.targetCardinalityY}" text-anchor="middle" font-size="11" font-weight="700" fill="#1f5e55">${xml(edge.targetCardinality)}</text>`).join('');
+    <rect x="${edge.labelX - edge.labelWidth / 2}" y="${edge.labelY - 14}" width="${edge.labelWidth}" height="18" rx="9" fill="#f7f8fd" stroke="#c8d8d3"/>
+    <text x="${edge.labelX}" y="${edge.labelY}" text-anchor="middle" font-size="11" font-weight="700" fill="#3a37a8">${xml(edge.label)}</text>
+    <text x="${edge.sourceCardinalityX}" y="${edge.sourceCardinalityY}" text-anchor="middle" font-size="11" font-weight="700" fill="#3a37a8">${xml(edge.sourceCardinality)}</text>
+    <text x="${edge.targetCardinalityX}" y="${edge.targetCardinalityY}" text-anchor="middle" font-size="11" font-weight="700" fill="#3a37a8">${xml(edge.targetCardinality)}</text>`).join('');
   const nodes = model.nodes.map((node) => `
     <g transform="translate(${node.x}, ${node.y})">
-      <rect width="${node.width}" height="${node.height}" rx="8" fill="#ffffff" stroke="#b7c9c3" stroke-width="1.4"/>
-      <rect width="${node.width}" height="42" rx="8" fill="#eaf3f0"/>
-      <text x="14" y="25" font-size="14" font-weight="700" fill="#203c35">${xml(node.label)}</text>
-      <text x="14" y="58" font-size="10" fill="#60736d">${xml(node.subtitle)}</text>
-      ${node.fields.map((field) => `<text x="14" y="${field.y + 14}" font-size="11" fill="#3f554e"><tspan font-weight="700">${xml(field.role)}</tspan> ${xml(field.name)} <tspan fill="#71847e">${xml(field.type)}</tspan></text>`).join('')}
+      <rect width="${node.width}" height="${node.height}" rx="8" fill="#ffffff" stroke="#c3c7e0" stroke-width="1.4"/>
+      <rect width="${node.width}" height="42" rx="8" fill="#eceefb"/>
+      <text x="14" y="25" font-size="14" font-weight="700" fill="#1d2150">${xml(node.label)}</text>
+      <text x="14" y="58" font-size="10" fill="#5a6080">${xml(node.subtitle)}</text>
+      ${node.fields.map((field) => `<text x="14" y="${field.y + 14}" font-size="11" fill="#3e4468"><tspan font-weight="700">${xml(field.role)}</tspan> ${xml(field.name)} <tspan fill="#7a80a0">${xml(field.type)}</tspan></text>`).join('')}
     </g>`).join('');
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${model.width}" height="${model.height}" viewBox="0 0 ${model.width} ${model.height}" font-family="Inter, system-ui, sans-serif">
-  <rect width="100%" height="100%" fill="#f8fbfa"/>
-  <defs><marker id="arrowHead" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#2f766b"/></marker></defs>
+  <rect width="100%" height="100%" fill="#f7f8fd"/>
+  <defs><marker id="arrowHead" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#4f46e5"/></marker></defs>
   ${edges}${nodes}${labels}
 </svg>`;
 }

@@ -14,6 +14,10 @@ public class DatasetDtos {
         Integer versionCount,
         /** Quality rules that failed in the latest version (0 when there are none). */
         Integer failedRules,
+        /** Row-weighted quality score of the latest version (null while nothing is measured). */
+        Double latestScore,
+        /** Tables of the latest version (removed ones excluded). */
+        Integer tableCount,
         VersionSummary latestVersion
     ) {}
 

@@ -1,0 +1,172 @@
+@if (store.datasetsError()) {
+  <app-empty-state title="Could not load your datasets" [message]="store.datasetsError() ?? ''" icon="alert">
+    <button type="button" class="btn btn--secondary" (click)="store.loadDatasets()"><app-icon name="refresh" [size]="16" /> Try again</button>
+  </app-empty-state>
+} @else if (!store.datasetsLoaded()) {
+  <section class="dash" aria-busy="true" aria-label="Loading your datasets">
+    <div class="dash__head"><div><p class="eyebrow">Workspace</p><h1>Your datasets</h1></div></div>
+    <div class="kpis">
+      @for (item of [1, 2, 3, 4]; track item) {
+        <div class="kpi"><app-skeleton [count]="2" [height]="20" /></div>
+      }
+    </div>
+    <div class="grid">
+      @for (item of [1, 2, 3]; track item) {
+        <div class="ds ds--loading"><app-skeleton [count]="4" [height]="18" /></div>
+      }
+    </div>
+  </section>
+} @else if (store.datasets().length === 0) {
+  <section class="welcome">
+    <p class="eyebrow">Welcome</p>
+    <h1>Know your data before you trust it.</h1>
+    <p class="welcome__lead">
+      Drop one or more CSV files. Every table is profiled, scored and compared with its previous version,
+      the relationships between tables are mapped, and an AI reviewer explains what to fix.
+    </p>
+    <div class="welcome__actions">
+      <button type="button" class="btn btn--primary" (click)="layout.openUpload()"><app-icon name="upload" [size]="18" /> Start a new analysis</button>
+      <span class="muted">or press <span class="kbd">N</span></span>
+    </div>
+    <ol class="steps">
+      <li>
+        <span class="steps__icon"><app-icon name="upload" [size]="20" /></span>
+        <strong>Upload</strong>
+        <span>One CSV file per table. Re-upload later to create a new version.</span>
+      </li>
+      <li>
+        <span class="steps__icon"><app-icon name="activity" [size]="20" /></span>
+        <strong>Profile</strong>
+        <span>Every table is measured: completeness, duplicates, distributions and keys.</span>
+      </li>
+      <li>
+        <span class="steps__icon"><app-icon name="sparkles" [size]="20" /></span>
+        <strong>Understand</strong>
+        <span>Scores, rules, a data-model map and questions in plain words tell you what needs attention.</span>
+      </li>
+    </ol>
+  </section>
+} @else {
+  <section class="dash" aria-labelledby="dash-title">
+    <div class="dash__head">
+      <div>
+        <p class="eyebrow">Workspace</p>
+        <h1 id="dash-title">Your datasets</h1>
+        <p class="dash__lead">
+          @if (stats().attention > 0) {
+            {{ stats().attention }} of {{ stats().datasets }} need{{ stats().attention === 1 ? 's' : '' }} your attention.
+          } @else {
+            Everything that has been measured looks fine.
+          }
+        </p>
+      </div>
+      <button type="button" class="btn btn--primary" (click)="layout.openUpload()"><app-icon name="plus" [size]="18" /> New analysis</button>
+    </div>
+
+    <div class="kpis">
+      <div class="kpi">
+        <span class="kpi__icon"><app-icon name="database" [size]="20" /></span>
+        <div>
+          <span class="kpi__value"><app-count-up [value]="stats().datasets" /></span>
+          <span class="kpi__label">Datasets</span>
+        </div>
+      </div>
+      <div class="kpi">
+        <span class="kpi__icon"><app-icon name="table" [size]="20" /></span>
+        <div>
+          <span class="kpi__value"><app-count-up [value]="stats().tables" /></span>
+          <span class="kpi__label">Tables analysed</span>
+        </div>
+      </div>
+      <div class="kpi kpi--ring">
+        <app-score-ring [value]="stats().averageScore" [size]="64" [stroke]="10" />
+        <div>
+          <span class="kpi__value">{{ averageGrade().grade === '–' ? 'No score yet' : 'Grade ' + averageGrade().grade }}</span>
+          <span class="kpi__label">Average quality</span>
+        </div>
+      </div>
+      <div class="kpi" [attr.data-tone]="stats().attention > 0 ? 'danger' : 'success'">
+        <span class="kpi__icon"><app-icon [name]="stats().attention > 0 ? 'alert' : 'checkCircle'" [size]="20" /></span>
+        <div>
+          <span class="kpi__value"><app-count-up [value]="stats().attention" /></span>
+          <span class="kpi__label">
+            Need attention
+            @if (stats().running > 0) {
+              · {{ stats().running }} running
+            }
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <div class="toolbar">
+      <label class="search">
+        <app-icon name="search" [size]="16" />
+        <span class="sr-only">Search datasets</span>
+        <input type="search" placeholder="Search by name" [value]="query()" (input)="query.set($any($event.target).value)" />
+      </label>
+      <div class="chips" role="radiogroup" aria-label="Filter by state">
+        @for (item of filters(); track item.id) {
+          <button type="button" role="radio" class="chip" [attr.aria-checked]="filter() === item.id" (click)="filter.set(item.id)">
+            {{ item.label }} <span>{{ item.count }}</span>
+          </button>
+        }
+      </div>
+      <label class="sort">
+        <span class="sr-only">Sort by</span>
+        <select [value]="sort()" (change)="sort.set($any($event.target).value)">
+          @for (item of sorts; track item.id) {
+            <option [value]="item.id" [selected]="sort() === item.id">{{ item.label }}</option>
+          }
+        </select>
+      </label>
+    </div>
+
+    @if (shown().length === 0) {
+      <app-empty-state title="No dataset matches" message="Try another word, or show every dataset again." icon="search" [compact]="true">
+        <button type="button" class="btn btn--secondary" (click)="clearFilters()">Show all datasets</button>
+      </app-empty-state>
+    } @else {
+      <ul class="grid" aria-label="Datasets">
+        @for (dataset of shown(); track dataset.id; let index = $index) {
+          <li>
+            <a class="ds" [routerLink]="link(dataset)" [attr.data-tone]="tone(dataset)" [style.--i]="index" [attr.aria-label]="'Open ' + dataset.name">
+              <div class="ds__head">
+                <span class="ds__avatar" [style.--hue]="hue(dataset.name)" aria-hidden="true">{{ initials(dataset.name) }}</span>
+                <div class="ds__title">
+                  <h2>{{ dataset.name }}</h2>
+                  <p>{{ source(dataset) }} · v{{ dataset.latestVersion?.versionNumber ?? 1 }}</p>
+                </div>
+                <app-status-badge [status]="dataset.latestVersion?.status" />
+              </div>
+
+              <div class="ds__body">
+                <app-score-ring [value]="dataset.latestScore" [size]="84" [stroke]="10" />
+                <dl class="ds__facts">
+                  <div><dt>Grade</dt><dd>{{ grade(dataset) }}</dd></div>
+                  <div><dt>Tables</dt><dd>{{ dataset.tableCount ?? '–' }}</dd></div>
+                  <div><dt>Versions</dt><dd>{{ dataset.versionCount ?? 1 }}</dd></div>
+                </dl>
+              </div>
+
+              @if (running(dataset)) {
+                <div class="ds__note ds__note--running"><span class="ds__pulse"></span> Analysing… results appear as they are ready</div>
+              } @else if (dataset.failedRules) {
+                <div class="ds__note ds__note--bad"><app-icon name="bell" [size]="14" /> {{ dataset.failedRules }} quality rule{{ dataset.failedRules === 1 ? '' : 's' }} failing</div>
+              } @else if (dataset.latestVersion?.errorMessage && dataset.latestVersion?.status !== 'COMPLETED') {
+                <div class="ds__note ds__note--bad"><app-icon name="alert" [size]="14" /> {{ dataset.latestVersion?.errorMessage }}</div>
+              } @else {
+                <div class="ds__note"><app-icon name="check" [size]="14" /> No rule is failing</div>
+              }
+
+              <div class="ds__foot">
+                <span [attr.title]="dataset.updatedAt | absoluteTime">Updated {{ dataset.updatedAt | relativeTime: now() }}</span>
+                <span class="ds__open">Open <app-icon name="arrowRight" [size]="15" /></span>
+              </div>
+            </a>
+          </li>
+        }
+      </ul>
+    }
+  </section>
+}

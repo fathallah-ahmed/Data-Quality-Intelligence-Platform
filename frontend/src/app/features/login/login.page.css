@@ -16,7 +16,7 @@
   overflow: hidden;
   background:
     radial-gradient(700px 400px at 0% 0%, color-mix(in srgb, var(--primary) 35%, transparent), transparent 65%),
-    radial-gradient(500px 360px at 100% 100%, rgb(212 138 30 / 18%), transparent 70%),
+    radial-gradient(500px 360px at 100% 100%, rgb(34 211 238 / 16%), transparent 70%),
     var(--side-bg);
   color: var(--side-text);
 }
@@ -54,9 +54,9 @@
   width: 44px;
   height: 44px;
   border-radius: 13px;
-  background: linear-gradient(145deg, #3f8f81, #1f544a);
+  background: linear-gradient(145deg, #6f6cf5, #3a33b5);
   box-shadow: 0 8px 20px -8px rgb(0 0 0 / 60%), inset 0 1px 0 rgb(255 255 255 / 18%);
-  fill: #e9f6f2;
+  fill: #eef0ff;
 }
 
 .login__pitch {
@@ -101,7 +101,7 @@
   height: 34px;
   border-radius: var(--radius-md);
   background: rgb(255 255 255 / 7%);
-  color: #8fe0d0;
+  color: #b9baff;
 }
 
 .login__preview {
@@ -134,8 +134,8 @@
   height: 52px;
   border-radius: 50%;
   background:
-    radial-gradient(closest-side, #12302b 72%, transparent 74%),
-    conic-gradient(#4cc488 0 82%, rgb(255 255 255 / 10%) 0);
+    radial-gradient(closest-side, #191b45 72%, transparent 74%),
+    conic-gradient(#8b8cf8 0 82%, rgb(255 255 255 / 10%) 0);
 }
 
 .preview-card__lines {
@@ -157,7 +157,7 @@
 
 .preview-card__lines i:nth-child(1) { width: 85%; }
 .preview-card__lines i:nth-child(2) { width: 60%; }
-.preview-card__lines i:nth-child(3) { width: 72%; background: rgb(143 224 208 / 40%); }
+.preview-card__lines i:nth-child(3) { width: 72%; background: rgb(185 186 255 / 40%); }
 
 .preview-card__bars {
   display: flex;
@@ -173,7 +173,7 @@
 .preview-card__bars i:nth-child(1) { height: 40%; }
 .preview-card__bars i:nth-child(2) { height: 70%; }
 .preview-card__bars i:nth-child(3) { height: 55%; background: rgb(240 176 77 / 55%); }
-.preview-card__bars i:nth-child(4) { height: 90%; background: rgb(143 224 208 / 50%); }
+.preview-card__bars i:nth-child(4) { height: 90%; background: rgb(185 186 255 / 50%); }
 .preview-card__bars i:nth-child(5) { height: 65%; }
 
 /* ---------------------------------------------------------------- form side */

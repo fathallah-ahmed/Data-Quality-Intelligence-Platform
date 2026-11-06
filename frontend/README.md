@@ -42,7 +42,8 @@ URLs are in `src/environments/`:
 | --- | --- |
 | `/` | **Landing page**, public (no sign-in needed): presentation, features, how it works, preview, and a "Sign in" button ("Open the app" when already signed in) |
 | `/login` | Sign-in (JWT kept in `sessionStorage`), with a link back to the landing page |
-| `/datasets` | Opens the most recent dataset, or the welcome screen with "New analysis" when there is none |
+| `/datasets` | **Dashboard of every dataset**: figures (datasets, tables, average quality, how many need attention), search, filters (all, needs attention, healthy, running), sort, and one card per dataset with its animated score ring, grade, status, failing rules and last update. First-run welcome screen when there is none |
+| `/datasets/:id` | Opens the latest version of that dataset (back to the dashboard if it does not exist) |
 | `/datasets/:id/versions/:versionId/overview` | Run status (steps, duration, errors, Retry), score and grade, dimensions, changes, global insights |
 | `.../tables?table=orders` | List of tables + detail (columns and their role, frequent values, missing values, associations, insights) |
 | `.../model` | Data model (zoom, pan, SVG export, relationships with coverage and cardinality) |
@@ -83,7 +84,12 @@ Derived values are `computed()`, not method calls in templates. Silent refreshes
 
 ## Tests
 
-`npm test` runs 57 tests: sign-in and API calls, reading of SSE events, formatting, quality grades and dimensions, report, rules, data model, table profile, file selection at upload, order of the graph's findings, small helpers of the Ask tab, the route guards and the landing page.
+`npm test` runs 69 tests: sign-in and API calls, reading of SSE events, formatting, quality grades and dimensions, report, rules, data model, table profile, file selection at upload, order of the graph's findings, small helpers of the Ask tab, the route guards, the landing page, the dashboard's filters and sorting, and the number animation.
+
+## Look and motion
+
+- **Colours**: an indigo brand colour, distinct from the green used for "good" results, on cool slate surfaces; the semantic colours (green, amber, red, blue) keep their meaning. Every colour is a token in `src/styles.css` (light, dark and system-dark blocks): change the palette there.
+- **Motion**: score rings draw themselves and count up (`ScoreRing`), bars fill from empty one after the other (`bar-grow`), figures count up (`app-count-up`, `shared/motion.ts`), cards rise in one after the other, buttons and cards lift on hover. `prefers-reduced-motion` turns all of it off.
 
 ## Accessibility and responsive design
 

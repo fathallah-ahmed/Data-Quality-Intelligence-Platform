@@ -204,6 +204,10 @@ public class DatasetService {
                 VersionSummary latest = versionRepository.findTopByDatasetIdOrderByVersionNumberDesc(dataset.getId())
                     .map(this::toVersionSummary)
                     .orElse(null);
+                List<TableVersion> latestTables = latest == null ? List.of()
+                    : tableVersionRepository.findByDatasetVersionIdOrderByTableNameAsc(latest.id()).stream()
+                        .filter(table -> table.getChangeStatus() != ChangeStatus.REMOVED)
+                        .toList();
                 return new DatasetSummary(
                     dataset.getId(),
                     dataset.getName(),
@@ -212,6 +216,8 @@ public class DatasetService {
                     dataset.getUpdatedAt(),
                     dataset.getVersions().size(),
                     latest == null ? 0 : (int) ruleResultRepository.countByDatasetVersionIdAndStatus(latest.id(), RuleStatus.FAIL),
+                    VersionDiffService.weightedScore(latestTables),
+                    latestTables.size(),
                     latest
                 );
             })

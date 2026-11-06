@@ -1,18 +1,16 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { RouterLink, RouterLinkActive } from '@angular/router';
 import { LayoutService } from '../../core/layout.service';
 import { DatasetSummary } from '../../core/models';
 import { WorkspaceStore } from '../../core/workspace.store';
 import { Skeleton } from '../../shared/components';
-import { sourceTypeLabel, statusLabel, statusTone } from '../../shared/format';
+import { avatarHue, initialsOf, sourceTypeLabel, statusLabel, statusTone } from '../../shared/format';
 import { Icon } from '../../shared/icon';
 import { DQ_PIPES } from '../../shared/pipes';
 
-const AVATAR_HUES = [168, 200, 32, 262, 340, 96];
-
 @Component({
   selector: 'app-dataset-sidebar',
-  imports: [RouterLink, Skeleton, Icon, ...DQ_PIPES],
+  imports: [RouterLink, RouterLinkActive, Skeleton, Icon, ...DQ_PIPES],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './dataset-sidebar.html',
   styleUrl: './dataset-sidebar.css',
@@ -67,16 +65,11 @@ export class DatasetSidebar {
   }
 
   initials(name: string): string {
-    const words = name.replace(/[^a-zA-Z0-9]+/g, ' ').trim().split(' ').filter(Boolean);
-    return ((words[0]?.[0] ?? '?') + (words[1]?.[0] ?? words[0]?.[1] ?? '')).toUpperCase();
+    return initialsOf(name);
   }
 
   hue(name: string): number {
-    let hash = 0;
-    for (const char of name) {
-      hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
-    }
-    return AVATAR_HUES[hash % AVATAR_HUES.length];
+    return avatarHue(name);
   }
 
   isSelected(dataset: DatasetSummary): boolean {

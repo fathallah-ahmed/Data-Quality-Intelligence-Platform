@@ -20,7 +20,7 @@ export const routes: Routes = [
     children: [
       {
         path: 'datasets',
-        loadComponent: () => import('./features/datasets/datasets-home.page').then((m) => m.DatasetsHomePage)
+        loadComponent: () => import('./features/datasets/datasets-dashboard.page').then((m) => m.DatasetsDashboardPage)
       },
       {
         path: 'datasets/:datasetId',

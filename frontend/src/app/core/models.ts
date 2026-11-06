@@ -26,6 +26,10 @@ export interface DatasetSummary {
   versionCount?: number;
   /** Quality rules failing in the latest version. */
   failedRules?: number;
+  /** Row-weighted quality score of the latest version; null while nothing is measured. */
+  latestScore?: number | null;
+  /** Tables in the latest version. */
+  tableCount?: number;
   latestVersion?: VersionSummary | null;
 }
 

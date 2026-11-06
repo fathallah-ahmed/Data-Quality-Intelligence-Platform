@@ -9,6 +9,7 @@ import {
   input,
   output,
   signal,
+  untracked,
   viewChild
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -16,6 +17,7 @@ import { RouterLink } from '@angular/router';
 import { ToastService, ToastTone } from '../core/toast.service';
 import { formatScore, llmStatusInfo, qualityGrade, scoreTone, statusLabel, statusTone } from './format';
 import { Icon, IconName } from './icon';
+import { animateNumber } from './motion';
 
 /** Run / change status as a coloured badge with a human label. */
 @Component({
@@ -53,7 +55,9 @@ export class LlmBadge {
   });
 }
 
-/** Circular score gauge (0–100) coloured by the quality scale. */
+const COUNT_UP_MS = 1100;
+
+/** Circular score gauge (0–100) coloured by the quality scale; it draws itself and counts up when it appears. */
 @Component({
   selector: 'app-score-ring',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -76,7 +80,9 @@ export class LlmBadge {
     :host { position: relative; display: inline-grid; place-items: center; flex: none; }
     svg { display: block; }
     .ring__track { stroke: var(--surface-sunken); }
-    .ring__value { stroke: var(--tone-fg, var(--primary)); transition: stroke-dashoffset 700ms var(--ease); }
+    .ring__value { stroke: var(--tone-fg, var(--primary)); transition: stroke-dashoffset 700ms var(--ease); animation: ring-draw 1100ms var(--ease) both; }
+    @keyframes ring-draw { from { stroke-dashoffset: 263.9; } }
+    :host([data-tone='warning']) .ring__value { stroke: var(--warning); }
     .ring__label { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; line-height: 1.05; }
     strong { font-size: var(--ring-font, 1rem); font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
     small { margin-top: 2px; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-subtle); }
@@ -93,13 +99,30 @@ export class ScoreRing {
   readonly circumference = 2 * Math.PI * 42;
   readonly tone = computed(() => scoreTone(this.value()));
   readonly offset = computed(() => this.circumference * (1 - Math.max(0, Math.min(100, this.value() ?? 0)) / 100));
-  // Small rings have no room for a decimal: show whole numbers below 56 px.
+  /** The number on screen: it counts up to the value (and from the old value when the score changes). */
+  private readonly shown = signal(0);
+
+  constructor() {
+    effect((onCleanup) => {
+      const target = this.value();
+      if (target === null || target === undefined) {
+        return;
+      }
+      const from = untracked(() => this.shown());
+      onCleanup(animateNumber(from, target, COUNT_UP_MS, (value) => this.shown.set(value)));
+    });
+  }
+
   readonly display = computed(() => {
     if (this.showGrade()) {
       return qualityGrade(this.value()).grade;
     }
     const value = this.value();
-    return this.size() < 56 && value !== null && value !== undefined ? String(Math.round(value)) : formatScore(value);
+    if (value === null || value === undefined) {
+      return formatScore(value);
+    }
+    const counted = this.shown();
+    return this.size() < 56 ? String(Math.round(counted)) : formatScore(counted);
   });
   readonly fontSize = computed(() => `${Math.round(this.size() * (this.showGrade() ? 0.34 : 0.24))}px`);
   readonly ariaLabel = computed(() => `Quality score ${formatScore(this.value())} out of 100`);
