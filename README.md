@@ -1,60 +1,60 @@
-# Plateforme Data Quality Wevioo
+# Wevioo Data Quality Platform
 
-Plateforme d'analyse de qualité de données pour des bases CSV. On dépose des fichiers, on obtient pour chaque table un profil, des scores expliqués, des règles qualité, des corrections applicables sur une copie, un graphe de ses entités dans Neo4j, et un assistant qui répond aux questions sur les données, la qualité et l'usage de l'outil.
+A data-quality analysis platform for CSV databases. You drop files and get, for each table, a profile, explained scores, quality rules, corrections you can apply to a copy, a graph of its entities in Neo4j, and an assistant that answers questions about the data, its quality and how to use the tool.
 
-| Bloc | Dossier | Rôle |
+| Block | Folder | Role |
 | --- | --- | --- |
-| **frontend** Angular | `frontend` | upload, suivi de l'exécution en temps réel, résultats par onglets |
-| **backend** Spring Boot | `backend` | datasets et versions, sécurité, règles, corrections, graphe, questions, déclenchement et surveillance d'Airflow, SSE |
-| **worker** Python / Airflow | `Data_Quality_Wevioo` | profiling des tables, rôles de colonnes, métriques, relations entre tables, analyse par le modèle de langage (Ollama), règles suggérées |
-| **service de questions** Python | `graphrag` | répond aux questions de l'onglet Ask, avec des garde-fous sur le Cypher généré |
-| **Neo4j** | `docker-compose.neo4j.yml` | base de graphe construite par l'onglet Graph |
+| **frontend** (Angular) | `frontend` | upload, real-time run tracking, results in tabs |
+| **backend** (Spring Boot) | `backend` | datasets and versions, security, rules, corrections, graph, questions, triggering and watching Airflow, SSE |
+| **worker** (Python / Airflow) | `Data_Quality_Wevioo` | table profiling, column roles, metrics, relationships between tables, language-model analysis (Ollama), suggested rules |
+| **question service** (Python) | `graphrag` | answers the Ask tab's questions, with guardrails on the generated Cypher |
+| **Neo4j** | `docker-compose.neo4j.yml` | graph database built by the Graph tab |
 
-Chaque dossier a son propre `README.md` (démarrage, configuration, organisation du code, tests).
+Each folder has its own `README.md` (start-up, configuration, code layout, tests).
 
-## Démarrage en une commande
+## One-command start
 
-Développement sous Windows : une fenêtre par service (Ollama, Airflow, service de questions, backend, frontend) ; Neo4j démarre en arrière-plan dans Docker. Le navigateur s'ouvre quand tout répond.
+Development on Windows: one window per service (Ollama, Airflow, question service, backend, frontend); Neo4j starts in the background in Docker. The browser opens when everything answers.
 
 ```powershell
 .\start-dev.ps1
 ```
 
-Tout dans Docker (Airflow, Neo4j, service de questions, backend, frontend ; Ollama reste sur la machine) :
+Everything in Docker (Airflow, Neo4j, question service, backend, frontend; Ollama stays on the host):
 
 ```powershell
 docker compose --env-file Data_Quality_Wevioo/.env up --build
 ```
 
-Application : `http://localhost:4200` · API : `http://localhost:8081` · Airflow : `http://localhost:8080` · Neo4j Browser : `http://localhost:7474` · Questions : `http://localhost:8090`. Le fichier `Data_Quality_Wevioo\.env` doit exister (copie `.env.example`) : il porte les secrets et le modèle Ollama (`OLLAMA_MODEL`), d'où l'option `--env-file`.
+Application: `http://localhost:4200` · API: `http://localhost:8081` · Airflow: `http://localhost:8080` · Neo4j Browser: `http://localhost:7474` · Questions: `http://localhost:8090`. The file `Data_Quality_Wevioo\.env` must exist (copy `.env.example`): it holds the secrets and the Ollama model (`OLLAMA_MODEL`), hence the `--env-file` option.
 
-Le `docker-compose.yml` racine inclut ceux du worker et de Neo4j : tous les services partagent un réseau et les mêmes secrets, et le backend appelle Airflow, Neo4j et le service de questions par leur nom de service. Les ports du mode développement (8081, 4200, 8090, 7687) sont les mêmes que ceux de Docker : arrêtez l'un avant de lancer l'autre.
+The root `docker-compose.yml` includes the worker's and Neo4j's compose files: all services share one network and the same secrets, and the backend reaches Airflow, Neo4j and the question service by their service names. The development ports (8081, 4200, 8090, 7687) are the same as Docker's: stop one before starting the other.
 
-| Conteneur | Rôle | Port |
+| Container | Role | Port |
 | --- | --- | --- |
-| `frontend` | interface Angular servie par nginx | 4200 |
-| `backend` | API Spring Boot, base H2 (volume `backend_data`) | 8081 |
-| `airflow-webserver` | interface web d'Airflow | 8080 |
-| `airflow-scheduler` | exécute les étapes du pipeline | interne |
-| `airflow-init` | migre la base d'Airflow et crée l'utilisateur admin, puis s'arrête | aucun |
-| `postgres` | base d'Airflow (pas la base de l'application) | interne |
-| `neo4j` | base de graphe (volume `neo4j_data`) | 7474, 7687 |
-| `graphrag` | service de questions | 8090 |
+| `frontend` | Angular interface served by nginx | 4200 |
+| `backend` | Spring Boot API, H2 database (volume `backend_data`) | 8081 |
+| `airflow-webserver` | Airflow web interface | 8080 |
+| `airflow-scheduler` | runs the pipeline steps | internal |
+| `airflow-init` | migrates Airflow's database and creates the admin user, then exits | none |
+| `postgres` | Airflow's database (not the application's) | internal |
+| `neo4j` | graph database (volume `neo4j_data`) | 7474, 7687 |
+| `graphrag` | question service | 8090 |
 
-Les conteneurs portent le nom du projet Compose défini par `COMPOSE_PROJECT_NAME` dans `.env` (`data-quality-pipeline-*` par défaut). Pour revenir au mode développement : `docker compose --env-file Data_Quality_Wevioo/.env down`, puis `.\start-dev.ps1`. Les graphes Neo4j de Docker et du mode développement sont dans des volumes séparés.
+Containers are named after the Compose project set by `COMPOSE_PROJECT_NAME` in `.env` (`data-quality-pipeline-*` by default). To go back to development mode: `docker compose --env-file Data_Quality_Wevioo/.env down`, then `.\start-dev.ps1`. The Neo4j graphs of Docker and of development mode live in separate volumes.
 
-## Démarrage manuel
+## Manual start
 
-Sans le script : un terminal PowerShell par service, depuis la racine du projet, dans cet ordre.
+Without the script: one PowerShell terminal per service, from the project root, in this order.
 
-### 1. Ollama (optionnel)
+### 1. Ollama (optional)
 
 ```powershell
 ollama serve
-ollama pull qwen2.5:14b-instruct      # ou tout autre modèle, à indiquer dans OLLAMA_MODEL
+ollama pull qwen2.5:14b-instruct      # or any other model, to be set in OLLAMA_MODEL
 ```
 
-Sans Ollama, le pipeline fonctionne quand même : les insights sont calculés à partir des métriques et l'interface l'indique (« Deterministic only – Ollama unavailable »). Les corrections écrites en langage naturel, les noms proposés par l'IA pour le graphe et l'onglet Ask ont besoin d'un modèle. Si `bind: Only one usage of each socket address` s'affiche, Ollama tourne déjà.
+Without Ollama the pipeline still works: insights are computed from the metrics and the interface says so ("Deterministic only – Ollama unavailable"). Corrections written in plain language, the AI-proposed graph names and the Ask tab need a model. If `bind: Only one usage of each socket address` appears, Ollama is already running.
 
 ### 2. Airflow
 
@@ -64,19 +64,19 @@ Copy-Item .\.env.example .\.env -ErrorAction SilentlyContinue
 docker compose up --build
 ```
 
-- UI Airflow : `http://localhost:8080`, login `admin` et la valeur de `AIRFLOW_ADMIN_PASSWORD` dans `Data_Quality_Wevioo\.env`.
-- `PIPELINE_API_TOKEN` dans `.env` doit être identique côté backend (le script de lancement du backend le lit automatiquement).
-- `OLLAMA_MODEL` dans `.env` est aussi lu par le script du backend.
+- Airflow UI: `http://localhost:8080`, login `admin` and the value of `AIRFLOW_ADMIN_PASSWORD` in `Data_Quality_Wevioo\.env`.
+- `PIPELINE_API_TOKEN` in `.env` must be identical on the backend side (the backend start script reads it automatically).
+- `OLLAMA_MODEL` in `.env` is also read by the backend script.
 
-### 3. Neo4j (onglet Graph)
+### 3. Neo4j (Graph tab)
 
 ```powershell
 docker compose -f docker-compose.neo4j.yml up -d
 ```
 
-Neo4j Browser : `http://localhost:7474`, utilisateur `neo4j`, mot de passe de développement `dq-neo4j-dev` (à changer via `NEO4J_PASSWORD` avant tout partage).
+Neo4j Browser: `http://localhost:7474`, user `neo4j`, development password `dq-neo4j-dev` (change it with `NEO4J_PASSWORD` before sharing).
 
-### 4. Service de questions (onglet Ask)
+### 4. Question service (Ask tab)
 
 ```powershell
 cd .\graphrag
@@ -93,8 +93,8 @@ cd .\backend
 .\run-backend.ps1
 ```
 
-- API : `http://localhost:8081` ; test : `Invoke-RestMethod http://localhost:8081/health`.
-- Java 17 requis : `winget install --id EclipseAdoptium.Temurin.17.JDK -e`.
+- API: `http://localhost:8081`; test: `Invoke-RestMethod http://localhost:8081/health`.
+- Java 17 required: `winget install --id EclipseAdoptium.Temurin.17.JDK -e`.
 
 ### 6. Frontend
 
@@ -104,136 +104,136 @@ npm install
 npm start
 ```
 
-Ouvre `http://localhost:4200` et connecte-toi avec `admin / admin123` (valeurs de développement, voir *Sécurité*).
+Open `http://localhost:4200` and sign in with `admin / admin123` (development values, see *Security*).
 
 ## Architecture
 
 ```text
-Navigateur -> Angular (4200) -> Spring Boot (8081, /api)
-Spring Boot -> Airflow REST (8080) : déclenche le DAG après l'enregistrement de la version
-Airflow -> Spring Boot /api/pipeline/{runId}/... : start, table-analysis, rule-suggestions, global-analysis, complete
-Spring Boot -> Angular : SSE /api/events/stream (repli automatique en polling)
-Spring Boot -> Neo4j (7687) : construction et suppression du graphe d'une version
-Spring Boot -> service de questions (8090) : question + faits qualité ; le service lit Neo4j
-Airflow, Spring Boot, service de questions -> Ollama (11434) : modèle de langage local
+Browser -> Angular (4200) -> Spring Boot (8081, /api)
+Spring Boot -> Airflow REST (8080): triggers the DAG once the version is saved
+Airflow -> Spring Boot /api/pipeline/{runId}/...: start, table-analysis, rule-suggestions, global-analysis, complete
+Spring Boot -> Angular: SSE /api/events/stream (automatic fallback to polling)
+Spring Boot -> Neo4j (7687): builds and deletes the graph of a version
+Spring Boot -> question service (8090): question + quality facts; the service reads Neo4j
+Airflow, Spring Boot, question service -> Ollama (11434): local language model
 ```
 
-| Élément | Où | Détail |
+| Item | Where | Detail |
 | --- | --- | --- |
-| Base du backend | `backend/data` | fichier H2 (MySQL possible) : datasets, versions, règles, résultats |
-| Fichiers envoyés | `Data_Quality_Wevioo/data/uploads` | `datasets/dataset_<id>/v<n>/` : CSV, contexte, corrections, graphe |
-| Résultats du pipeline | `Data_Quality_Wevioo/storage` | métriques et analyses JSON, manifestes d'exécution |
-| Graphes | Neo4j | un graphe par version, repéré par la propriété `_scope` (`d<dataset>v<version>`) |
+| Backend database | `backend/data` | H2 file (MySQL possible): datasets, versions, rules, results |
+| Uploaded files | `Data_Quality_Wevioo/data/uploads` | `datasets/dataset_<id>/v<n>/`: CSVs, context, corrections, graph |
+| Pipeline results | `Data_Quality_Wevioo/storage` | metrics and analysis JSON, run manifests |
+| Graphs | Neo4j | one graph per version, identified by the `_scope` property (`d<dataset>v<version>`) |
 
-## Fonctionnement
+## How it works
 
-1. L'admin se connecte (`POST /api/auth/login`, jeton JWT valable 8 h, gardé dans `sessionStorage`).
-2. Il dépose un ou plusieurs CSV dans la fenêtre **New analysis** (une table par fichier), avec en option le domaine, l'objectif et ce que représente une ligne.
-3. Le backend valide tous les fichiers avant d'écrire quoi que ce soit, calcule un SHA-256 par fichier, crée la version, enregistre les fichiers, puis déclenche Airflow une fois la transaction validée.
-4. Airflow exécute les phases visibles : validation, notification, découverte des tables, profiling, métriques et analyse par le modèle, publication, suggestion de règles, analyse globale, clôture.
-5. Chaque table apparaît dès que ses métriques sont prêtes, puis est enrichie par le modèle.
-6. Le statut final est `COMPLETED`, `PARTIAL` (au moins une table en échec, avec la raison) ou `FAILED`. Un bouton **Retry** relance une version en échec ou partielle.
-7. Les règles qualité du dataset sont évaluées sur la version terminée ; un échec déclenche une alerte (toast en direct, badge dans la liste des datasets, bandeau dans la vue d'ensemble).
+1. The admin signs in (`POST /api/auth/login`, JWT valid for 8 h, kept in `sessionStorage`).
+2. They drop one or more CSVs in the **New analysis** window (one table per file), optionally with the domain, the goal and what one row represents.
+3. The backend validates all files before writing anything, computes a SHA-256 per file, creates the version, stores the files, then triggers Airflow once the transaction is committed.
+4. Airflow runs the visible phases: validation, notification, table discovery, profiling, metrics and model analysis, publishing, rule suggestion, global analysis, completion.
+5. Each table appears as soon as its metrics are ready, then is enriched by the model.
+6. The final status is `COMPLETED`, `PARTIAL` (at least one table failed, with the reason) or `FAILED`. A **Retry** button reruns a failed or partial version.
+7. The dataset's quality rules are evaluated on the finished version; a failure raises an alert (live toast, badge in the dataset list, banner in the overview).
 
-### Onglets d'une version
+### Tabs of a version
 
-| Onglet | Contenu |
+| Tab | Content |
 | --- | --- |
-| Overview | Statut du run, score et note A–D, dimensions de qualité avec leur calcul, santé de chaque table, colonnes à revoir, insights globaux |
-| Tables | Profil d'une table : colonnes et leur rôle (avec les indices), valeurs fréquentes, valeurs manquantes, associations, insights |
-| Data model | Diagramme des tables et relations (recouvrement de valeurs) |
-| Insights | Analyse sémantique (rôles des colonnes, contrat de données, surveillance, causes, impacts) |
-| Compare | Écarts avec une version plus ancienne : score, lignes, colonnes ajoutées/supprimées, changements de type, valeurs manquantes |
-| Rules | Règles qualité du dataset et résultat pour cette version ; règles proposées à partir de l'objectif donné à l'envoi (à approuver) |
-| Corrections | Corrections trouvées dans les données ou écrites en langage naturel, aperçu chiffré, puis application sur une copie (nouvelle version) |
-| Graph | Modèle de graphe proposé (entités, propriétés, relations), conflits, construction et suppression dans Neo4j |
-| Ask | Questions en langage naturel : sur les données (via le graphe), sur la qualité (règles, scores, constats) et sur l'usage de l'application ; chaque réponse dit d'où elle vient |
+| Overview | Run status, score and A–D grade, quality dimensions with how they are computed, health of each table, columns to review, global insights |
+| Tables | Profile of one table: columns and their role (with the clues), frequent values, missing values, associations, insights |
+| Data model | Diagram of the tables and relationships (value overlap) |
+| Insights | Semantic analysis (column roles, data contract, monitoring, causes, impacts) |
+| Compare | Differences with an older version: score, rows, added/removed columns, type changes, missing values |
+| Rules | The dataset's quality rules and their result for this version; rules proposed from the goal given at upload (to approve) |
+| Corrections | Corrections found in the data or written in plain language, counted preview, then applied to a copy (new version) |
+| Graph | Proposed graph model (entities, properties, relationships), conflicts, build and delete in Neo4j |
+| Ask | Plain-language questions: about the data (through the graph), about quality (rules, scores, findings) and about how to use the application; every answer says where it comes from |
 
-Le bouton **Report** ouvre une page imprimable de la version (Imprimer / Enregistrer en PDF, ou téléchargement Markdown), avec la définition de chaque score.
+The **Report** button opens a printable page of the version (Print / Save as PDF, or Markdown download), with the definition of every score.
 
-Raccourcis : `Ctrl/⌘ K` ou `/` (palette de commandes), `N` (nouvelle analyse), `1`–`9` (changer d'onglet).
+Shortcuts: `Ctrl/⌘ K` or `/` (command palette), `N` (new analysis), `1`–`9` (switch tab).
 
-### Contexte de l'analyse
+### Analysis context
 
-À l'envoi, on peut donner un **domaine**, un **objectif** et ce que **représente une ligne** (un client, un compte, une opération). Ils sont enregistrés dans `dataset_context.json` à côté des CSV, conservés lors d'un Retry, et lus par le pipeline pour orienter l'analyse (un identifiant répété est normal si une ligne n'est pas l'entité qu'il nomme) et pour proposer des règles. Un contexte libre, global ou par table, peut aussi être donné (`dataset_config.csv`, nom réservé).
+At upload you can give a **domain**, a **goal** and what **one row represents** (a customer, an account, a transaction). They are saved in `dataset_context.json` next to the CSVs, kept on Retry, and read by the pipeline to guide the analysis (a repeated identifier is normal if a row is not the entity it names) and to propose rules. A free context, global or per table, can also be given (`dataset_config.csv`, a reserved name).
 
-### Rôles de colonnes et dimensions de qualité
+### Column roles and quality dimensions
 
-Chaque colonne reçoit un rôle (identifiant, référence, email, date, montant…) calculé à partir de son nom, de ses valeurs et de leurs formats ; les indices sont conservés. Seules les colonnes restées floues sont tranchées par le modèle. La vue d'ensemble affiche complétude, unicité, validité et cohérence avec leur numérateur et leur dénominateur, ou « not measured » avec la raison.
+Each column gets a role (identifier, reference, email, date, amount…) computed from its name, its values and their formats; the clues are kept. Only the columns that stay unclear are settled by the model. The overview shows completeness, uniqueness, validity and consistency with their numerator and denominator, or "not measured" with the reason.
 
-### Règles qualité
+### Quality rules
 
-Types : colonne sans valeur manquante, au plus X % de valeurs manquantes, valeurs uniques, au moins N lignes, au plus X % de doublons, score minimal, baisse maximale du nombre de lignes par rapport à la version précédente, **valeurs au bon format** (email, téléphone, URL, date, nombre) et **ordre de deux dates**. Chaque règle est `WARNING` ou `CRITICAL` (une règle échouée déclenche l'alerte dans les deux cas ; les échecs `CRITICAL` sont comptés à part), peut être mise en pause, et vise une table (et une colonne). Elles sont évaluées à la fin de chaque run et à la demande (**Check now**). Le pipeline propose des règles à partir de l'objectif : elles restent des **suggestions** (non vérifiées) jusqu'à approbation, et une suggestion écartée ne revient pas.
+Types: column with no missing values, at most X% missing values, unique values, at least N rows, at most X% duplicates, minimum score, maximum drop in row count compared with the previous version, **values in the right format** (email, phone, URL, date, number) and **order of two dates**. Each rule is `WARNING` or `CRITICAL` (a failed rule raises the alert either way; `CRITICAL` failures are counted separately), can be paused, and targets a table (and a column). They are evaluated at the end of each run and on demand (**Check now**). The pipeline proposes rules from the goal: they stay **suggestions** (unverified) until approved, and a dismissed suggestion does not come back.
 
 ### Corrections
 
-Une table peut être corrigée à partir de ce que l'application trouve (espaces, marqueurs `N/A`, dates en plusieurs formats, une valeur écrite de plusieurs façons, doublons) ou d'une demande écrite en langage naturel, lue par le modèle local (`OLLAMA_MODEL` doit être défini pour le backend). Le modèle ne choisit que parmi 12 opérations vérifiées contre les colonnes. L'aperçu donne le nombre de valeurs touchées, des exemples et des avertissements ; une date ambiguë (`01/02/2024`) n'est jamais devinée. L'application crée une **nouvelle version** (analysée comme un envoi) avec un journal ; la version d'origine n'est jamais modifiée. Les fichiers corrigés sont écrits en UTF-8 avec des virgules, en-tête inchangé.
+A table can be corrected from what the application finds (spaces, `N/A` markers, dates in several formats, one value written several ways, duplicates) or from a request written in plain language, read by the local model (`OLLAMA_MODEL` must be set for the backend). The model only chooses among 12 operations checked against the columns. The preview gives the number of values touched, examples and warnings; an ambiguous date (`01/02/2024`) is never guessed. The application creates a **new version** (analysed like an upload) with a log; the original version is never modified. Corrected files are written as UTF-8 with commas, header unchanged.
 
-### Graphe (Neo4j)
+### Graph (Neo4j)
 
-Le modèle est déduit des rôles et des données : une ligne de comptes est un *Account*, et le *Customer* qu'elle référence devient un nœud à part dont les colonnes constantes pour un client sont les propriétés. Les relations viennent des liens trouvés par l'analyse. Quelques cas courants sont gérés sans identifiant déclaré :
+The model is deduced from the roles and the data: a row of accounts is an *Account*, and the *Customer* it references becomes a node of its own whose columns that are constant for a customer are its properties. Relationships come from the links found by the analysis. Some common cases are handled without a declared identifier:
 
-- une table sans colonne identifiant dont les lignes se distinguent par une **combinaison de références** (une commande et un numéro de ligne) est identifiée par cette combinaison ;
-- une table dont une colonne désigne les **numéros de ligne** d'un autre fichier sans identifiant est reliée à ces lignes ;
-- une **table de deux références** (amis, produit-magasin) devient une relation, sans nœud propre ;
-- une colonne d'identifiants de la **même table** (un `manager_id`) relie deux lignes de cette table.
+- a table with no identifier column whose rows are told apart by a **combination of references** (an order and a line number) is identified by that combination;
+- a table with a column that holds the **line numbers** of another file that has no identifier is linked to those lines;
+- a **table of two references** (friends, product-store) becomes a relationship, without a node of its own;
+- a column of identifiers of the **same table** (a `manager_id`) links two rows of that table.
 
-Quand les lignes d'une même clé se contredisent (deux emails pour un client), le graphe garde **toutes** les valeurs (`email__candidates`), marque le nœud `_conflict` et ne choisit rien ; les références vers un nœud inexistant, les tables liées à rien et les liens incertains sont signalés. `NULL`, `N/A`, `NaN`… comptent comme « pas de valeur », comme dans l'analyse.
+When the rows of one key contradict each other (two emails for one customer), the graph keeps **all** the values (`email__candidates`), marks the node `_conflict` and chooses none; references to a missing node, tables tied to nothing and uncertain links are reported. `NULL`, `N/A`, `NaN`… count as "no value", as in the analysis.
 
-Chaque nœud porte `_scope` (`d<dataset>v<version>`) : les versions ne se mélangent pas. Dans Neo4j Browser, gardez le filtre `_scope` de la requête proposée par l'onglet, sans quoi les graphes de plusieurs versions s'affichent mélangés. Le bouton **Delete this graph** retire le graphe d'une version, et l'onglet signale quand Neo4j en contient d'autres. Derrière Docker, `NEO4J_BROWSER_URL` (fixé à `http://localhost:7474` dans `docker-compose.yml`) donne l'adresse que le navigateur de l'utilisateur doit ouvrir.
+Every node carries `_scope` (`d<dataset>v<version>`): versions do not mix. In Neo4j Browser, keep the `_scope` filter of the query the tab proposes, otherwise the graphs of several versions are shown mixed together. The **Delete this graph** button removes a version's graph, and the tab says when Neo4j holds others. Behind Docker, `NEO4J_BROWSER_URL` (set to `http://localhost:7474` in `docker-compose.yml`) gives the address the user's browser must open.
 
-### Questions (onglet Ask)
+### Questions (Ask tab)
 
-Le service `graphrag/` commence par **trier la question** : sur le contenu des données (*graph*), sur la qualité (*quality* : règles et pourquoi elles échouent, scores, constats) ou sur l'usage de l'application (*help*). Seule la première utilise Neo4j ; les deux autres répondent avant même que le graphe soit construit. Pour une question *graph*, le modèle local écrit une requête Cypher qui passe par des garde-fous (limitée au `_scope` de la version, lecture seule, `EXPLAIN` avant exécution, délai maximal, deux essais). La réponse est rédigée **uniquement** à partir des lignes obtenues, des faits que le backend joint à la question (règles et leur message, dimensions, constats, rôles des colonnes) et du guide d'utilisation (`backend/src/main/resources/help/app-guide.md`, à tenir à jour quand l'interface change). La requête et les lignes sont renvoyées avec la réponse pour qu'on puisse la vérifier. Détails, API et évaluation : `graphrag/README.md`.
+The `graphrag/` service starts by **sorting the question**: about the content of the data (*graph*), about quality (*quality*: rules and why they fail, scores, findings) or about how to use the application (*help*). Only the first uses Neo4j; the other two answer even before the graph is built. For a *graph* question, the local model writes a Cypher query that goes through guardrails (limited to the version's `_scope`, read-only, `EXPLAIN` before running, time limit, two attempts). The answer is written **only** from the rows obtained, the facts the backend attaches to the question (rules and their message, dimensions, findings, column roles) and the usage guide (`backend/src/main/resources/help/app-guide.md`, to keep up to date when the interface changes). The query and its rows are returned with the answer so it can be checked. Details, API and evaluation: `graphrag/README.md`.
 
-### Reprise après un redémarrage
+### Recovery after a restart
 
-- Au démarrage, le backend interroge Airflow pour chaque run `PENDING`/`RUNNING` : un run inconnu d'Airflow est relancé (si ses fichiers sont toujours là), un run en échec côté Airflow est marqué `FAILED`, un run en cours est laissé tranquille.
-- Les callbacks du worker (tables, analyse globale, fin de run) sont retentés pendant environ deux minutes : un redémarrage du backend n'interrompt pas un run en cours.
-- Le watchdog continue de surveiller les runs bloqués.
+- At startup, the backend asks Airflow about every `PENDING`/`RUNNING` run: a run unknown to Airflow is restarted (if its files are still there), a run that failed in Airflow is marked `FAILED`, a run in progress is left alone.
+- The worker's callbacks (tables, global analysis, end of run) are retried for about two minutes: a backend restart does not interrupt a run in progress.
+- The watchdog keeps watching stuck runs.
 
-### Statuts
+### Statuses
 
-| Objet | Valeurs |
+| Object | Values |
 | --- | --- |
-| Run / version | `PENDING` (en file), `RUNNING`, `COMPLETED`, `PARTIAL`, `FAILED` |
-| Table par rapport à la version précédente | `NEW`, `MODIFIED`, `UNCHANGED`, `REMOVED` |
-| Statut du modèle (`llmStatus`) | `ok`, `unavailable` (Ollama injoignable), `invalid` (réponse rejetée par la validation), `disabled`, `pending` |
-| Règle | état `ACTIVE`, `SUGGESTED`, `DISMISSED` ; résultat `PASS`, `FAIL`, `SKIPPED` |
+| Run / version | `PENDING` (queued), `RUNNING`, `COMPLETED`, `PARTIAL`, `FAILED` |
+| Table compared with the previous version | `NEW`, `MODIFIED`, `UNCHANGED`, `REMOVED` |
+| Model status (`llmStatus`) | `ok`, `unavailable` (Ollama unreachable), `invalid` (answer rejected by validation), `disabled`, `pending` |
+| Rule | state `ACTIVE`, `SUGGESTED`, `DISMISSED`; result `PASS`, `FAIL`, `SKIPPED` |
 
-- **Doublons** : un upload identique (mêmes noms de fichiers et même contenu SHA-256) propose d'ouvrir la version existante ou de la relancer. Un fichier modifié de même taille crée bien une nouvelle version.
-- **Changements de table** : comparés par empreinte du contenu (`content_hash`) et du schéma ; une valeur modifiée donne `MODIFIED`. Les tables absentes de la nouvelle version sont listées `REMOVED`.
-- **Score qualité** : par table, 100 − % moyen de valeurs manquantes − % de lignes dupliquées ; pour la version, moyenne pondérée par le nombre de lignes. Notes : A à partir de 90, B de 75, C de 60, D en dessous.
-- **Watchdog** : toutes les minutes, les runs `PENDING`/`RUNNING` depuis plus de 10 min sont vérifiés auprès d'Airflow ; un run inconnu ou en échec dans Airflow passe en `FAILED` avec un message clair, et un run sans fin au bout de 180 min aussi.
+- **Duplicates**: an identical upload (same file names and same SHA-256 content) offers to open the existing version or to rerun it. A modified file of the same size does create a new version.
+- **Table changes**: compared by content fingerprint (`content_hash`) and schema; a modified value gives `MODIFIED`. Tables missing from the new version are listed `REMOVED`.
+- **Quality score**: per table, 100 − average missing-value % − duplicated-row %; for the version, average weighted by row count. Grades: A from 90, B from 75, C from 60, D below.
+- **Watchdog**: every minute, runs `PENDING`/`RUNNING` for more than 10 min are checked with Airflow; a run unknown to or failed in Airflow becomes `FAILED` with a clear message, and so does a run that has not ended after 180 min.
 
 ## API
 
-Tous les endpoints `/api/**` (sauf login et callbacks du pipeline) exigent `Authorization: Bearer <jeton>` et le rôle `ADMIN`. La liste complète est dans `backend/README.md` ; en résumé :
+All `/api/**` endpoints (except login and the pipeline callbacks) require `Authorization: Bearer <token>` and the `ADMIN` role. The full list is in `backend/README.md`; in short:
 
-| Ressource | Endpoints |
+| Resource | Endpoints |
 | --- | --- |
-| Santé et session | `GET /health`, `POST /api/auth/login`, `GET /api/auth/me` |
-| Datasets et versions | `POST /api/datasets/upload`, `GET /api/datasets`, `GET .../{id}/versions[/{versionId}[/tables/{tableVersionId}]]`, `POST .../rerun`, `GET .../diff`, `DELETE /api/datasets/{id}` |
-| Règles | `GET` `POST` `PUT` `DELETE /api/datasets/{id}/rules[/{ruleId}]`, `.../approve`, `.../dismiss`, `GET .../rule-results`, `POST .../rules/evaluate` |
+| Health and session | `GET /health`, `POST /api/auth/login`, `GET /api/auth/me` |
+| Datasets and versions | `POST /api/datasets/upload`, `GET /api/datasets`, `GET .../{id}/versions[/{versionId}[/tables/{tableVersionId}]]`, `POST .../rerun`, `GET .../diff`, `DELETE /api/datasets/{id}` |
+| Rules | `GET` `POST` `PUT` `DELETE /api/datasets/{id}/rules[/{ruleId}]`, `.../approve`, `.../dismiss`, `GET .../rule-results`, `POST .../rules/evaluate` |
 | Corrections | `GET .../corrections/suggestions`, `POST .../corrections/interpret` `preview` `apply`, `GET .../corrections` |
-| Graphe | `GET .../graph/schema`, `POST .../graph/build`, `GET .../graph`, `GET .../graph/status`, `DELETE .../graph` |
+| Graph | `GET .../graph/schema`, `POST .../graph/build`, `GET .../graph`, `GET .../graph/status`, `DELETE .../graph` |
 | Questions | `POST .../versions/{versionId}/ask` |
-| Temps réel | `GET /api/events/stream` (SSE) |
-| Callbacks d'Airflow | `POST /api/pipeline/{runId}/start` `table-analysis` `rule-suggestions` `global-analysis` `complete` (`X-Pipeline-Token`) |
+| Real time | `GET /api/events/stream` (SSE) |
+| Airflow callbacks | `POST /api/pipeline/{runId}/start` `table-analysis` `rule-suggestions` `global-analysis` `complete` (`X-Pipeline-Token`) |
 
-Codes d'erreur : 400 requête invalide, 401 jeton absent ou invalide (y compris jeton pipeline), 404 ressource ou route inconnue, 409 conflit, 413 upload trop gros, 503 service externe indisponible (Neo4j, modèle, service de questions), 500 erreur interne (message générique, détail dans les logs).
+Error codes: 400 invalid request, 401 missing or invalid token (pipeline token included), 404 unknown resource or route, 409 conflict, 413 upload too large, 503 external service unavailable (Neo4j, model, question service), 500 internal error (generic message, details in the logs).
 
-## Sécurité
+## Security
 
-- Les valeurs par défaut (`admin123`, `dev-pipeline-token`, `JWT_SECRET` de dev, mot de passe Airflow `admin`) sont réservées au développement : le backend affiche un **WARN** au démarrage s'il les utilise, et `STRICT_SECRETS=true` refuse de démarrer avec elles.
-- Variables à définir avant tout partage : `ADMIN_PASSWORD`, `JWT_SECRET`, `PIPELINE_API_TOKEN`, `AIRFLOW_PASSWORD` (backend), `NEO4J_PASSWORD`, `QA_API_TOKEN` et les secrets de `Data_Quality_Wevioo\.env`.
-- Le service de questions n'est appelé que par le backend (jeton `X-QA-Token`) ; le navigateur ne l'atteint jamais. Les requêtes Cypher qu'il génère ne peuvent que lire, et seulement le graphe de la version interrogée.
-- Le port PostgreSQL d'Airflow n'est pas publié sur l'hôte.
-- Ne jamais committer `Data_Quality_Wevioo\.env`.
+- The defaults (`admin123`, `dev-pipeline-token`, the development `JWT_SECRET`, Airflow password `admin`) are for development only: the backend logs a **WARN** at startup if it uses them, and `STRICT_SECRETS=true` refuses to start with them.
+- Variables to set before any sharing: `ADMIN_PASSWORD`, `JWT_SECRET`, `PIPELINE_API_TOKEN`, `AIRFLOW_PASSWORD` (backend), `NEO4J_PASSWORD`, `QA_API_TOKEN` and the secrets of `Data_Quality_Wevioo\.env`.
+- The question service is only called by the backend (`X-QA-Token` token); the browser never reaches it. The Cypher queries it generates can only read, and only the graph of the version being asked about.
+- Airflow's PostgreSQL port is not published on the host.
+- Never commit `Data_Quality_Wevioo\.env`.
 
-## Intégration continue
+## Continuous integration
 
-`.github/workflows/ci.yml` exécute, à chaque push et pull request : les tests du backend (`./mvnw test`), le build et les tests du frontend, les tests Python du pipeline (avec les contraintes d'Airflow 2.10.0 / Python 3.12), les tests du service de questions et la validation du `docker-compose.yml`.
+`.github/workflows/ci.yml` runs, on every push and pull request: the backend tests (`./mvnw test`), the frontend build and tests, the pipeline's Python tests (with Airflow 2.10.0 / Python 3.12 constraints), the question service's tests and the validation of `docker-compose.yml`.
 
 ## Tests
 
@@ -244,17 +244,17 @@ cd .\Data_Quality_Wevioo; .\venv\Scripts\python.exe -m pip install -r requiremen
 cd .\graphrag; .\.venv\Scripts\python.exe -m pytest                            # 39 tests
 ```
 
-Les tests n'ont besoin ni d'Airflow, ni de Neo4j, ni d'Ollama (ils sont simulés). Pour mesurer la qualité des réponses de l'onglet Ask sur de vrais datasets, `graphrag/eval/run_eval.py` rejoue une vingtaine de questions contre les services en marche (voir `graphrag/README.md`).
+The tests need neither Airflow, nor Neo4j, nor Ollama (they are simulated). To measure the quality of the Ask tab's answers on real datasets, `graphrag/eval/run_eval.py` replays about twenty questions against the running services (see `graphrag/README.md`).
 
 ## Git
 
-Le `.gitignore` racine exclut `.env`, `node_modules`, `dist`, `.angular`, `target`, `backend/data`, `Data_Quality_Wevioo/data`, `storage`, `logs`, `airflow.cfg`, `*.pid`, `*.db`, `graphrag/.venv`. Vérifie `git status --short` avant un push.
+The root `.gitignore` excludes `.env`, `node_modules`, `dist`, `.angular`, `target`, `backend/data`, `Data_Quality_Wevioo/data`, `storage`, `logs`, `airflow.cfg`, `*.pid`, `*.db`, `graphrag/.venv`. Check `git status --short` before a push.
 
-READMEs détaillés : `frontend\README.md`, `backend\README.md`, `Data_Quality_Wevioo\README.md` (avec `README_INSTRUCTOR_SETUP.md` et `VERIFY_BEFORE_SHARING.md`), `graphrag\README.md`.
+Detailed READMEs: `frontend\README.md`, `backend\README.md`, `Data_Quality_Wevioo\README.md` (with `README_INSTRUCTOR_SETUP.md` and `VERIFY_BEFORE_SHARING.md`), `graphrag\README.md`.
 
-## Dépannage
+## Troubleshooting
 
-**`JAVA_HOME` non défini** — installe le JDK 17, rouvre PowerShell, puis si besoin :
+**`JAVA_HOME` not set** — install JDK 17, reopen PowerShell, then if needed:
 
 ```powershell
 $jdk = Get-ChildItem 'C:\Program Files\Eclipse Adoptium' -Directory | Where-Object { $_.Name -like 'jdk-17*' } | Select-Object -First 1 -ExpandProperty FullName
@@ -262,9 +262,9 @@ $jdk = Get-ChildItem 'C:\Program Files\Eclipse Adoptium' -Directory | Where-Obje
 [Environment]::SetEnvironmentVariable('Path', "$jdk\bin;" + [Environment]::GetEnvironmentVariable('Path', 'User'), 'User')
 ```
 
-**Le port 8081 reste occupé après l'arrêt de Maven** — arrêter Maven n'arrête pas toujours la JVM du backend : arrêtez le processus Java qui exécute `wevioo.backend.BackendApplication`.
+**Port 8081 stays busy after stopping Maven** — stopping Maven does not always stop the backend's JVM: stop the Java process that runs `wevioo.backend.BackendApplication`.
 
-**Airflow : login invalide** — le mot de passe vient de `AIRFLOW_ADMIN_PASSWORD`. Si le volume Postgres garde un ancien mot de passe :
+**Airflow: invalid login** — the password comes from `AIRFLOW_ADMIN_PASSWORD`. If the Postgres volume keeps an old password:
 
 ```powershell
 cd .\Data_Quality_Wevioo
@@ -272,21 +272,21 @@ $line = Get-Content .\.env | Where-Object { $_ -match '^AIRFLOW_ADMIN_PASSWORD='
 docker compose exec airflow-webserver airflow users reset-password -u admin -p $line.Substring($line.IndexOf('=') + 1)
 ```
 
-**Run en échec dès l'upload (« Could not start the analysis in Airflow »)** — Airflow n'est pas joignable ou refuse les identifiants (403). Relance le backend avec `.\run-backend.ps1` (il lit le mot de passe Airflow dans `.env`), puis si besoin `docker compose exec airflow-webserver airflow sync-perm`. Une fois Airflow disponible, clique **Retry**.
+**Run failing right at upload ("Could not start the analysis in Airflow")** — Airflow is unreachable or refuses the credentials (403). Restart the backend with `.\run-backend.ps1` (it reads the Airflow password in `.env`), then if needed `docker compose exec airflow-webserver airflow sync-perm`. Once Airflow is available, click **Retry**.
 
-**Run qui reste « Queued »** — après 2 minutes l'interface affiche un lien vers Airflow. Vérifie que le DAG n'est pas en pause :
+**Run stuck on "Queued"** — after 2 minutes the interface shows a link to Airflow. Check that the DAG is not paused:
 
 ```powershell
 docker compose exec airflow-webserver airflow dags unpause data_quality_analysis_pipeline
 ```
 
-**Onglet Graph : « Neo4j is not running »** — lance `docker compose -f docker-compose.neo4j.yml up -d` (ou `start-dev.ps1`). Le message indique l'adresse tentée ; derrière Docker c'est `bolt://neo4j:7687`.
+**Graph tab: "Neo4j is not running"** — run `docker compose -f docker-compose.neo4j.yml up -d` (or `start-dev.ps1`). The message gives the address that was tried; behind Docker it is `bolt://neo4j:7687`.
 
-**Onglet Ask : « service injoignable », 503 ou erreur de jeton** — le service de questions doit tourner sur le port 8090 ; il a besoin de `OLLAMA_MODEL` pour répondre ; `QA_API_TOKEN` doit être identique côté backend et côté service. Une question sur les données sans graphe construit répond de le construire dans l'onglet Graph ; les questions sur la qualité et l'usage n'en ont pas besoin.
+**Ask tab: "service unreachable", 503 or token error** — the question service must run on port 8090; it needs `OLLAMA_MODEL` to answer; `QA_API_TOKEN` must be identical on the backend and the service. A question about the data without a built graph answers that the graph must be built in the Graph tab; questions about quality and usage do not need it.
 
-**Neo4j Browser montre des clients ou des nœuds « en double »** — plusieurs versions (ou plusieurs datasets) ont un graphe dans la même base et la requête n'a pas de filtre `_scope`. Reprenez la requête de l'onglet Graph, ou supprimez les graphes dont vous n'avez plus besoin.
+**Neo4j Browser shows "duplicate" customers or nodes** — several versions (or several datasets) have a graph in the same database and the query has no `_scope` filter. Reuse the query from the Graph tab, or delete the graphs you no longer need.
 
-**`npm ci` échoue sous Linux (Docker ou CI) avec « Missing: @emnapi/core »** — le `package-lock.json` a été régénéré sous Windows sans les dépendances optionnelles des autres plateformes. Régénérez-le dans un conteneur Linux :
+**`npm ci` fails on Linux (Docker or CI) with "Missing: @emnapi/core"** — `package-lock.json` was regenerated on Windows without the optional dependencies of other platforms. Regenerate it in a Linux container:
 
 ```powershell
 docker run --rm -v "${PWD}/frontend:/app" -w /app node:22-alpine sh -c "npm install --package-lock-only"

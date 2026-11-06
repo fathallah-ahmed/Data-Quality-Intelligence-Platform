@@ -1,40 +1,40 @@
-# Backend Spring Boot
+# Spring Boot backend
 
-Backend REST de la plateforme Data Quality. Il reçoit les uploads, versionne les datasets, déclenche Airflow, stocke les résultats, évalue les règles qualité, corrige les tables, construit le graphe dans Neo4j, transmet les questions au service de questions, et protège l'accès par un rôle admin.
+REST backend of the Data Quality platform. It receives uploads, versions datasets, triggers Airflow, stores results, evaluates quality rules, corrects tables, builds the graph in Neo4j, forwards questions to the question service, and protects access with an admin role.
 
-Pile : Spring Boot 4.1, Java 17, Spring Data JPA (H2 en fichier par défaut, MySQL possible), Spring Security avec jetons JWT, pilote Neo4j (Bolt). Pas de couche asynchrone externe : les événements temps réel passent par SSE.
+Stack: Spring Boot 4.1, Java 17, Spring Data JPA (H2 file by default, MySQL possible), Spring Security with JWT tokens, Neo4j driver (Bolt). No external messaging layer: real-time events go through SSE.
 
-## Rôle
+## Role
 
-- Upload d'un ou plusieurs fichiers CSV ; détection d'un upload déjà existant (noms de fichiers + SHA-256 du contenu).
-- Création des datasets et des versions ; une version corrigée est une **version dérivée** de celle qu'elle corrige.
-- Déclenchement du DAG Airflow `data_quality_analysis_pipeline` et réception de ses callbacks (démarrage, tables, règles suggérées, analyse globale, fin).
-- Statuts `COMPLETED` / `PARTIAL` / `FAILED`, tables en échec et raisons exposées.
-- Watchdog qui marque `FAILED` les runs bloqués, et reprise au démarrage (`RunRecovery`).
-- Règles qualité par dataset (manuelles ou suggérées), évaluées à la fin de chaque run ; dimensions de qualité avec numérateur et dénominateur ; comparaison de deux versions.
-- Corrections d'une table (trouvées dans les données ou écrites en langage naturel), appliquées sur une copie.
-- Modèle de graphe déduit des données et construction dans Neo4j.
-- Questions en langage naturel, relayées au service `graphrag` avec les faits qualité de la version.
-- Publication temps réel via SSE ; suppression complète d'un dataset (fichiers, résultats, graphes).
+- Upload of one or more CSV files; detection of an upload that already exists (file names + SHA-256 of the content).
+- Creation of datasets and versions; a corrected version is a **derived version** of the one it corrects.
+- Triggering of the Airflow DAG `data_quality_analysis_pipeline` and reception of its callbacks (start, tables, suggested rules, global analysis, end).
+- `COMPLETED` / `PARTIAL` / `FAILED` statuses, failed tables and their reasons exposed.
+- A watchdog that marks stuck runs `FAILED`, and recovery at startup (`RunRecovery`).
+- Per-dataset quality rules (manual or suggested), evaluated at the end of each run; quality dimensions with numerator and denominator; comparison of two versions.
+- Corrections of a table (found in the data or written in plain language), applied to a copy.
+- Graph model deduced from the data and build in Neo4j.
+- Plain-language questions, relayed to the `graphrag` service with the version's quality facts.
+- Real-time publication through SSE; full deletion of a dataset (files, results, graphs).
 
-## Prérequis
+## Prerequisites
 
-- Java 17 (`winget install --id EclipseAdoptium.Temurin.17.JDK -e`, puis `java -version`). Maven est fourni par le wrapper (`mvnw`, `mvnw.cmd`).
-- Airflow sur `http://localhost:8080` pour lancer le pipeline.
-- Optionnel : Neo4j (onglet Graph), le service de questions (onglet Ask), Ollama avec `OLLAMA_MODEL` (corrections en langage naturel, noms du graphe). Chaque fonction dit clairement quand son service manque.
-- Frontend autorisé par CORS sur `http://localhost:4200`.
+- Java 17 (`winget install --id EclipseAdoptium.Temurin.17.JDK -e`, then `java -version`). Maven comes with the wrapper (`mvnw`, `mvnw.cmd`).
+- Airflow on `http://localhost:8080` to run the pipeline.
+- Optional: Neo4j (Graph tab), the question service (Ask tab), Ollama with `OLLAMA_MODEL` (corrections in plain language, graph names). Each feature says clearly when its service is missing.
+- Frontend allowed by CORS on `http://localhost:4200`.
 
-## Lancer en local
+## Run locally
 
-Depuis `backend` :
+From `backend`:
 
 ```powershell
 .\run-backend.ps1
 ```
 
-Le script lit `..\Data_Quality_Wevioo\.env` et injecte `AIRFLOW_USERNAME`, `AIRFLOW_PASSWORD` (= `AIRFLOW_ADMIN_PASSWORD`), `PIPELINE_API_TOKEN` et `OLLAMA_MODEL`, ainsi que `JAVA_HOME` si la session ne l'a pas rechargé, puis lance `mvnw.cmd spring-boot:run`. Si `JAVA_HOME` n'est défini nulle part, indiquez-le avant de lancer le script.
+The script reads `..\Data_Quality_Wevioo\.env` and injects `AIRFLOW_USERNAME`, `AIRFLOW_PASSWORD` (= `AIRFLOW_ADMIN_PASSWORD`), `PIPELINE_API_TOKEN` and `OLLAMA_MODEL`, as well as `JAVA_HOME` if the session has not reloaded it, then runs `mvnw.cmd spring-boot:run`. If `JAVA_HOME` is not defined anywhere, set it before running the script.
 
-Commande manuelle équivalente :
+Equivalent manual command:
 
 ```powershell
 $airflowEnv = Get-Content ..\Data_Quality_Wevioo\.env | Where-Object { $_ -match '^AIRFLOW_ADMIN_PASSWORD=' } | Select-Object -First 1
@@ -45,49 +45,49 @@ $env:PIPELINE_API_TOKEN=$pipelineEnv.Substring($pipelineEnv.IndexOf('=') + 1)
 .\mvnw.cmd spring-boot:run
 ```
 
-Le backend écoute sur `http://localhost:8081`. Test : `Invoke-RestMethod http://localhost:8081/health` renvoie `{"status": "ok"}`. Un arrêt de Maven n'arrête pas toujours la JVM de l'application : si le port 8081 reste occupé, arrêtez le processus Java du backend.
+The backend listens on `http://localhost:8081`. Test: `Invoke-RestMethod http://localhost:8081/health` returns `{"status": "ok"}`. Stopping Maven does not always stop the application's JVM: if port 8081 stays busy, stop the backend's Java process.
 
-Avec Docker, l'image se construit avec `backend/Dockerfile` (build Maven puis JRE 17) et se lance depuis le `docker-compose.yml` racine, qui fournit toute la configuration ci-dessous.
+With Docker, the image is built with `backend/Dockerfile` (Maven build, then a JRE 17) and started from the root `docker-compose.yml`, which provides all the configuration below.
 
 ## Configuration
 
-Les valeurs par défaut sont dans `src/main/resources/application.properties` ; chaque propriété se surcharge par une variable d'environnement.
+Defaults are in `src/main/resources/application.properties`; each property can be overridden by an environment variable.
 
-| Variable | Défaut | Description |
+| Variable | Default | Description |
 | --- | --- | --- |
-| `SERVER_PORT` | `8081` | Port du backend |
-| `DB_URL` | H2 fichier `./data/dq-platform` | Base de métadonnées |
-| `DB_USERNAME` / `DB_PASSWORD` | `sa` / vide | Accès à la base |
-| `DB_DRIVER` | `org.h2.Driver` | Driver JDBC |
-| `JPA_DDL_AUTO` | `update` | Gestion du schéma Hibernate |
-| `MAX_UPLOAD_SIZE` | `500MB` | Taille maximale d'un upload |
-| `APP_STORAGE_ROOT` | `../Data_Quality_Wevioo/data/uploads` | Où le backend écrit les CSV pour Airflow |
-| `AIRFLOW_BASE_URL` | `http://localhost:8080` | API REST d'Airflow |
-| `AIRFLOW_USERNAME` / `AIRFLOW_PASSWORD` | `admin` / `admin` | Compte Airflow ; en local, valeur de `Data_Quality_Wevioo\.env` |
-| `AIRFLOW_DAG_ID` | `data_quality_analysis_pipeline` | DAG à déclencher |
-| `AIRFLOW_DEBUG` | `false` | Logs détaillés du worker |
-| `AIRFLOW_CONNECT_TIMEOUT_MS` / `AIRFLOW_READ_TIMEOUT_MS` | `5000` / `15000` | Délais des appels à Airflow |
-| `PIPELINE_BACKEND_URL` | `http://host.docker.internal:8081` | Adresse du backend vue depuis Airflow |
-| `PIPELINE_API_TOKEN` | `dev-pipeline-token` | Jeton partagé avec Airflow (`X-Pipeline-Token`) |
-| `OLLAMA_URL` | `http://localhost:11434` | Ollama (corrections en langage naturel, noms du graphe) |
-| `OLLAMA_MODEL` | vide | Modèle à utiliser ; sans lui, ces fonctions répondent 503 |
-| `OLLAMA_TIMEOUT_MS` | `120000` | Délai d'une réponse du modèle |
-| `NEO4J_URI` | `bolt://localhost:7687` | Neo4j (onglet Graph) |
-| `NEO4J_USER` / `NEO4J_PASSWORD` | `neo4j` / `dq-neo4j-dev` | Identifiants de développement |
-| `NEO4J_BROWSER_URL` | vide | Adresse de Neo4j Browser pour l'utilisateur ; vide = hôte de `NEO4J_URI`, port 7474. Derrière Docker : `http://localhost:7474` |
-| `QA_URL` | `http://localhost:8090` | Service de questions |
-| `QA_API_TOKEN` | `dev-qa-token` | Jeton partagé avec le service de questions (`X-QA-Token`) |
-| `QA_TIMEOUT_MS` | `180000` | Délai d'une réponse du service de questions |
-| `WATCHDOG_INTERVAL_MS` | `60000` | Fréquence du contrôle des runs bloqués |
-| `WATCHDOG_STALE_AFTER_MINUTES` | `10` | Âge à partir duquel un run est vérifié auprès d'Airflow |
-| `WATCHDOG_MAX_RUN_MINUTES` | `180` | Au-delà, un run toujours en cours passe en `FAILED` |
-| `CORS_ALLOWED_ORIGINS` | `http://localhost:4200,http://127.0.0.1:4200` | Origines autorisées |
-| `ADMIN_USERNAME` / `ADMIN_PASSWORD` | `admin` / `admin123` | Compte administrateur (développement) |
-| `JWT_SECRET` | valeur de développement | Clé de signature des jetons de connexion |
-| `JWT_TTL_MINUTES` | `480` | Durée de validité d'un jeton (8 h) |
-| `STRICT_SECRETS` | `false` | `true` : refuse de démarrer avec les secrets par défaut |
+| `SERVER_PORT` | `8081` | Backend port |
+| `DB_URL` | H2 file `./data/dq-platform` | Metadata database |
+| `DB_USERNAME` / `DB_PASSWORD` | `sa` / empty | Database access |
+| `DB_DRIVER` | `org.h2.Driver` | JDBC driver |
+| `JPA_DDL_AUTO` | `update` | Hibernate schema management |
+| `MAX_UPLOAD_SIZE` | `500MB` | Maximum upload size |
+| `APP_STORAGE_ROOT` | `../Data_Quality_Wevioo/data/uploads` | Where the backend writes the CSVs for Airflow |
+| `AIRFLOW_BASE_URL` | `http://localhost:8080` | Airflow REST API |
+| `AIRFLOW_USERNAME` / `AIRFLOW_PASSWORD` | `admin` / `admin` | Airflow account; locally, the value from `Data_Quality_Wevioo\.env` |
+| `AIRFLOW_DAG_ID` | `data_quality_analysis_pipeline` | DAG to trigger |
+| `AIRFLOW_DEBUG` | `false` | Detailed worker logs |
+| `AIRFLOW_CONNECT_TIMEOUT_MS` / `AIRFLOW_READ_TIMEOUT_MS` | `5000` / `15000` | Timeouts of the calls to Airflow |
+| `PIPELINE_BACKEND_URL` | `http://host.docker.internal:8081` | Backend address as seen from Airflow |
+| `PIPELINE_API_TOKEN` | `dev-pipeline-token` | Token shared with Airflow (`X-Pipeline-Token`) |
+| `OLLAMA_URL` | `http://localhost:11434` | Ollama (corrections in plain language, graph names) |
+| `OLLAMA_MODEL` | empty | Model to use; without it, these features answer 503 |
+| `OLLAMA_TIMEOUT_MS` | `120000` | Time allowed for a model answer |
+| `NEO4J_URI` | `bolt://localhost:7687` | Neo4j (Graph tab) |
+| `NEO4J_USER` / `NEO4J_PASSWORD` | `neo4j` / `dq-neo4j-dev` | Development credentials |
+| `NEO4J_BROWSER_URL` | empty | Address of Neo4j Browser for the user; empty = host of `NEO4J_URI`, port 7474. Behind Docker: `http://localhost:7474` |
+| `QA_URL` | `http://localhost:8090` | Question service |
+| `QA_API_TOKEN` | `dev-qa-token` | Token shared with the question service (`X-QA-Token`) |
+| `QA_TIMEOUT_MS` | `180000` | Time allowed for an answer from the question service |
+| `WATCHDOG_INTERVAL_MS` | `60000` | How often stuck runs are checked |
+| `WATCHDOG_STALE_AFTER_MINUTES` | `10` | Age from which a run is checked with Airflow |
+| `WATCHDOG_MAX_RUN_MINUTES` | `180` | Beyond this, a run still in progress becomes `FAILED` |
+| `CORS_ALLOWED_ORIGINS` | `http://localhost:4200,http://127.0.0.1:4200` | Allowed origins |
+| `ADMIN_USERNAME` / `ADMIN_PASSWORD` | `admin` / `admin123` | Administrator account (development) |
+| `JWT_SECRET` | development value | Signing key of the login tokens |
+| `JWT_TTL_MINUTES` | `480` | Token lifetime (8 h) |
+| `STRICT_SECRETS` | `false` | `true`: refuses to start with the default secrets |
 
-Exemple MySQL :
+MySQL example:
 
 ```powershell
 $env:DB_URL='jdbc:mysql://localhost:3306/dq_platform?createDatabaseIfNotExist=true&useSSL=false&serverTimezone=UTC'
@@ -97,86 +97,86 @@ $env:DB_DRIVER='com.mysql.cj.jdbc.Driver'
 .\mvnw.cmd spring-boot:run
 ```
 
-`SchemaMaintenance` corrige au démarrage les bases créées par d'anciennes versions (colonnes d'énumération devenues `VARCHAR`, contraintes `CHECK` périmées), ce que `ddl-auto=update` ne sait pas faire.
+At startup `SchemaMaintenance` repairs databases created by older versions (enum columns turned into `VARCHAR`, stale `CHECK` constraints), which `ddl-auto=update` cannot do.
 
-## Sécurité
+## Security
 
-Connexion par jeton : `POST /api/auth/login` avec `{"username", "password"}` renvoie un JWT signé (HS256, 8 h). Les appels suivants envoient `Authorization: Bearer <jeton>`. Compte par défaut (développement uniquement) : `admin / admin123`.
+Token login: `POST /api/auth/login` with `{"username", "password"}` returns a signed JWT (HS256, 8 h). Later calls send `Authorization: Bearer <token>`. Default account (development only): `admin / admin123`.
 
-- Tous les endpoints `/api/**` exigent `ROLE_ADMIN`, sauf `POST /api/auth/login` et `/api/pipeline/**`.
-- Les callbacks `/api/pipeline/**` n'ont pas de session : ils exigent l'en-tête `X-Pipeline-Token`, comparé en temps constant.
-- Au démarrage, `SecretsGuard` écrit un **WARN** si un secret de développement est utilisé (`ADMIN_PASSWORD`, `PIPELINE_API_TOKEN`, `JWT_SECRET`, `AIRFLOW_PASSWORD`) ; avec `STRICT_SECRETS=true` il refuse de démarrer.
-- Le service de questions et Neo4j ne sont atteints que par le backend. `QA_API_TOKEN` et `NEO4J_PASSWORD` valent aussi des valeurs de développement : à changer avant tout partage.
+- All `/api/**` endpoints require `ROLE_ADMIN`, except `POST /api/auth/login` and `/api/pipeline/**`.
+- The `/api/pipeline/**` callbacks have no session: they require the `X-Pipeline-Token` header, compared in constant time.
+- At startup, `SecretsGuard` logs a **WARN** if a development secret is used (`ADMIN_PASSWORD`, `PIPELINE_API_TOKEN`, `JWT_SECRET`, `AIRFLOW_PASSWORD`); with `STRICT_SECRETS=true` it refuses to start.
+- The question service and Neo4j are only reached by the backend. `QA_API_TOKEN` and `NEO4J_PASSWORD` also have development defaults: change them before sharing.
 
 ## Endpoints
 
-| Méthode | Endpoint | Description |
+| Method | Endpoint | Description |
 | --- | --- | --- |
-| `GET` | `/health` | Le backend répond (sans authentification) |
-| `POST` | `/api/auth/login` | Renvoie un jeton JWT |
-| `GET` | `/api/auth/me` | Utilisateur courant et rôles |
-| `POST` | `/api/datasets/upload` | Upload CSV et déclenchement d'Airflow |
-| `GET` | `/api/datasets` | Datasets (avec `versionCount`, dernière version, règles échouées) |
-| `GET` | `/api/datasets/{id}/versions` | Versions d'un dataset |
-| `GET` | `/api/datasets/{id}/versions/{versionId}` | Détails d'une version : tables, `failedTables`, `qualityScore`, `ruleSummary`, `dimensions` |
-| `GET` | `/api/datasets/{id}/versions/{versionId}/tables/{tableVersionId}` | Une table avec ses métriques brutes |
-| `POST` | `/api/datasets/{id}/versions/{versionId}/rerun` | Relance une version (409 si elle tourne déjà) |
-| `GET` | `/api/datasets/{id}/versions/{versionId}/diff?against=` | Écarts avec la version précédente (ou `against`) |
-| `GET` `POST` | `/api/datasets/{id}/rules` | Liste / création des règles |
-| `PUT` `DELETE` | `/api/datasets/{id}/rules/{ruleId}` | Modification (pause comprise) / suppression |
-| `POST` | `/api/datasets/{id}/rules/{ruleId}/approve` \| `dismiss` | Approuve / écarte une règle suggérée |
-| `GET` | `/api/datasets/{id}/versions/{versionId}/rule-results` | Résultat des règles pour une version |
-| `POST` | `/api/datasets/{id}/versions/{versionId}/rules/evaluate` | Réévalue les règles |
-| `GET` | `/api/datasets/{id}/versions/{versionId}/corrections/suggestions?table=` | Corrections trouvées dans une table |
-| `POST` | `/api/datasets/{id}/versions/{versionId}/corrections/interpret` \| `preview` \| `apply` | Lit une demande écrite / aperçu chiffré / crée la version corrigée |
-| `GET` | `/api/datasets/{id}/versions/{versionId}/corrections` | Journal d'une version corrigée |
-| `GET` | `/api/datasets/{id}/versions/{versionId}/graph/schema?promote=&refine=` | Modèle de graphe proposé |
-| `POST` | `/api/datasets/{id}/versions/{versionId}/graph/build` | Construit le graphe dans Neo4j (`promote`, `renames`) |
-| `GET` | `/api/datasets/{id}/versions/{versionId}/graph` \| `graph/status` | Dernière construction / état de Neo4j (`otherGraphs`) |
-| `DELETE` | `/api/datasets/{id}/versions/{versionId}/graph` | Retire le graphe de cette version de Neo4j |
-| `POST` | `/api/datasets/{id}/versions/{versionId}/ask` | Pose une question (`{"question": "..."}`, 1000 caractères au plus) |
-| `DELETE` | `/api/datasets/{id}` | Supprime dataset, versions, fichiers et graphes (409 pendant un run) |
-| `GET` | `/api/events/stream` | Flux SSE temps réel |
-| `POST` | `/api/pipeline/{runId}/start` \| `table-analysis` \| `rule-suggestions` \| `global-analysis` \| `complete` | Callbacks d'Airflow (`X-Pipeline-Token`) |
+| `GET` | `/health` | The backend answers (no authentication) |
+| `POST` | `/api/auth/login` | Returns a JWT |
+| `GET` | `/api/auth/me` | Current user and roles |
+| `POST` | `/api/datasets/upload` | CSV upload and Airflow trigger |
+| `GET` | `/api/datasets` | Datasets (with `versionCount`, latest version, failed rules) |
+| `GET` | `/api/datasets/{id}/versions` | Versions of a dataset |
+| `GET` | `/api/datasets/{id}/versions/{versionId}` | Version details: tables, `failedTables`, `qualityScore`, `ruleSummary`, `dimensions` |
+| `GET` | `/api/datasets/{id}/versions/{versionId}/tables/{tableVersionId}` | One table with its raw metrics |
+| `POST` | `/api/datasets/{id}/versions/{versionId}/rerun` | Reruns a version (409 if it is already running) |
+| `GET` | `/api/datasets/{id}/versions/{versionId}/diff?against=` | Differences with the previous version (or `against`) |
+| `GET` `POST` | `/api/datasets/{id}/rules` | List / create rules |
+| `PUT` `DELETE` | `/api/datasets/{id}/rules/{ruleId}` | Edit (pause included) / delete |
+| `POST` | `/api/datasets/{id}/rules/{ruleId}/approve` \| `dismiss` | Approve / dismiss a suggested rule |
+| `GET` | `/api/datasets/{id}/versions/{versionId}/rule-results` | Rule results for a version |
+| `POST` | `/api/datasets/{id}/versions/{versionId}/rules/evaluate` | Re-evaluates the rules |
+| `GET` | `/api/datasets/{id}/versions/{versionId}/corrections/suggestions?table=` | Corrections found in a table |
+| `POST` | `/api/datasets/{id}/versions/{versionId}/corrections/interpret` \| `preview` \| `apply` | Reads a written request / counted preview / creates the corrected version |
+| `GET` | `/api/datasets/{id}/versions/{versionId}/corrections` | Log of a corrected version |
+| `GET` | `/api/datasets/{id}/versions/{versionId}/graph/schema?promote=&refine=` | Proposed graph model |
+| `POST` | `/api/datasets/{id}/versions/{versionId}/graph/build` | Builds the graph in Neo4j (`promote`, `renames`) |
+| `GET` | `/api/datasets/{id}/versions/{versionId}/graph` \| `graph/status` | Last build / state of Neo4j (`otherGraphs`) |
+| `DELETE` | `/api/datasets/{id}/versions/{versionId}/graph` | Removes this version's graph from Neo4j |
+| `POST` | `/api/datasets/{id}/versions/{versionId}/ask` | Asks a question (`{"question": "..."}`, at most 1000 characters) |
+| `DELETE` | `/api/datasets/{id}` | Deletes dataset, versions, files and graphs (409 during a run) |
+| `GET` | `/api/events/stream` | Real-time SSE stream |
+| `POST` | `/api/pipeline/{runId}/start` \| `table-analysis` \| `rule-suggestions` \| `global-analysis` \| `complete` | Airflow callbacks (`X-Pipeline-Token`) |
 
-Codes d'erreur : 400 requête invalide, 401 jeton absent ou invalide, 404 ressource ou route inconnue, 409 conflit, 413 upload trop gros, 503 service externe indisponible (Neo4j, modèle, service de questions ; le message est destiné à l'utilisateur), 500 erreur interne (message générique, détail dans les logs).
+Error codes: 400 invalid request, 401 missing or invalid token, 404 unknown resource or route, 409 conflict, 413 upload too large, 503 external service unavailable (Neo4j, model, question service; the message is meant for the user), 500 internal error (generic message, details in the logs).
 
-Événements SSE : `PIPELINE_STARTED`, `TABLE_READY`, `GLOBAL_READY`, `PIPELINE_COMPLETED`, `PIPELINE_FAILED`, `RULES_FAILED`, `RULES_SUGGESTED` (et `CONNECTED` à l'ouverture).
+SSE events: `PIPELINE_STARTED`, `TABLE_READY`, `GLOBAL_READY`, `PIPELINE_COMPLETED`, `PIPELINE_FAILED`, `RULES_FAILED`, `RULES_SUGGESTED` (and `CONNECTED` when the stream opens).
 
-## Upload multipart
+## Multipart upload
 
-`POST /api/datasets/upload`, paramètres :
+`POST /api/datasets/upload`, parameters:
 
-- `files` : un ou plusieurs CSV (`file` : ancien mode, un seul fichier). Seuls les `.csv` sont acceptés ; `dataset_config.csv` est un nom réservé ; les fichiers vides sont ignorés (`skippedFiles`) ; un même nom deux fois est refusé.
-- `name` : nom du dataset (nom du premier fichier par défaut).
-- `rerunExisting` : `true` pour relancer une version dont les fichiers sont identiques.
-- `domain`, `objective`, `rowGrain` : le domaine, l'objectif de l'analyse et ce que représente une ligne. Enregistrés dans `dataset_context.json` ; ils orientent l'analyse, les rôles de colonnes et les règles suggérées.
-- `contextScope` (`none`, `global`, `per_table`, `both`), `globalDescription`, `globalQuestion`, `tableDescriptionsJson` : description et question libres, écrites dans `dataset_config.csv` (colonnes `dataset_name,description,custom_question`) pour le modèle de chaque table.
+- `files`: one or more CSVs (`file`: old single-file mode). Only `.csv` is accepted; `dataset_config.csv` is a reserved name; empty files are skipped (`skippedFiles`); the same name twice is refused.
+- `name`: dataset name (the first file's name by default).
+- `rerunExisting`: `true` to rerun a version whose files are identical.
+- `domain`, `objective`, `rowGrain`: the domain, the goal of the analysis and what one row represents. Saved in `dataset_context.json`; they guide the analysis, the column roles and the suggested rules.
+- `contextScope` (`none`, `global`, `per_table`, `both`), `globalDescription`, `globalQuestion`, `tableDescriptionsJson`: free description and question, written to `dataset_config.csv` (columns `dataset_name,description,custom_question`) for each table's model.
 
-Le backend valide tous les fichiers et calcule leur SHA-256 avant d'écrire quoi que ce soit, enregistre la version dans une transaction, puis déclenche Airflow une fois la transaction validée, pour que le callback `/start` trouve toujours son run.
+The backend validates all files and computes their SHA-256 before writing anything, records the version in a transaction, then triggers Airflow once the transaction is committed, so the `/start` callback always finds its run.
 
-## Stockage
+## Storage
 
-Les fichiers d'une version sont dans `<APP_STORAGE_ROOT>/datasets/dataset_<id>/v<n>/` : les CSV, `dataset_context.json`, `dataset_config.csv`, et, selon les fonctions utilisées, `corrections_log.json` (version corrigée) et `graph_build.json` (dernière construction du graphe). Ce dossier est partagé avec Airflow (monté sous `/opt/airflow`). Le pipeline écrit ses résultats dans `Data_Quality_Wevioo/storage`. La suppression d'un dataset retire ces dossiers.
+A version's files are in `<APP_STORAGE_ROOT>/datasets/dataset_<id>/v<n>/`: the CSVs, `dataset_context.json`, `dataset_config.csv` and, depending on the features used, `corrections_log.json` (corrected version) and `graph_build.json` (last graph build). This folder is shared with Airflow (mounted under `/opt/airflow`). The pipeline writes its results to `Data_Quality_Wevioo/storage`. Deleting a dataset removes these folders.
 
-## Organisation du code (`src/main/java/wevioo/backend`)
+## Code layout (`src/main/java/wevioo/backend`)
 
-| Paquet | Contenu |
+| Package | Content |
 | --- | --- |
-| `config` | propriétés, sécurité (JWT, CORS), contrôle des secrets, correctifs de schéma |
-| `controller` | une classe par ressource : auth, datasets, règles et comparaison, corrections, graphe, questions, événements, callbacks du pipeline |
-| `service` | upload et versions (`DatasetService`), ingestion des callbacks, règles (`RuleService`), dimensions de qualité, comparaison, client Airflow, watchdog, reprise, SSE, graphe, corrections |
-| `domain`, `repository`, `dto` | entités JPA (dataset, version, run, table, colonne, règle, résultat), accès aux données, objets d'API |
-| `correction` | lecture CSV en flux (encodage et séparateur détectés), 12 opérations autorisées, aperçu chiffré, application sur une copie, normalisation de dates, client Ollama |
-| `graph` | modèle de graphe déduit des données (`GraphModeler`), construction (`GraphBuilder`), noms proposés par le modèle (`GraphNamer`), accès Neo4j (`Neo4jGraphStore`) |
-| `qa` | client du service de questions et rassemblement des faits (`QaService`) |
+| `config` | properties, security (JWT, CORS), secrets check, schema fix-ups |
+| `controller` | one class per resource: auth, datasets, rules and comparison, corrections, graph, questions, events, pipeline callbacks |
+| `service` | upload and versions (`DatasetService`), callback ingestion, rules (`RuleService`), quality dimensions, comparison, Airflow client, watchdog, recovery, SSE, graph, corrections |
+| `domain`, `repository`, `dto` | JPA entities (dataset, version, run, table, column, rule, result), data access, API objects |
+| `correction` | streaming CSV reading (encoding and separator detected), 12 allowed operations, counted preview, application to a copy, date normalisation, Ollama client |
+| `graph` | graph model deduced from the data (`GraphModeler`), build (`GraphBuilder`), model-proposed names (`GraphNamer`), Neo4j access (`Neo4jGraphStore`) |
+| `qa` | client of the question service and gathering of the facts (`QaService`) |
 
-Quelques règles de conception :
+A few design rules:
 
-- **Les corrections ne modifient jamais la version d'origine.** Seules 12 opérations existent (espaces, casse, remplacement de valeurs ou de texte, marqueurs `N/A`, valeurs par défaut, dates, chiffres seuls, remplissage à gauche, suppression de lignes vides ou en double) ; une date ambiguë (`01/02/2024`) n'est jamais devinée ; l'en-tête du fichier est conservé tel quel ; une ligne qui aurait des données au-delà de l'en-tête fait refuser la correction plutôt que de les perdre.
-- **Le graphe vient des données.** Les rôles des colonnes et ce que font les valeurs décident des entités, de leurs clés et de leurs relations ; le modèle de langage ne peut que renommer et décrire. Une clé peut être une colonne, une combinaison de références, ou la position de la ligne dans le fichier ; une table de deux références devient une relation ; une colonne d'identifiants de la même table relie deux lignes de cette table. Les valeurs contradictoires sont conservées (`<propriété>__candidates`, nœud `_conflict`) et jamais tranchées ; les références vers un nœud absent sont signalées ; `NULL`, `N/A`, `NaN`… comptent comme « pas de valeur » comme dans l'analyse. Chaque nœud porte `_scope` (`d<dataset>v<version>`). Une construction est limitée à 500 000 nœuds.
-- **Les questions sont relayées, pas interprétées ici.** `QaService` rassemble règles (avec leur message), dimensions, constats, colonnes, schéma du graphe s'il existe et le guide `src/main/resources/help/app-guide.md`, puis passe la question au service.
-- **Le pipeline peut être relancé sans risque.** Les callbacks peuvent être rejoués (le worker les retente pendant environ deux minutes : une table déjà reçue est mise à jour, pas dupliquée) ; `RunRecovery` rapproche au démarrage les runs en cours d'Airflow (relancés s'il les ignore, échoués s'il les donne en échec) ; le watchdog échoue les runs restés sans nouvelles.
+- **Corrections never modify the original version.** Only 12 operations exist (spaces, case, replacing values or text, `N/A` markers, default values, dates, digits only, left padding, removing empty or duplicate rows); an ambiguous date (`01/02/2024`) is never guessed; the file's header is kept as is; a row with data beyond the header makes the correction refuse rather than lose it.
+- **The graph comes from the data.** Column roles and what the values do decide the entities, their keys and their relationships; the language model can only rename and describe. A key can be a column, a combination of references, or the position of the line in the file; a table of two references becomes a relationship; a column of identifiers of the same table links two rows of that table. Contradicting values are kept (`<property>__candidates`, node `_conflict`) and never settled; references to a missing node are reported; `NULL`, `N/A`, `NaN`… count as "no value", as in the analysis. Every node carries `_scope` (`d<dataset>v<version>`). A build is limited to 500,000 nodes.
+- **Questions are relayed, not interpreted here.** `QaService` gathers rules (with their message), dimensions, findings, columns, the graph schema if there is one and the guide `src/main/resources/help/app-guide.md`, then passes the question to the service.
+- **The pipeline can be rerun safely.** Callbacks can be replayed (the worker retries them for about two minutes: a table already received is updated, not duplicated); `RunRecovery` reconciles runs in progress with Airflow at startup (restarted if it does not know them, failed if it reports them failed); the watchdog fails runs left without news.
 
 ## Tests
 
@@ -184,9 +184,9 @@ Quelques règles de conception :
 .\mvnw.cmd test
 ```
 
-110 tests : API (upload, versions, règles, corrections, graphe, questions), sécurité, moteur de corrections, modèle et construction du graphe, watchdog, correctifs de schéma. Neo4j, Airflow, Ollama et le service de questions sont simulés ; `surefire` pointe `NEO4J_URI` vers un port fermé pour que les tests ne touchent jamais au graphe de vos datasets.
+110 tests: API (upload, versions, rules, corrections, graph, questions), security, correction engine, graph model and build, watchdog, schema fix-ups. Neo4j, Airflow, Ollama and the question service are simulated; `surefire` points `NEO4J_URI` at a closed port so tests never touch the graph of your datasets.
 
-## Vérification avant push
+## Checks before a push
 
 ```powershell
 .\mvnw.cmd test
@@ -194,8 +194,4 @@ Quelques règles de conception :
 git status --short
 ```
 
-Ne pas committer : `target/`, `data/`, secrets ou variables locales.
-
-## Remerciements
-
-je remercie hadhemi sioud omi el ghalia al majhoudetha m3aya malgre que ena rasi msa3sa3
+Do not commit: `target/`, `data/`, secrets or local variables.

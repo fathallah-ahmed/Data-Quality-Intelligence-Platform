@@ -1,89 +1,89 @@
-# Frontend Angular
+# Angular frontend
 
-Interface de la plateforme Data Quality : connexion, upload de bases CSV, suivi du pipeline en temps réel, et consultation des résultats par onglets (qualité, règles, corrections, graphe, questions).
+Interface of the Data Quality platform: sign-in, CSV upload, real-time pipeline tracking, and results in tabs (quality, rules, corrections, graph, questions).
 
-Pile : Angular 21, composants autonomes `OnPush`, application **sans zone.js** (signals), Vitest pour les tests, nginx pour la production.
+Stack: Angular 21, standalone `OnPush` components, application **without zone.js** (signals), Vitest for tests, nginx for production.
 
-## Lancer en local
+## Run locally
 
 ```powershell
 npm install
 npm start
 ```
 
-Application : `http://localhost:4200`. Le backend est attendu sur `http://localhost:8081` ; connexion avec `admin / admin123` (valeurs de développement du backend).
+Application: `http://localhost:4200`. The backend is expected on `http://localhost:8081`; sign in with `admin / admin123` (the backend's development values).
 
-## Commandes
+## Commands
 
 ```powershell
-npm start        # serveur de développement
-npm run build    # build de production (dist/frontend)
-npm test         # tests unitaires (Vitest, sans mode watch)
+npm start        # development server
+npm run build    # production build (dist/frontend)
+npm test         # unit tests (Vitest, no watch mode)
 ```
 
 ## Configuration
 
-Les URLs sont dans `src/environments/` :
+URLs are in `src/environments/`:
 
-| Fichier | Utilisé par | Contenu |
+| File | Used by | Content |
 | --- | --- | --- |
 | `environment.ts` | `npm start` | `apiBase`, `airflowUiUrl`, `maxUploadBytes` |
-| `environment.prod.ts` | `npm run build` et l'image Docker | mêmes clés, **fixées au moment du build** : adaptez-les à l'endroit où les services sont déployés (par défaut `http://localhost:8081/api` et `http://localhost:8080`) |
+| `environment.prod.ts` | `npm run build` and the Docker image | same keys, **fixed at build time**: adapt them to where the services are deployed (by default `http://localhost:8081/api` and `http://localhost:8080`) |
 
-`maxUploadBytes` (500 Mo) doit rester aligné sur `MAX_UPLOAD_SIZE` du backend.
+`maxUploadBytes` (500 MB) must stay in line with the backend's `MAX_UPLOAD_SIZE`.
 
 ## Docker
 
-`Dockerfile` : build de production (`npm ci` puis `ng build`) servi par nginx (`nginx.conf` : fichiers hachés mis en cache un an, tout le reste renvoyé à `index.html` pour que les liens profonds appartiennent au routeur Angular). Le `package-lock.json` doit rester complet pour `npm ci` sous Linux : après une mise à jour des dépendances, régénérez-le dans un conteneur Linux plutôt que sous Windows seul.
+`Dockerfile`: production build (`npm ci` then `ng build`) served by nginx (`nginx.conf`: hashed files cached for a year, everything else sent back to `index.html` so deep links belong to the Angular router). `package-lock.json` must stay complete for `npm ci` on Linux: after updating dependencies, regenerate it in a Linux container rather than on Windows alone.
 
 ## Navigation
 
-| URL | Écran |
+| URL | Screen |
 | --- | --- |
-| `/login` | Connexion (jeton JWT gardé dans `sessionStorage`) |
-| `/datasets` | Ouvre le dataset le plus récent, ou l'accueil avec « New analysis » quand il n'y en a pas |
-| `/datasets/:id/versions/:versionId/overview` | Statut du run (étapes, durée, erreurs, Retry), score et note, dimensions, changements, insights globaux |
-| `.../tables?table=orders` | Liste des tables + détail (colonnes et leur rôle, valeurs fréquentes, valeurs manquantes, associations, insights) |
-| `.../model` | Modèle de données (zoom, déplacement, export SVG, relations avec couverture et cardinalité) |
-| `.../insights?table=orders` | Analyse sémantique par groupes repliables + recommandations globales |
-| `.../compare?against=<versionId>` | Écarts avec une version plus ancienne (score, lignes, colonnes, valeurs manquantes) |
-| `.../rules` | Règles qualité du dataset, résultat pour la version, règles suggérées à approuver |
-| `.../corrections` | Corrections d'une table : trouvées ou écrites en langage naturel, aperçu chiffré, application sur une copie |
-| `.../graph` | Modèle de graphe proposé, noms par l'IA, construction et suppression dans Neo4j |
-| `.../ask` | Questions en langage naturel sur les données, la qualité et l'usage de l'application |
-| `.../report` | Rapport imprimable de la version (PDF via l'impression, ou Markdown) |
+| `/login` | Sign-in (JWT kept in `sessionStorage`) |
+| `/datasets` | Opens the most recent dataset, or the welcome screen with "New analysis" when there is none |
+| `/datasets/:id/versions/:versionId/overview` | Run status (steps, duration, errors, Retry), score and grade, dimensions, changes, global insights |
+| `.../tables?table=orders` | List of tables + detail (columns and their role, frequent values, missing values, associations, insights) |
+| `.../model` | Data model (zoom, pan, SVG export, relationships with coverage and cardinality) |
+| `.../insights?table=orders` | Semantic analysis in collapsible groups + global recommendations |
+| `.../compare?against=<versionId>` | Differences with an older version (score, rows, columns, missing values) |
+| `.../rules` | The dataset's quality rules, result for the version, suggested rules to approve |
+| `.../corrections` | Corrections of a table: found or written in plain language, counted preview, application to a copy |
+| `.../graph` | Proposed graph model, AI names, build and delete in Neo4j |
+| `.../ask` | Plain-language questions about the data, quality and how to use the application |
+| `.../report` | Printable report of the version (PDF through print, or Markdown) |
 
-L'URL contient toute la sélection : un lien partagé ou un rafraîchissement rouvre le même dataset, la même version, le même onglet et la même table.
+The URL holds the whole selection: a shared link or a refresh reopens the same dataset, version, tab and table.
 
-Raccourcis : `Ctrl/⌘ K` ou `/` ouvre la palette de commandes (datasets, tables, onglets, actions), `N` ouvre « New analysis », `1` à `9` changent d'onglet de la version. Les raccourcis sont ignorés pendant la saisie ou quand un dialogue est ouvert.
+Shortcuts: `Ctrl/⌘ K` or `/` opens the command palette (datasets, tables, tabs, actions), `N` opens "New analysis", `1` to `9` switch the version's tab. Shortcuts are ignored while typing or when a dialog is open.
 
-## Écrans notables
+## Notable screens
 
-- **New analysis** : dépôt de plusieurs CSV (un fichier de même nom remplace le précédent, les fichiers invalides sont signalés), nom du dataset, **domaine, objectif et ce que représente une ligne**, et un contexte libre (global ou par table). Un upload identique à une version existante propose de l'ouvrir ou de la relancer.
-- **Overview** : progression `Upload → Airflow → Tables x/y → Global → Done`, avec les tables en échec et leur raison, et Retry.
-- **Rules** : approbation des règles proposées à partir de l'objectif, création de règles (format, ordre de deux dates, seuils…), « Check now ».
-- **Corrections** : une liste de corrections se construit depuis ce que l'application trouve ou depuis une phrase ; un aperçu chiffré se met à jour à chaque changement ; l'application crée une **nouvelle version**.
-- **Graph** : les constats (conflits, tables isolées, liens incertains) sont listés avant la construction ; après la construction, une requête prête à coller dans Neo4j Browser, le nombre d'autres graphes présents, et « Delete this graph » (deux clics).
-- **Ask** : des exemples de questions à cliquer ; chaque réponse dit d'où elle vient (graphe, résultats qualité, guide) et, pour le graphe, montre la requête et les lignes.
-- Alerte en direct (toast) quand des règles échouent à la fin d'un run, où que soit l'utilisateur.
+- **New analysis**: drop several CSVs (a file with the same name replaces the previous one, invalid files are reported), dataset name, **domain, goal and what one row represents**, and a free context (global or per table). An upload identical to an existing version offers to open it or rerun it.
+- **Overview**: progress `Upload → Airflow → Tables x/y → Global → Done`, with failed tables and their reason, and Retry.
+- **Rules**: approval of the rules proposed from the goal, creation of rules (format, order of two dates, thresholds…), "Check now".
+- **Corrections**: a list of corrections is built from what the application finds or from a sentence; a counted preview updates on every change; applying creates a **new version**.
+- **Graph**: findings (conflicts, isolated tables, uncertain links) are listed before the build; after the build, a query ready to paste in Neo4j Browser, the number of other graphs present, and "Delete this graph" (two clicks).
+- **Ask**: example questions to click; every answer says where it comes from (graph, quality results, guide) and, for the graph, shows the query and the rows.
+- Live alert (toast) when rules fail at the end of a run, wherever the user is.
 
 ## Structure
 
-| Dossier | Rôle |
+| Folder | Role |
 | --- | --- |
-| `src/app/core` | `ApiService` (tous les appels HTTP), `AuthService` + guard + intercepteur (jeton, 401), `LiveEventsService` (SSE par `fetch`, puis polling toutes les 5 s), `WorkspaceStore` (état partagé en signals), thème, mise en page, toasts, modèles de données (`models.ts`) |
-| `src/app/features` | un dossier par écran : `login`, `shell` (barre du haut, panneau latéral, palette de commandes), `datasets`, `version` (hôte des onglets), `overview`, `tables`, `data-model`, `insights`, `compare`, `rules`, `corrections`, `graph`, `ask`, `report`, `upload` |
-| `src/app/shared` | formatage (`format.ts`), lecture des réponses du modèle (`insight.ts`), pipes, icônes, raccourcis clavier, composants communs (badges, état vide, modal, confirmation, onglets, anneau de score, skeleton, info-bulle) |
-| `src/styles.css` | design system : variables (couleurs, espacements, rayons, ombres), thème sombre, boutons, badges, cartes, tableaux, formulaires |
+| `src/app/core` | `ApiService` (all HTTP calls), `AuthService` + guard + interceptor (token, 401), `LiveEventsService` (SSE through `fetch`, then polling every 5 s), `WorkspaceStore` (shared state in signals), theme, layout, toasts, data models (`models.ts`) |
+| `src/app/features` | one folder per screen: `login`, `shell` (top bar, side panel, command palette), `datasets`, `version` (host of the tabs), `overview`, `tables`, `data-model`, `insights`, `compare`, `rules`, `corrections`, `graph`, `ask`, `report`, `upload` |
+| `src/app/shared` | formatting (`format.ts`), reading of model answers (`insight.ts`), pipes, icons, keyboard shortcuts, common components (badges, empty state, modal, confirmation, tabs, score ring, skeleton, tooltip) |
+| `src/styles.css` | design system: variables (colours, spacing, radii, shadows), dark theme, buttons, badges, cards, tables, forms |
 
-Les valeurs dérivées sont des `computed()`, pas des appels de méthodes dans les templates. Les rafraîchissements silencieux (événements live, polling) gardent les données à l'écran jusqu'à l'arrivée des nouvelles, pour que la page ne saute pas.
+Derived values are `computed()`, not method calls in templates. Silent refreshes (live events, polling) keep the data on screen until the new data arrives, so the page does not jump.
 
 ## Tests
 
-`npm test` lance 48 tests : connexion et appels d'API, lecture des événements SSE, formatage, notes et dimensions de qualité, rapport, règles, modèle de données, profil d'une table, sélection de fichiers à l'upload, ordre des constats du graphe et petits utilitaires de l'onglet Ask.
+`npm test` runs 48 tests: sign-in and API calls, reading of SSE events, formatting, quality grades and dimensions, report, rules, data model, table profile, file selection at upload, order of the graph's findings and small helpers of the Ask tab.
 
-## Accessibilité et responsive
+## Accessibility and responsive design
 
-- Focus visible, libellés sur tous les champs, toasts dans une région `aria-live`, navigation clavier dans les onglets (flèches) et la liste des tables.
-- Thème clair/sombre selon le système, bouton de bascule mémorisé.
-- De 360 px à 1 920 px ; sous 1 024 px la liste des datasets devient un tiroir ; les tableaux larges défilent dans leur carte.
+- Visible focus, labels on every field, toasts in an `aria-live` region, keyboard navigation in the tabs (arrows) and the table list.
+- Light/dark theme following the system, remembered toggle.
+- From 360 px to 1,920 px; below 1,024 px the dataset list becomes a drawer; wide tables scroll inside their card.
