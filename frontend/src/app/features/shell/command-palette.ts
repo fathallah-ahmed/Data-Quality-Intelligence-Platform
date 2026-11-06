@@ -69,7 +69,10 @@ export class CommandPalette {
         ['model', 'Data model', 'network', '3'],
         ['insights', 'Insights', 'lightbulb', '4'],
         ['compare', 'Compare versions', 'swap', '5'],
-        ['rules', 'Quality rules', 'shield', '6']
+        ['rules', 'Quality rules', 'shield', '6'],
+        ['corrections', 'Corrections', 'sparkles', '7'],
+        ['graph', 'Graph', 'network', '8'],
+        ['ask', 'Ask a question', 'search', '9']
       ];
       for (const [id, label, icon, shortcut] of tabs) {
         commands.push({ id: `tab-${id}`, group: 'Go to', label, icon, shortcut, run: () => this.router.navigate([...base, id]) });

@@ -129,7 +129,7 @@ export class VersionPage {
 
   readonly tableCount = computed(() => this.details()?.tables.filter((table) => table.changeStatus !== 'REMOVED').length ?? 0);
 
-  /** Keys 1–4 switch tabs (ignored while typing or when a dialog is open). */
+  /** Keys 1–9 switch tabs (ignored while typing or when a dialog is open). */
   @HostListener('document:keydown', ['$event'])
   onKeydown(event: KeyboardEvent): void {
     if (ignoreShortcut(event)) {
