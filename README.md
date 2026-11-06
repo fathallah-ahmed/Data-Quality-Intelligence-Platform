@@ -196,6 +196,12 @@ Codes d'erreur : 400 requête invalide, 401 jeton absent/invalide (y compris jet
 
 Le service `graphrag/` (Python, FastAPI, `neo4j-graphrag` + Ollama, port 8090) commence par **trier la question** : sur le contenu des données (*graph*), sur la qualité (*quality* : règles et pourquoi elles échouent, scores, constats) ou sur l'usage de l'application (*help*). Seule la première utilise Neo4j ; les deux autres répondent avant même que le graphe soit construit, et si une question sur les données arrive sans graphe, la réponse dit de le construire dans l'onglet Graph. Pour une question *graph*, le modèle local écrit une requête Cypher à partir du schéma, qui passe par des garde-fous (limitée au `_scope` de la version, lecture seule, `EXPLAIN` avant exécution, délai maximal, deux essais). Dans tous les cas, la réponse est rédigée **uniquement** à partir des lignes obtenues, des faits que le backend joint à la question (règles et leur message, dimensions, constats de la construction du graphe, rôles des colonnes) et du guide d'utilisation (`backend/src/main/resources/help/app-guide.md`, à tenir à jour quand l'interface change). La requête et les lignes sont renvoyées avec la réponse pour qu'on puisse la vérifier. Le backend appelle le service avec `X-QA-Token` (`QA_API_TOKEN`, valeur de développement `dev-qa-token`) ; sans service, l'onglet affiche « service injoignable ».
 
+Pour mesurer la qualité des réponses (et comparer deux modèles Ollama), `graphrag/eval/run_eval.py` rejoue une vingtaine de questions fixes (données, qualité, usage, demandes d'écriture refusées) sur les datasets de test, avec les mots que chaque réponse doit contenir. Les cas de `graphrag/eval/cases.json` sont des exemples à adapter à vos datasets ; le script a besoin du backend, du service et d'Ollama en marche et rend le code 1 si un cas échoue.
+
+```powershell
+cd .\graphrag; .\.venv\Scripts\python.exe evalun_eval.py --model gemma4:cloud
+```
+
 ```powershell
 cd .\graphrag; python -m venv .venv; .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 .\.venv\Scripts\python.exe -m uvicorn app.main:app --port 8090      # start-dev.ps1 le fait pour vous

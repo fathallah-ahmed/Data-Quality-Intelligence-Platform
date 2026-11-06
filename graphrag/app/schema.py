@@ -3,7 +3,7 @@ import json
 from typing import Any, Dict, List
 
 MAX_FACTS_CHARS = 7000
-MAX_GUIDE_CHARS = 6000
+MAX_GUIDE_CHARS = 12000
 
 
 def graph_schema(facts: Dict[str, Any]) -> Dict[str, Any]:

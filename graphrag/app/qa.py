@@ -37,7 +37,8 @@ ROUTE_PROMPT = """ROUTING. Sort the question into exactly one of these words and
 
 graph   - about the content of the data: counts, which records or people, relationships between entities, rankings, a specific value
 quality - about data quality: rules and why one fails, scores, completeness, uniqueness, validity, missing values, findings, columns to fix, what to do about a problem
-help    - about the application itself: how to do something, what a tab, button or term means, where to find something
+help    - about the application itself: how to do something (run, correct, apply, build, export...), what a tab, button, score, grade, severity or term means, how a figure is computed, where to find something
+          (a question about what a score or a term MEANS or how it is computed is help; a question about the value of a score in this dataset is quality)
 
 Question: {question}
 
