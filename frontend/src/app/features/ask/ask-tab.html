@@ -18,7 +18,7 @@
         class="input"
         rows="3"
         maxlength="1000"
-        placeholder="e.g. Why does the email rule fail? Which five users have the most posts? How do I apply a correction?"
+        placeholder="e.g. Why does a rule fail? Which records have the most related rows? How do I apply a correction?"
         [value]="question()"
         (input)="question.set($any($event.target).value)"
         (keydown.control.enter)="ask()"
