@@ -45,6 +45,8 @@ export class GraphTab {
   readonly nameError = signal<string | null>(null);
   readonly building = signal(false);
   readonly built = signal<GraphBuild | null>(null);
+  readonly confirmingDelete = signal(false);
+  readonly deleting = signal(false);
 
   readonly versionId = computed(() => this.details().version.id);
   readonly ready = computed(() => !isActiveStatus(this.details().version.status) && this.details().tables.length > 0);
@@ -69,6 +71,7 @@ export class GraphTab {
     this.built.set(null);
     this.schema.set(null);
     this.error.set(null);
+    this.confirmingDelete.set(false);
     this.api.graphStatus(this.datasetId(), this.versionId()).subscribe({
       next: (status) => this.status.set(status),
       error: () => this.status.set(null)
@@ -149,6 +152,29 @@ export class GraphTab {
         this.building.set(false);
         this.toasts.error(apiErrorMessage(error, 'The graph could not be built.'));
         this.api.graphStatus(this.datasetId(), this.versionId()).subscribe((status) => this.status.set(status));
+      }
+    });
+  }
+
+  /** Two steps, so a graph is never removed by a stray click. */
+  deleteGraph(): void {
+    if (!this.confirmingDelete()) {
+      this.confirmingDelete.set(true);
+      return;
+    }
+    this.deleting.set(true);
+    this.api.deleteGraph(this.datasetId(), this.versionId()).subscribe({
+      next: () => {
+        this.deleting.set(false);
+        this.confirmingDelete.set(false);
+        this.built.set(null);
+        this.toasts.success('The graph of this version was removed from Neo4j.');
+        this.api.graphStatus(this.datasetId(), this.versionId()).subscribe((status) => this.status.set(status));
+      },
+      error: (error) => {
+        this.deleting.set(false);
+        this.confirmingDelete.set(false);
+        this.toasts.error(apiErrorMessage(error, 'The graph could not be removed.'));
       }
     });
   }

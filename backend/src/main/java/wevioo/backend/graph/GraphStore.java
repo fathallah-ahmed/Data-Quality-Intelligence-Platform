@@ -18,6 +18,11 @@ public interface GraphStore {
     /** Throws {@link GraphUnavailableException} when the database cannot be used. */
     void ping();
 
+    /** Every scope that has something in the graph (one per dataset version built), so a build can say what else is there. */
+    default List<String> scopes() {
+        return List.of();
+    }
+
     /** Removes everything built for one scope. */
     void clear(String scope);
 

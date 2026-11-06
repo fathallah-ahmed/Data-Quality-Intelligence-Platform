@@ -220,6 +220,44 @@ class GraphApiTest {
         verify(graphStore).clearPrefix("d" + upload.get("datasetId").asLong() + "v");
     }
 
+    @Test
+    void deletingTheGraphRemovesItFromNeo4jAndForgetsTheBuild() throws Exception {
+        JsonNode upload = analysedAccounts();
+        String scope = "d" + upload.get("datasetId").asLong() + "v" + upload.get("versionId").asLong();
+        postJson(url(upload) + "/build", "{}", 200);
+        Path result = Path.of(upload.get("filePath").asString()).resolve("graph_build.json");
+        assertThat(Files.exists(result)).isTrue();
+
+        JsonNode deleted = json(mvc.perform(delete(url(upload)).header("Authorization", "Bearer " + token)).andExpect(status().isOk()).andReturn());
+
+        assertThat(deleted.get("deleted").asBoolean()).isTrue();
+        verify(graphStore, atLeastOnce()).clear(scope);
+        assertThat(Files.exists(result)).isFalse();
+        assertThat(getJson(url(upload), 200).isEmpty()).isTrue();
+    }
+
+    @Test
+    void deletingTheGraphWhenNeo4jIsDownIsRefusedAndKeepsTheBuild() throws Exception {
+        JsonNode upload = analysedAccounts();
+        postJson(url(upload) + "/build", "{}", 200);
+        doThrow(new GraphStore.GraphUnavailableException("Neo4j cannot be reached")).when(graphStore).ping();
+
+        mvc.perform(delete(url(upload)).header("Authorization", "Bearer " + token)).andExpect(status().isServiceUnavailable());
+
+        assertThat(Files.exists(Path.of(upload.get("filePath").asString()).resolve("graph_build.json"))).isTrue();
+    }
+
+    @Test
+    void theStatusSaysHowManyOtherGraphsNeo4jHolds() throws Exception {
+        JsonNode upload = analysedAccounts();
+        String own = "d" + upload.get("datasetId").asLong() + "v" + upload.get("versionId").asLong();
+        when(graphStore.scopes()).thenReturn(java.util.List.of("d1v1", own, "d2v5"));
+
+        JsonNode status = getJson(url(upload) + "/status", 200);
+
+        assertThat(status.get("otherGraphs").asInt()).isEqualTo(2);
+    }
+
     // ------------------------------------------------------------------ helpers
 
     private JsonNode json(MvcResult result) throws Exception {

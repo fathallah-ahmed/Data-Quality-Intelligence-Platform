@@ -75,6 +75,12 @@ public class Neo4jGraphStore implements GraphStore {
     }
 
     @Override
+    public List<String> scopes() {
+        return inSession(session -> session.executeRead(tx -> tx.run(
+            "MATCH (n) WHERE n._scope IS NOT NULL RETURN DISTINCT n._scope AS scope ORDER BY scope").list(r -> r.get("scope").asString())));
+    }
+
+    @Override
     public void clear(String scope) {
         deleteWhere("n._scope = $value", scope);
     }

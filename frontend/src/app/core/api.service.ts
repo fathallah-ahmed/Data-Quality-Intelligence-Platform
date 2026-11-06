@@ -143,6 +143,11 @@ export class ApiService {
     return this.http.post<GraphBuild>(`${this.base}/datasets/${datasetId}/versions/${versionId}/graph/build`, { promote, renames });
   }
 
+  /** Removes the graph of a version from Neo4j. */
+  deleteGraph(datasetId: number, versionId: number): Observable<{ deleted: boolean }> {
+    return this.http.delete<{ deleted: boolean }>(`${this.base}/datasets/${datasetId}/versions/${versionId}/graph`);
+  }
+
   /** The last build of a version; an empty object when there is none. */
   lastGraph(datasetId: number, versionId: number): Observable<Partial<GraphBuild>> {
     return this.http.get<Partial<GraphBuild>>(`${this.base}/datasets/${datasetId}/versions/${versionId}/graph`);

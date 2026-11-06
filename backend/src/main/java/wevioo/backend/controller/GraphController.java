@@ -51,6 +51,13 @@ public class GraphController {
         return graph.build(datasetId, versionId, request);
     }
 
+    /** Removes the graph of this version from Neo4j (other versions are not touched). */
+    @DeleteMapping
+    public Map<String, Object> delete(@PathVariable Long datasetId, @PathVariable Long versionId) {
+        graph.delete(datasetId, versionId);
+        return Map.of("deleted", true);
+    }
+
     /** The last build of this version (empty when there is none). */
     @GetMapping
     public Map<String, Object> last(@PathVariable Long datasetId, @PathVariable Long versionId) {

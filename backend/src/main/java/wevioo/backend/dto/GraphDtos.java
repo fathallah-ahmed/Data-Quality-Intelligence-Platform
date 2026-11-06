@@ -17,5 +17,5 @@ public class GraphDtos {
     public record GraphBuild(Schema schema, BuildResult result) {}
 
     /** Whether Neo4j can be used, and where to look at the graph. */
-    public record GraphStatus(boolean available, String message, String browserUrl, String scope) {}
+    public record GraphStatus(boolean available, String message, String browserUrl, String scope, int otherGraphs) {}
 }

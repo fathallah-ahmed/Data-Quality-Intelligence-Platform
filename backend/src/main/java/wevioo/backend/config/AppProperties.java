@@ -29,6 +29,8 @@ public class AppProperties {
     private String neo4jUri = "bolt://localhost:7687";
     private String neo4jUser = "neo4j";
     private String neo4jPassword = "dq-neo4j-dev";
+    /** Where the user opens Neo4j Browser; empty means "the host of the Bolt address, port 7474". */
+    private String neo4jBrowserUrl = "";
     private String qaUrl = "http://localhost:8090";
     private String qaToken = "dev-qa-token";
     private int qaTimeoutMs = 180000;
@@ -81,6 +83,8 @@ public class AppProperties {
     public void setNeo4jUri(String neo4jUri) { this.neo4jUri = neo4jUri; }
     public String getNeo4jUser() { return neo4jUser; }
     public void setNeo4jUser(String neo4jUser) { this.neo4jUser = neo4jUser; }
+    public String getNeo4jBrowserUrl() { return neo4jBrowserUrl; }
+    public void setNeo4jBrowserUrl(String neo4jBrowserUrl) { this.neo4jBrowserUrl = neo4jBrowserUrl; }
     public String getNeo4jPassword() { return neo4jPassword; }
     public void setNeo4jPassword(String neo4jPassword) { this.neo4jPassword = neo4jPassword; }
     public String getQaUrl() { return qaUrl; }

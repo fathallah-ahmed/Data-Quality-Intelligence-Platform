@@ -200,8 +200,21 @@
           <div class="browse">
             <p class="muted">See it in Neo4j Browser (sign in with the Neo4j user), then run:</p>
             <pre class="command">{{ query() }}</pre>
+            @if ((status()?.otherGraphs ?? 0) > 0) {
+              <div class="callout" data-tone="info">
+                <app-icon name="info" />
+                <span>Neo4j also holds {{ status()?.otherGraphs }} other graph(s), one per dataset version. Every node carries its <code>_scope</code>: keep the filter of the query above, or a query without it will show the graphs mixed together.</span>
+              </div>
+            }
             @if (status(); as neo) {
               <a class="btn btn--secondary btn--sm" [href]="neo.browserUrl" target="_blank" rel="noopener"><app-icon name="arrowRight" [size]="15" /> Open Neo4j Browser</a>
+            }
+            <button type="button" class="btn btn--ghost btn--sm" [disabled]="deleting()" (click)="deleteGraph()">
+              <app-icon name="trash" [size]="15" />
+              {{ deleting() ? 'Removing…' : confirmingDelete() ? 'Click again to remove this graph from Neo4j' : 'Delete this graph' }}
+            </button>
+            @if (confirmingDelete() && !deleting()) {
+              <button type="button" class="btn btn--ghost btn--sm" (click)="confirmingDelete.set(false)">Cancel</button>
             }
           </div>
         </div>

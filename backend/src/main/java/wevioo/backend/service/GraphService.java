@@ -80,12 +80,27 @@ public class GraphService {
     }
 
     public GraphStatus status(Long datasetId, Long versionId) {
-        String browser = properties.getNeo4jUri().replaceFirst("^(bolt|neo4j)(\\+s?c?)?://", "http://").replaceFirst(":\\d+$", ":7474");
+        String configured = properties.getNeo4jBrowserUrl();
+        String browser = configured != null && !configured.isBlank() ? configured.strip()
+            : properties.getNeo4jUri().replaceFirst("^(bolt|neo4j)(\\+s?c?)?://", "http://").replaceFirst(":\\d+$", ":7474");
         try {
             store.ping();
-            return new GraphStatus(true, "Neo4j is ready.", browser, scope(datasetId, versionId));
+            String own = scope(datasetId, versionId);
+            int others = (int) store.scopes().stream().filter(scope -> !scope.equals(own)).count();
+            return new GraphStatus(true, "Neo4j is ready.", browser, own, others);
         } catch (GraphStore.GraphUnavailableException e) {
-            return new GraphStatus(false, e.getMessage(), browser, scope(datasetId, versionId));
+            return new GraphStatus(false, e.getMessage(), browser, scope(datasetId, versionId), 0);
+        }
+    }
+
+    /** Removes the graph of this version from Neo4j and forgets its last build. The files of the version are not touched. */
+    public void delete(Long datasetId, Long versionId) {
+        store.ping();
+        store.clear(scope(datasetId, versionId));
+        try {
+            Files.deleteIfExists(datasetService.versionFolder(datasetId, versionId).resolve(RESULT_FILE));
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
         }
     }
 

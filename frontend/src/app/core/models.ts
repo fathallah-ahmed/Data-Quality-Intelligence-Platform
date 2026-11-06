@@ -240,6 +240,8 @@ export interface GraphBuild {
 
 export interface GraphStatus {
   available: boolean;
+  /** How many other graphs (other dataset versions) Neo4j holds besides this version's. */
+  otherGraphs: number;
   message: string;
   browserUrl: string;
   scope: string;

@@ -131,7 +131,7 @@ Une table peut être corrigée à partir de ce que l'application trouve (espaces
 
 ### Graphe (Neo4j)
 
-Le modèle est déduit des rôles et des données : une ligne de comptes est un *Account*, et le *Customer* qu'elle référence devient un nœud à part dont les colonnes constantes pour un client sont les propriétés. Les relations viennent des liens trouvés par l'analyse. Quand les lignes d'une même clé se contredisent (deux emails pour un client), le graphe garde **toutes** les valeurs (`email__candidates`), marque le nœud `_conflict` et ne choisit rien ; les références vers un nœud inexistant sont signalées. Neo4j se lance avec `docker compose -f docker-compose.neo4j.yml up -d` (fait par `start-dev.ps1`), Browser sur http://localhost:7474 (utilisateur `neo4j`, mot de passe de développement `dq-neo4j-dev`, à changer via `NEO4J_PASSWORD`). Chaque nœud porte `_scope` (`d<dataset>v<version>`) : les versions ne se mélangent pas.
+Le modèle est déduit des rôles et des données : une ligne de comptes est un *Account*, et le *Customer* qu'elle référence devient un nœud à part dont les colonnes constantes pour un client sont les propriétés. Les relations viennent des liens trouvés par l'analyse. Quand les lignes d'une même clé se contredisent (deux emails pour un client), le graphe garde **toutes** les valeurs (`email__candidates`), marque le nœud `_conflict` et ne choisit rien ; les références vers un nœud inexistant sont signalées. Neo4j se lance avec `docker compose -f docker-compose.neo4j.yml up -d` (fait par `start-dev.ps1`), Browser sur http://localhost:7474 (utilisateur `neo4j`, mot de passe de développement `dq-neo4j-dev`, à changer via `NEO4J_PASSWORD`). Chaque nœud porte `_scope` (`d<dataset>v<version>`) : les versions ne se mélangent pas. Le bouton **Delete this graph** de l'onglet retire le graphe d'une version, et l'onglet signale quand Neo4j en contient d'autres : dans Neo4j Browser, gardez le filtre `_scope` de la requête proposée, sans quoi les graphes s'affichent mélangés. Derrière Docker, `NEO4J_BROWSER_URL` (déjà fixé à `http://localhost:7474` dans `docker-compose.yml`) donne l'adresse que le navigateur de l'utilisateur doit ouvrir.
 
 ### Reprise après un redémarrage
 
@@ -179,6 +179,7 @@ Tous les endpoints `/api/**` (sauf login et callbacks pipeline) exigent `Authori
 | `GET` | `/api/datasets/{id}/versions/{versionId}/graph/schema?promote=&refine=` | Modèle de graphe proposé (`refine` : noms proposés par le modèle) |
 | `POST` | `/api/datasets/{id}/versions/{versionId}/graph/build` | Construit le graphe dans Neo4j (`promote`, `renames`) |
 | `GET` | `/api/datasets/{id}/versions/{versionId}/graph` \| `graph/status` | Dernière construction / état de Neo4j |
+| `DELETE` | `/api/datasets/{id}/versions/{versionId}/graph` | Retire le graphe de cette version de Neo4j (les autres versions ne sont pas touchées) |
 | `POST` | `/api/datasets/{id}/versions/{versionId}/ask` | Pose une question (`{"question": "..."}`) ; le graphe n'est nécessaire que pour les questions sur le contenu des données |
 | `DELETE` | `/api/datasets/{id}` | Supprime le dataset, ses fichiers et ses graphes (409 pendant un run) |
 | `GET` | `/api/events/stream` | Flux SSE |
