@@ -199,7 +199,7 @@ Le service `graphrag/` (Python, FastAPI, `neo4j-graphrag` + Ollama, port 8090) c
 Pour mesurer la qualité des réponses (et comparer deux modèles Ollama), `graphrag/eval/run_eval.py` rejoue une vingtaine de questions fixes (données, qualité, usage, demandes d'écriture refusées) sur les datasets de test, avec les mots que chaque réponse doit contenir. Les cas de `graphrag/eval/cases.json` sont des exemples à adapter à vos datasets ; le script a besoin du backend, du service et d'Ollama en marche et rend le code 1 si un cas échoue.
 
 ```powershell
-cd .\graphrag; .\.venv\Scripts\python.exe evalun_eval.py --model gemma4:cloud
+cd .\graphrag; .\.venv\Scripts\python.exe eval\run_eval.py --model gemma4:cloud
 ```
 
 ```powershell
