@@ -80,12 +80,14 @@ public class GraphModeler {
             keys.put(table.name(), pickKey(table, findings));
         }
 
+        compositeKeys(tables, links, keys, findings);
         Map<String, Map<String, String>> positional = positionalLinks(tables, links, keys, findings);
 
         for (TableInput table : tables) {
             String rowLabel = rowLabels.get(table.name());
             String keyColumn = keys.get(table.name());
             Map<String, String> byPosition = positional.getOrDefault(table.name(), Map.of());
+            List<String> keyParts = keyColumn != null && keyColumn.contains(GraphModel.KEY_JOIN) ? GraphModel.keyParts(keyColumn) : List.of();
 
             // Foreign keys: columns whose values are the key of another table's rows.
             Map<String, Link> foreign = new LinkedHashMap<>();
@@ -104,12 +106,16 @@ public class GraphModeler {
                 }
                 foreign.putIfAbsent(link.sourceColumn(), link);
             }
-            List<Column> references = table.columns().stream()
+            List<Column> unlinked = table.columns().stream()
                 .filter(c -> "REFERENCE".equals(c.role()) && !c.name().equals(keyColumn) && !foreign.containsKey(c.name())
-                    && !byPosition.containsKey(c.name()))
+                    && !byPosition.containsKey(c.name()) && !keyParts.contains(c.name()))
                 .toList();
+            // A column that holds the identifiers of the table's own rows (staff.manager_id) points at another row of the same table.
+            Set<String> selfReferences = keyColumn != null && keyParts.isEmpty() ? selfReferences(table, keyColumn, unlinked) : Set.of();
+            List<Column> references = unlinked.stream().filter(c -> !selfReferences.contains(c.name())).toList();
             List<Column> candidates = table.columns().stream()
                 .filter(c -> !c.name().equals(keyColumn) && !foreign.containsKey(c.name()) && !byPosition.containsKey(c.name())
+                    && !selfReferences.contains(c.name()) && !keyParts.contains(c.name())
                     && references.stream().noneMatch(r -> r.name().equals(c.name()))
                     && !"REFERENCE".equals(c.role()))
                 .toList();
@@ -145,6 +151,12 @@ public class GraphModeler {
             Map<String, List<Property>> derivedProperties = new LinkedHashMap<>();
             references.forEach(r -> derivedProperties.put(r.name(), new ArrayList<>()));
             List<Property> rowProperties = new ArrayList<>();
+            // The parts of a composite key that point at nothing (a line number inside an order) are still worth keeping.
+            for (Column column : table.columns()) {
+                if (keyParts.contains(column.name()) && !foreign.containsKey(column.name()) && !byPosition.containsKey(column.name())) {
+                    rowProperties.add(new Property(column.name(), column.role()));
+                }
+            }
             for (Column column : candidates) {
                 Column owner = ownerOf(column, references, scan);
                 Property property = new Property(column.name(), column.role());
@@ -167,6 +179,13 @@ public class GraphModeler {
                 keyColumn == null ? "Each row of " + table.name() + " is one " + rowLabel + " (it has no identifier)"
                     : "One row of " + table.name() + " is one " + rowLabel + ", identified by " + keyColumn,
                 null, rowProperties));
+            for (String column : selfReferences) {
+                relationships.add(new RelType(snake(label(column, false)), rowLabel, rowLabel, table.name(), keyColumn, column,
+                    "the values of " + table.name() + "." + column + " are identifiers of other rows of " + table.name() + ", so a " + rowLabel
+                        + " points at the " + rowLabel + " it names"));
+                findings.add(new Finding("info", "SELF_REFERENCE", table.name() + "." + column + " holds identifiers of " + table.name()
+                    + " itself, so it becomes a relationship between two " + rowLabel + " nodes, not a node of its own.", List.of()));
+            }
             for (Column reference : references) {
                 String derivedLabel = unique(label(reference.name(), false), usedLabels);
                 nodes.add(new NodeType(derivedLabel, table.name(), reference.name(), true,
@@ -203,6 +222,191 @@ public class GraphModeler {
         });
         addConnectivityFindings(tables, nodes, relationships, findings);
         return new Schema(nodes, relationships, findings, promotable, Map.of());
+    }
+
+    // ------------------------------------------------------------------ keys made of several columns
+
+    private static final int MAX_COMPOSITE_COLUMNS = 4;
+    private static final int MAX_COMPOSITE_ROWS = 1_000_000;
+
+    /**
+     * The value that identifies a row: the column's value, or the values of the columns of a composite key joined
+     * with "|". Empty when a part is missing, because such a row has no identity.
+     */
+    static String keyValue(List<String> record, Map<String, Integer> index, String keyColumn) {
+        Integer position = index.get(keyColumn);
+        if (position != null) {
+            return cell(record, position);
+        }
+        List<String> parts = GraphModel.keyParts(keyColumn);
+        if (parts.size() < 2) {
+            return "";
+        }
+        StringBuilder key = new StringBuilder();
+        for (String part : parts) {
+            Integer at = index.get(part);
+            String value = at == null ? "" : cell(record, at);
+            if (value.isEmpty()) {
+                return "";
+            }
+            key.append(key.length() == 0 ? "" : "|").append(value);
+        }
+        return key.toString();
+    }
+
+    /**
+     * A table with no identifier column whose rows are still told apart by the references they hold (order_id with
+     * a line number, store_id with product_id) is identified by the smallest such combination that never repeats.
+     * A table that holds nothing but its references is a relationship and keeps no key.
+     */
+    private void compositeKeys(List<TableInput> tables, List<Link> links, Map<String, String> keys, List<Finding> findings) throws IOException {
+        Set<String> names = new HashSet<>();
+        tables.forEach(t -> names.add(t.name()));
+        for (TableInput table : tables) {
+            if (keys.get(table.name()) != null) {
+                continue;
+            }
+            List<String> candidates = table.columns().stream()
+                .filter(c -> "REFERENCE".equals(c.role()) || links.stream().anyMatch(l -> l.sourceTable().equals(table.name())
+                    && l.sourceColumn().equals(c.name()) && !l.targetTable().equals(table.name()) && names.contains(l.targetTable())
+                    && l.targetColumn().equals(keys.get(l.targetTable()))))
+                .map(Column::name).limit(MAX_COMPOSITE_COLUMNS).toList();
+            if (candidates.size() < 2 || table.columns().size() <= candidates.size()) {
+                continue;
+            }
+            List<List<String>> subsets = new ArrayList<>();
+            for (int i = 0; i < candidates.size(); i++) {
+                for (int j = i + 1; j < candidates.size(); j++) {
+                    subsets.add(List.of(candidates.get(i), candidates.get(j)));
+                }
+            }
+            for (int i = 0; i < candidates.size(); i++) {
+                for (int j = i + 1; j < candidates.size(); j++) {
+                    for (int k = j + 1; k < candidates.size(); k++) {
+                        subsets.add(List.of(candidates.get(i), candidates.get(j), candidates.get(k)));
+                    }
+                }
+            }
+            List<String> unique = uniqueCombination(table, subsets);
+            if (unique != null) {
+                String key = String.join(GraphModel.KEY_JOIN, unique);
+                keys.put(table.name(), key);
+                // The warning about a table with no identifier was raised before this key was found.
+                findings.removeIf(f -> f.kind().equals("NO_KEY") && f.message().startsWith("Nothing identifies the rows of " + table.name() + ":"));
+                findings.add(new Finding("info", "COMPOSITE_KEY", "No single column identifies the rows of " + table.name() + ", but "
+                    + String.join(" and ", unique) + " together never repeat, so together they identify a row.", List.of()));
+            }
+        }
+    }
+
+    /** The first combination (they come smallest first) that is filled and different on every row, or null. */
+    private static List<String> uniqueCombination(TableInput table, List<List<String>> subsets) throws IOException {
+        long rows = countRows(table);
+        if (rows < 2 || rows > MAX_COMPOSITE_ROWS) {
+            return null;
+        }
+        long[][] hashes = new long[subsets.size()][(int) rows];
+        boolean[] blank = new boolean[subsets.size()];
+        int count = 0;
+        Csv.Dialect dialect = Csv.detect(table.file());
+        try (Csv.RecordReader reader = new Csv.RecordReader(Csv.open(table.file(), dialect), dialect.delimiter())) {
+            List<String> header = reader.next();
+            if (header == null) {
+                return null;
+            }
+            Map<String, Integer> index = new HashMap<>();
+            for (int i = 0; i < header.size(); i++) {
+                index.putIfAbsent(header.get(i).strip(), i);
+            }
+            List<String> record;
+            while ((record = reader.next()) != null && count < rows) {
+                for (int s = 0; s < subsets.size(); s++) {
+                    String key = keyValue(record, index, String.join(GraphModel.KEY_JOIN, subsets.get(s)));
+                    if (key.isEmpty()) {
+                        blank[s] = true;
+                    } else {
+                        hashes[s][count] = fnv(key);
+                    }
+                }
+                count++;
+            }
+        }
+        for (int s = 0; s < subsets.size(); s++) {
+            if (blank[s]) {
+                continue;
+            }
+            long[] sorted = java.util.Arrays.copyOf(hashes[s], count);
+            java.util.Arrays.sort(sorted);
+            boolean repeats = false;
+            for (int i = 1; i < sorted.length && !repeats; i++) {
+                repeats = sorted[i] == sorted[i - 1];
+            }
+            if (!repeats) {
+                return subsets.get(s);
+            }
+        }
+        return null;
+    }
+
+    private static long fnv(String text) {
+        long hash = 0xcbf29ce484222325L;
+        for (int i = 0; i < text.length(); i++) {
+            hash = (hash ^ text.charAt(i)) * 0x100000001b3L;
+        }
+        return hash;
+    }
+
+    // ------------------------------------------------------------------ rows that point at other rows of the same table
+
+    /**
+     * Columns whose values are, nearly all, identifiers of the same table: a manager_id in a table of staff. A column
+     * that merely repeats the identifier on every row is a copy of it, not a link, and is left alone.
+     */
+    private Set<String> selfReferences(TableInput table, String keyColumn, List<Column> columns) throws IOException {
+        if (columns.isEmpty()) {
+            return Set.of();
+        }
+        Set<String> keys = new HashSet<>();
+        Map<String, Set<String>> values = new LinkedHashMap<>();
+        columns.forEach(c -> values.put(c.name(), new HashSet<>()));
+        Csv.Dialect dialect = Csv.detect(table.file());
+        try (Csv.RecordReader reader = new Csv.RecordReader(Csv.open(table.file(), dialect), dialect.delimiter())) {
+            List<String> header = reader.next();
+            if (header == null) {
+                return Set.of();
+            }
+            Map<String, Integer> index = new HashMap<>();
+            for (int i = 0; i < header.size(); i++) {
+                index.putIfAbsent(header.get(i).strip(), i);
+            }
+            List<String> record;
+            while ((record = reader.next()) != null) {
+                String key = keyValue(record, index, keyColumn);
+                if (!key.isEmpty() && keys.size() < MAX_DISTINCT_TRACKED) {
+                    keys.add(key);
+                }
+                for (Column column : columns) {
+                    Integer at = index.get(column.name());
+                    String value = at == null ? "" : cell(record, at);
+                    Set<String> seen = values.get(column.name());
+                    if (!value.isEmpty() && seen.size() < MAX_DISTINCT_TRACKED) {
+                        seen.add(value);
+                    }
+                }
+            }
+        }
+        Set<String> found = new java.util.LinkedHashSet<>();
+        for (Map.Entry<String, Set<String>> entry : values.entrySet()) {
+            Set<String> seen = entry.getValue();
+            if (seen.isEmpty() || seen.equals(keys)) {
+                continue;
+            }
+            long inside = seen.stream().filter(keys::contains).count();
+            if ((double) inside / seen.size() >= POSITION_COVERAGE) {
+                found.add(entry.getKey());
+            }
+        }
+        return found;
     }
 
     // ------------------------------------------------------------------ tables that are tied to nothing
@@ -483,7 +687,6 @@ public class GraphModeler {
             for (int i = 0; i < header.size(); i++) {
                 index.putIfAbsent(header.get(i).strip(), i);
             }
-            int keyIndex = keyColumn == null ? -1 : index.getOrDefault(keyColumn, -1);
             int[] candidateIndex = candidates.stream().mapToInt(c -> index.getOrDefault(c.name(), -1)).toArray();
             List<String> record;
             while ((record = reader.next()) != null) {
@@ -499,8 +702,8 @@ public class GraphModeler {
                         }
                     }
                 }
-                if (keyIndex >= 0) {
-                    String key = cell(record, keyIndex);
+                if (keyColumn != null) {
+                    String key = keyValue(record, index, keyColumn);
                     if (key.isEmpty()) {
                         blankKeys++;
                     } else if (!seenKeys.add(key)) {
@@ -596,8 +799,19 @@ public class GraphModeler {
         }
     }
 
+    /**
+     * The strings the analysis (pandas) reads as "no value". The graph must agree with it: a manager_id of NULL is
+     * nobody, not a manager called NULL.
+     */
+    private static final Set<String> MISSING = Set.of("#N/A", "#N/A N/A", "#NA", "-1.#IND", "-1.#QNAN", "-NaN", "-nan", "1.#IND", "1.#QNAN",
+        "<NA>", "N/A", "NA", "NULL", "NaN", "None", "n/a", "nan", "null");
+
     static String cell(List<String> record, int index) {
-        return index < record.size() ? record.get(index).strip() : "";
+        if (index >= record.size()) {
+            return "";
+        }
+        String value = record.get(index).strip();
+        return MISSING.contains(value) ? "" : value;
     }
 
     // ------------------------------------------------------------------ names

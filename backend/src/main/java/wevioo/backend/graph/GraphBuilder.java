@@ -187,11 +187,7 @@ public class GraphBuilder {
     }
 
     private static String keyOf(List<String> record, Map<String, Integer> index, String column, long rowNumber) {
-        if (column == null) {
-            return "row-" + rowNumber;
-        }
-        Integer position = index.get(column);
-        return position == null ? "" : GraphModeler.cell(record, position);
+        return column == null ? "row-" + rowNumber : GraphModeler.keyValue(record, index, column);
     }
 
     private Map<String, Object> properties(String key, NodeAgg agg, Map<String, String> roles,

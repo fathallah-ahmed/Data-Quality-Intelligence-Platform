@@ -8,6 +8,17 @@ import java.util.Map;
 public final class GraphModel {
     private GraphModel() {}
 
+    /**
+     * Joins the names of the columns that together identify a row ("order_id + item_id"). A key made of one column is
+     * just that column's name.
+     */
+    public static final String KEY_JOIN = " + ";
+
+    /** The columns a key is made of (one for an ordinary key, none when there is no key). */
+    public static List<String> keyParts(String keyColumn) {
+        return keyColumn == null ? List.of() : List.of(keyColumn.split(java.util.regex.Pattern.quote(KEY_JOIN)));
+    }
+
     // ------------------------------------------------------------------ what the model is built from
 
     /** A column as the analysis understood it. */

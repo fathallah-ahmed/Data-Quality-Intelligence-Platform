@@ -449,4 +449,164 @@ class GraphModelTest {
     void aSingleTableIsNeverReportedAsDisconnected() throws IOException {
         assertThat(has(modeler.propose(List.of(accounts()), List.of(), Set.of()), "DISCONNECTED")).isFalse();
     }
+
+    // ------------------------------------------------------------------ keys of several columns, rows that point at rows
+
+    /** 5 orders, 4 products, 12 order lines (order_id with a line number), and stock per store and product. */
+    private List<TableInput> shop() throws IOException {
+        StringBuilder orders = new StringBuilder("order_id,placed\n");
+        for (int i = 1; i <= 5; i++) {
+            orders.append("O").append(i).append(",2024-01-0").append(i).append("\n");
+        }
+        StringBuilder products = new StringBuilder("product_id,label\n");
+        for (int i = 1; i <= 4; i++) {
+            products.append("P").append(i).append(",Product ").append(i).append("\n");
+        }
+        StringBuilder lines = new StringBuilder("order_id,item_id,product_id,quantity\n");
+        for (int i = 0; i < 12; i++) {
+            lines.append("O").append(i % 5 + 1).append(",").append(i / 5 + 1).append(",P").append(i % 4 + 1).append(",").append(i % 5 + 1).append("\n");
+        }
+        StringBuilder stocks = new StringBuilder("store_id,product_id,quantity\n");
+        for (int store = 1; store <= 3; store++) {
+            for (int product = 1; product <= 4; product++) {
+                stocks.append("S").append(store).append(",P").append(product).append(",").append(store * product).append("\n");
+            }
+        }
+        StringBuilder stores = new StringBuilder("store_id,city\n");
+        for (int i = 1; i <= 3; i++) {
+            stores.append("S").append(i).append(",City ").append(i).append("\n");
+        }
+        return List.of(
+            new TableInput("orders", csv("orders.csv", orders.toString()), 5, List.of(column("order_id", "IDENTIFIER", 5, 0), column("placed", "DATE", 5, 0))),
+            new TableInput("products", csv("products.csv", products.toString()), 4, List.of(column("product_id", "IDENTIFIER", 4, 0), column("label", "NAME", 4, 0))),
+            new TableInput("stores", csv("stores.csv", stores.toString()), 3, List.of(column("store_id", "IDENTIFIER", 3, 0), column("city", "LOCATION", 3, 0))),
+            new TableInput("order_items", csv("order_items.csv", lines.toString()), 12, List.of(
+                column("order_id", "REFERENCE", 5, 0), column("item_id", "REFERENCE", 3, 0), column("product_id", "REFERENCE", 4, 0), column("quantity", "QUANTITY", 5, 0))),
+            new TableInput("stocks", csv("stocks.csv", stocks.toString()), 12, List.of(
+                column("store_id", "REFERENCE", 3, 0), column("product_id", "REFERENCE", 4, 0), column("quantity", "QUANTITY", 9, 0))));
+    }
+
+    private static List<Link> shopLinks() {
+        return List.of(new Link("order_items", "order_id", "orders", "order_id"), new Link("order_items", "product_id", "products", "product_id"),
+            new Link("stocks", "store_id", "stores", "store_id"), new Link("stocks", "product_id", "products", "product_id"));
+    }
+
+    @Test
+    void rowsToldApartByTwoReferencesAreIdentifiedByBothTogether() throws IOException {
+        Schema schema = modeler.propose(shop(), shopLinks(), Set.of());
+
+        NodeType line = node(schema, "OrderItem");
+        assertThat(line.keyColumn()).isEqualTo("order_id + item_id");
+        // The line number is part of the key and is kept as a property; it is not a thing of its own (no "Item" node).
+        assertThat(columns(line)).contains("item_id", "quantity");
+        assertThat(schema.nodes()).extracting(NodeType::label).doesNotContain("Item");
+        assertThat(node(schema, "Stock").keyColumn()).isEqualTo("store_id + product_id");
+        // Both references still link the line to the order and the product.
+        assertThat(schema.relationships()).anyMatch(r -> r.fromLabel().equals("Order") && r.toLabel().equals("OrderItem") && r.fromColumn().equals("order_id"));
+        assertThat(schema.relationships()).anyMatch(r -> r.fromLabel().equals("Product") && r.toLabel().equals("OrderItem"));
+        assertThat(schema.findings()).anyMatch(f -> f.kind().equals("COMPOSITE_KEY") && f.message().contains("order_id and item_id"));
+        assertThat(has(schema, "NO_KEY")).isFalse();
+    }
+
+    @Test
+    void theBuildGivesEveryLineItsOwnNodeAndLinksItToItsParents() throws IOException {
+        List<TableInput> tables = shop();
+        BuildResult result = builder.build("d1v1", modeler.propose(tables, shopLinks(), Set.of()), tables);
+
+        assertThat(result.nodes()).containsEntry("OrderItem", 12L).containsEntry("Stock", 12L);
+        assertThat(store.node("OrderItem", "O1|1").properties()).containsEntry("quantity", 1L);
+        assertThat(store.relationships.get("HAS_ORDER_ITEM:Order>OrderItem")).hasSize(12)
+            .anyMatch(pair -> pair[0].equals("O1") && pair[1].equals("O1|1"));
+        assertThat(result.findings()).noneMatch(f -> f.kind().equals("MISSING_TARGET"));
+    }
+
+    @Test
+    void aCombinationThatRepeatsIsNotAKey() throws IOException {
+        // The same order and product twice: neither pair of references is unique, so the rows stay unidentified.
+        String text = "order_id,product_id,quantity\nO1,P1,1\nO1,P1,2\nO2,P1,3\n";
+        TableInput lines = new TableInput("order_items", csv("order_items.csv", text), 3, List.of(
+            column("order_id", "REFERENCE", 2, 0), column("product_id", "REFERENCE", 1, 0), column("quantity", "QUANTITY", 2, 0)));
+
+        Schema schema = modeler.propose(List.of(lines), List.of(), Set.of());
+
+        assertThat(node(schema, "OrderItem").keyColumn()).isNull();
+        assertThat(has(schema, "COMPOSITE_KEY")).isFalse();
+        assertThat(has(schema, "NO_KEY")).isTrue();
+    }
+
+    @Test
+    void aTableOfTwoReferencesStaysARelationshipAndIsNotGivenACompositeKey() throws IOException {
+        String text = "product_id,store_id\nP1,S1\nP2,S1\nP1,S2\n";
+        List<TableInput> tables = new ArrayList<>(shop());
+        tables.add(new TableInput("product_stores", csv("product_stores.csv", text), 3, List.of(
+            column("product_id", "REFERENCE", 2, 0), column("store_id", "REFERENCE", 2, 0))));
+        List<Link> links = new ArrayList<>(shopLinks());
+        links.add(new Link("product_stores", "product_id", "products", "product_id"));
+        links.add(new Link("product_stores", "store_id", "stores", "store_id"));
+
+        Schema schema = modeler.propose(tables, links, Set.of());
+
+        assertThat(schema.nodes()).extracting(NodeType::table).doesNotContain("product_stores");
+        assertThat(has(schema, "LINK_TABLE")).isTrue();
+    }
+
+    private TableInput staff(String managerFor) throws IOException {
+        StringBuilder text = new StringBuilder("staff_id,name,manager_id\n");
+        for (int i = 1; i <= 8; i++) {
+            text.append("E").append(i).append(",Name ").append(i).append(",").append(i == 1 ? "" : managerFor.replace("#", String.valueOf(i / 3 + 1))).append("\n");
+        }
+        return new TableInput("staff", csv("staff.csv", text.toString()), 8, List.of(
+            column("staff_id", "IDENTIFIER", 8, 0), column("name", "NAME", 8, 0), column("manager_id", "REFERENCE", 3, 1)));
+    }
+
+    @Test
+    void aColumnOfIdentifiersOfTheSameTableLinksTwoRowsOfThatTable() throws IOException {
+        Schema schema = modeler.propose(List.of(staff("E#")), List.of(), Set.of());
+
+        assertThat(schema.nodes()).extracting(NodeType::label).containsExactly("Staff");   // no empty "Manager" node
+        RelType manager = schema.relationships().get(0);
+        assertThat(manager.type()).isEqualTo("MANAGER");
+        assertThat(manager.fromLabel()).isEqualTo("Staff");
+        assertThat(manager.toLabel()).isEqualTo("Staff");
+        assertThat(manager.fromColumn()).isEqualTo("staff_id");
+        assertThat(manager.toColumn()).isEqualTo("manager_id");
+        assertThat(has(schema, "SELF_REFERENCE")).isTrue();
+    }
+
+    @Test
+    void theBuildDrawsWhoWorksForWhom() throws IOException {
+        List<TableInput> tables = List.of(staff("E#"));
+        BuildResult result = builder.build("d1v1", modeler.propose(tables, List.of(), Set.of()), tables);
+
+        assertThat(result.nodes()).containsEntry("Staff", 8L);
+        assertThat(store.relationships.get("MANAGER:Staff>Staff")).hasSize(7)
+            .anyMatch(pair -> pair[0].equals("E4") && pair[1].equals("E2"));
+    }
+
+    @Test
+    void aColumnThatPointsAtNobodyInTheTableIsStillADerivedThing() throws IOException {
+        // The managers E91..E93 are not staff of this file: the column is a reference to something else.
+        Schema schema = modeler.propose(List.of(staff("E9#")), List.of(), Set.of());
+
+        assertThat(schema.nodes()).extracting(NodeType::label).contains("Staff", "Manager");
+        assertThat(has(schema, "SELF_REFERENCE")).isFalse();
+    }
+
+    @Test
+    void aNullMarkerIsNobodyAndNotARowOrAReference() throws IOException {
+        // The first staff member has no manager, written NULL like in many exports.
+        StringBuilder text = new StringBuilder("staff_id,name,manager_id\n");
+        for (int i = 1; i <= 8; i++) {
+            text.append("E").append(i).append(",Name ").append(i).append(",").append(i == 1 ? "NULL" : "E" + (i / 3 + 1)).append("\n");
+        }
+        List<TableInput> tables = List.of(new TableInput("staff", csv("staff.csv", text.toString()), 8, List.of(
+            column("staff_id", "IDENTIFIER", 8, 0), column("name", "NAME", 8, 0), column("manager_id", "REFERENCE", 4, 0))));
+
+        Schema schema = modeler.propose(tables, List.of(), Set.of());
+        BuildResult result = builder.build("d1v1", schema, tables);
+
+        assertThat(schema.nodes()).extracting(NodeType::label).containsExactly("Staff");
+        assertThat(store.relationships.get("MANAGER:Staff>Staff")).hasSize(7).noneMatch(pair -> pair[0].equals("E1"));
+        assertThat(result.nodes()).containsEntry("Staff", 8L);
+    }
 }
