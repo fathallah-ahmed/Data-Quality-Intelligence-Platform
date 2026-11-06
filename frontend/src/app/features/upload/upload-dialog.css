@@ -7,7 +7,7 @@
   border-radius: var(--radius-xl);
   background: var(--surface-sunken);
   text-align: center;
-  transition: border-color 120ms ease, background 120ms ease;
+  transition: border-color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease);
 }
 
 .dropzone--active {

@@ -1,9 +1,7 @@
 <a class="skip-link" href="#main-content">Skip to content</a>
 
 <div class="app" [class.app--collapsed]="layout.railCollapsed()">
-  @if (layout.sidebarOpen()) {
-    <div class="drawer-backdrop" (click)="layout.sidebarOpen.set(false)" aria-hidden="true"></div>
-  }
+  <div class="drawer-backdrop" [class.drawer-backdrop--on]="layout.sidebarOpen()" (click)="layout.sidebarOpen.set(false)" aria-hidden="true"></div>
 
   <aside id="dataset-drawer" class="sidebar" [class.sidebar--open]="layout.sidebarOpen()" (keydown.escape)="layout.sidebarOpen.set(false)" aria-label="Navigation">
     <div class="sidebar__brand">
@@ -83,7 +81,7 @@
             <app-icon name="chevronDown" [size]="14" />
           </button>
           @if (userMenuOpen()) {
-            <div class="menu__panel" role="menu" (keydown.escape)="userMenuOpen.set(false)">
+            <div class="menu__panel" animate.leave="menu__panel--leave" role="menu" (keydown.escape)="userMenuOpen.set(false)">
               <p class="menu__caption">Signed in as <strong>{{ auth.username() }}</strong> · Administrator</p>
               <button type="button" role="menuitem" class="menu__item" (click)="userMenuOpen.set(false); layout.paletteOpen.set(true)">
                 <app-icon name="keyboard" [size]="16" /> Shortcuts & search

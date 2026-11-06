@@ -124,7 +124,7 @@
 
 .row-toggle__chevron {
   color: var(--text-subtle);
-  transition: transform 140ms var(--ease);
+  transition: transform var(--dur-fast) var(--ease);
 }
 
 .row-toggle[aria-expanded='true'] .row-toggle__chevron {

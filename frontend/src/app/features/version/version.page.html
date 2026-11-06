@@ -53,7 +53,7 @@
             <app-icon name="more" [size]="20" [stroke]="2.6" />
           </button>
           @if (menuOpen()) {
-            <div class="menu__panel" role="menu" (keydown.escape)="menuOpen.set(false)">
+            <div class="menu__panel" animate.leave="menu__panel--leave" role="menu" (keydown.escape)="menuOpen.set(false)">
               <button
                 type="button"
                 role="menuitem"

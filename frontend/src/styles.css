@@ -82,7 +82,17 @@
   --shadow-sm: 0 1px 2px rgb(19 22 60 / 5%), 0 1px 1px rgb(19 22 60 / 3%);
   --shadow-md: 0 6px 18px -6px rgb(19 22 60 / 14%), 0 2px 4px rgb(19 22 60 / 5%);
   --shadow-lg: 0 24px 48px -12px rgb(19 22 60 / 28%);
-  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+
+  /* Motion: one family of curves and four durations, used everywhere. Entrances decelerate (ease-out),
+     exits accelerate (ease-in), things that move across the screen ease both ways. */
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-out: var(--ease);
+  --ease-in: cubic-bezier(0.55, 0, 0.8, 0.3);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-fast: 150ms;
+  --dur-base: 240ms;
+  --dur-slow: 420ms;
+  --dur-reveal: 700ms;
 
   /* Layout */
   --topbar-height: 60px;
@@ -314,11 +324,26 @@ code {
   text-decoration: none;
   white-space: nowrap;
   cursor: pointer;
-  transition: background 140ms var(--ease), border-color 140ms var(--ease), color 140ms var(--ease), box-shadow 140ms var(--ease), transform 140ms var(--ease);
+  touch-action: manipulation;
+  transition: background var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease), box-shadow var(--dur-base) var(--ease), transform var(--dur-base) var(--ease);
 }
 
+/* A press sinks a little and springs back; it is quick on the way down and soft on the way up. */
 .btn:active:not(:disabled) {
-  transform: translateY(1px);
+  transform: translateY(1px) scale(0.985);
+  transition-duration: 80ms;
+}
+
+/* Lift on hover only where there is a real pointer, so touch screens do not keep a button "hovered". */
+@media (hover: hover) {
+  .btn--primary:not(:disabled):hover {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 18px -8px color-mix(in srgb, var(--primary) 70%, transparent);
+  }
+
+  .btn--primary:not(:disabled):active {
+    transform: translateY(1px) scale(0.985);
+  }
 }
 
 .btn:disabled {
@@ -507,7 +532,7 @@ code {
   padding: 0 var(--space-3);
   color: var(--text-muted);
   cursor: pointer;
-  transition: border-color 140ms var(--ease), color 140ms var(--ease);
+  transition: border-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
 }
 
 .chip--button:hover {
@@ -631,7 +656,7 @@ code {
   border-radius: var(--radius-md);
   background: var(--surface);
   color: var(--text);
-  transition: border-color 140ms var(--ease), box-shadow 140ms var(--ease);
+  transition: border-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
 }
 
 .input::placeholder {
@@ -821,6 +846,7 @@ a.bars__label:hover {
   border-radius: inherit;
   background: var(--primary);
   transition: width 500ms var(--ease);
+  transform-origin: left center;
   animation: bar-grow 900ms var(--ease) both;
 }
 
@@ -853,6 +879,7 @@ a.bars__label:hover {
   border-radius: inherit;
   background: var(--tone-fg, var(--primary));
   transition: width 500ms var(--ease);
+  transform-origin: left center;
   animation: bar-grow 900ms var(--ease) both;
 }
 
@@ -899,7 +926,7 @@ a.bars__label:hover {
   font-size: var(--text-sm);
   text-decoration: none;
   white-space: nowrap;
-  transition: background 140ms var(--ease), color 140ms var(--ease);
+  transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
 }
 
 .tabs__tab:hover {
@@ -944,7 +971,12 @@ a.bars__label:hover {
   border-radius: var(--radius-md);
   background: var(--surface);
   box-shadow: var(--shadow-lg);
-  animation: pop-in 140ms var(--ease);
+  transform-origin: top right;
+  animation: pop-in var(--dur-base) var(--ease) both;
+}
+
+.menu__panel--leave {
+  animation: pop-out var(--dur-fast) var(--ease-in) both;
 }
 
 .menu__caption {
@@ -1032,7 +1064,7 @@ a.bars__label:hover {
 .info-tip:hover .info-tip__bubble,
 .info-tip__button:focus-visible + .info-tip__bubble {
   display: block;
-  animation: pop-in 120ms var(--ease);
+  animation: pop-in var(--dur-fast) var(--ease);
 }
 
 /* ---------------------------------------------------------------- empty state and skeleton */
@@ -1111,16 +1143,29 @@ a.bars__label:hover {
 }
 
 .modal[open] {
-  animation: modal-in 180ms var(--ease);
+  animation: modal-in var(--dur-slow) var(--ease) both;
+}
+
+.modal[open]::backdrop {
+  animation: fade-in var(--dur-base) var(--ease) both;
+}
+
+/* Closing: quicker than opening, and the backdrop leaves with the panel. */
+.modal--closing {
+  animation: modal-out var(--dur-fast) var(--ease-in) both !important;
+}
+
+.modal--closing::backdrop {
+  animation: fade-out var(--dur-fast) var(--ease-in) both !important;
 }
 
 .modal--wide {
   width: min(100% - 2 * var(--space-4), 680px);
 }
 
+/* A plain dim, no blur: blurring what is behind costs a full-screen repaint on every frame of the animation. */
 .modal::backdrop {
   background: var(--backdrop);
-  backdrop-filter: blur(3px);
 }
 
 .modal__panel {
@@ -1189,7 +1234,11 @@ a.bars__label:hover {
   border-radius: var(--radius-md);
   background: var(--surface);
   box-shadow: var(--shadow-lg);
-  animation: toast-in 200ms var(--ease);
+  animation: toast-in var(--dur-slow) var(--ease) both;
+}
+
+.toast--leave {
+  animation: toast-out var(--dur-base) var(--ease-in) both;
 }
 
 .toast > .icon {
@@ -1231,6 +1280,13 @@ a.bars__label:hover {
 @keyframes pop-in {
   from {
     opacity: 0;
+    transform: translateY(-6px) scale(0.97);
+  }
+}
+
+@keyframes pop-out {
+  to {
+    opacity: 0;
     transform: translateY(-4px) scale(0.98);
   }
 }
@@ -1238,28 +1294,55 @@ a.bars__label:hover {
 @keyframes modal-in {
   from {
     opacity: 0;
+    transform: translateY(14px) scale(0.97);
+  }
+}
+
+@keyframes modal-out {
+  to {
+    opacity: 0;
     transform: translateY(8px) scale(0.98);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes fade-out {
+  to {
+    opacity: 0;
   }
 }
 
 @keyframes toast-in {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(14px) scale(0.97);
+  }
+}
+
+@keyframes toast-out {
+  to {
+    opacity: 0;
+    transform: translateX(24px);
   }
 }
 
 @keyframes rise {
   from {
     opacity: 0;
-    transform: translateY(6px);
+    transform: translateY(12px);
   }
 }
 
-/* A bar fills from empty to the width it is given. */
+/* A bar fills from empty to the width it is given. Scaling is done by the compositor; animating width would
+   re-lay out the page on every frame. */
 @keyframes bar-grow {
   from {
-    width: 0;
+    transform: scaleX(0);
   }
 }
 
@@ -1273,6 +1356,82 @@ a.bars__label:hover {
 .bars__row:nth-child(5) .bars__fill,
 .dim:nth-child(5) .meter > span { animation-delay: 280ms; }
 .bars__row:nth-child(n + 6) .bars__fill { animation-delay: 350ms; }
+
+/* ---------------------------------------------------------------- page transitions and reveals */
+
+/*
+ * The router swaps pages with the View Transitions API (supported browsers only; others just swap).
+ * Only the page content takes part: the sidebar and the top bar stay still, the old page leaves quickly
+ * and the new one settles in.
+ */
+::view-transition-group(page-content) {
+  animation: none;
+}
+
+::view-transition-old(page-content) {
+  animation: vt-out var(--dur-fast) var(--ease-in) both;
+}
+
+::view-transition-new(page-content) {
+  animation: vt-in var(--dur-slow) var(--ease) both;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: var(--dur-base);
+  animation-timing-function: var(--ease);
+}
+
+@keyframes vt-out {
+  to {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+@keyframes vt-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+}
+
+/* Scroll reveal (see the Reveal directive): fade and rise once, only opacity and transform. It is a keyframe
+   animation without a forwards fill, so the element keeps its normal styles (and hover effects) afterwards. */
+.reveal {
+  opacity: 0;
+  will-change: opacity, transform;
+}
+
+.reveal--in {
+  opacity: 1;
+  will-change: auto;
+  animation: reveal-in var(--dur-reveal) var(--ease) backwards;
+  animation-delay: calc(var(--reveal-i, 0) * 70ms);
+}
+
+@keyframes reveal-in {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+}
+
+html {
+  scroll-padding-top: 76px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+button,
+a,
+summary {
+  -webkit-tap-highlight-color: transparent;
+}
 
 @media (prefers-reduced-motion: reduce) {
   *,

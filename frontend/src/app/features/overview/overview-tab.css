@@ -301,7 +301,7 @@
   background: color-mix(in srgb, var(--tone-fg) 7%, var(--surface));
   color: var(--text);
   text-decoration: none;
-  transition: border-color 140ms var(--ease);
+  transition: border-color var(--dur-fast) var(--ease);
 }
 
 .rules-strip > .icon {

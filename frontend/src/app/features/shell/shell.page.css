@@ -22,7 +22,7 @@
   display: grid;
   grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
   min-height: 100vh;
-  transition: grid-template-columns 200ms var(--ease);
+  transition: grid-template-columns var(--dur-slow) var(--ease-in-out);
 }
 
 .app--collapsed {
@@ -117,7 +117,7 @@
   font-size: var(--text-sm);
   cursor: pointer;
   box-shadow: 0 6px 16px -8px color-mix(in srgb, var(--primary) 80%, black);
-  transition: filter 140ms var(--ease);
+  transition: filter var(--dur-fast) var(--ease);
 }
 
 .new-btn:hover {
@@ -213,7 +213,7 @@
   text-align: left;
   cursor: pointer;
   box-shadow: var(--shadow-sm);
-  transition: border-color 140ms var(--ease);
+  transition: border-color var(--dur-fast) var(--ease);
 }
 
 .search-trigger:hover {
@@ -312,6 +312,8 @@
   margin: 0 auto;
   padding: var(--space-5) var(--space-6) var(--space-8);
   outline: none;
+  /* The page content is its own layer for route transitions; the chrome around it stays still. */
+  view-transition-name: page-content;
 }
 
 .drawer-backdrop {
@@ -335,14 +337,23 @@
     inset: 0 auto 0 0;
     width: min(86vw, var(--sidebar-width));
     transform: translateX(-105%);
-    transition: transform 200ms var(--ease);
+    /* Visibility waits for the slide, so the drawer is seen leaving instead of vanishing. */
+    transition: transform var(--dur-slow) var(--ease), visibility 0s linear var(--dur-slow);
     box-shadow: var(--shadow-lg);
     visibility: hidden;
+    will-change: transform;
   }
 
   .sidebar--open {
     transform: none;
     visibility: visible;
+    transition: transform var(--dur-slow) var(--ease), visibility 0s;
+  }
+
+  /* No live blur on small screens: it repaints the whole bar on every scroll frame. */
+  .topbar {
+    backdrop-filter: none;
+    background: var(--bg);
   }
 
   .sidebar__footer {
@@ -355,6 +366,15 @@
     inset: 0;
     z-index: 35;
     background: var(--backdrop);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity var(--dur-base) var(--ease), visibility 0s linear var(--dur-base);
+  }
+
+  .drawer-backdrop--on {
+    opacity: 1;
+    visibility: visible;
+    transition: opacity var(--dur-base) var(--ease), visibility 0s;
   }
 
   .main {

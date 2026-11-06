@@ -84,12 +84,19 @@ Derived values are `computed()`, not method calls in templates. Silent refreshes
 
 ## Tests
 
-`npm test` runs 69 tests: sign-in and API calls, reading of SSE events, formatting, quality grades and dimensions, report, rules, data model, table profile, file selection at upload, order of the graph's findings, small helpers of the Ask tab, the route guards, the landing page, the dashboard's filters and sorting, and the number animation.
+`npm test` runs 76 tests: sign-in and API calls, reading of SSE events, formatting, quality grades and dimensions, report, rules, data model, table profile, file selection at upload, order of the graph's findings, small helpers of the Ask tab, the route guards, the landing page, the dashboard's filters and sorting, and the motion helpers (counters, scroll reveals, page transitions).
 
 ## Look and motion
 
 - **Colours**: an indigo brand colour, distinct from the green used for "good" results, on cool slate surfaces; the semantic colours (green, amber, red, blue) keep their meaning. Every colour is a token in `src/styles.css` (light, dark and system-dark blocks): change the palette there.
-- **Motion**: score rings draw themselves and count up (`ScoreRing`), bars fill from empty one after the other (`bar-grow`), figures count up (`app-count-up`, `shared/motion.ts`), cards rise in one after the other, buttons and cards lift on hover. `prefers-reduced-motion` turns all of it off.
+- **Motion** (one system, defined in `src/styles.css`): four durations (`--dur-fast` 150 ms, `--dur-base` 240 ms, `--dur-slow` 420 ms, `--dur-reveal` 700 ms) and three curves (`--ease` decelerates for entrances, `--ease-in` accelerates for exits, `--ease-in-out` for things that cross the screen). No component invents its own timing.
+  - **Pages**: the router uses the View Transitions API (`withViewTransitions`): only the page content fades and settles, the sidebar and top bar stay still; a change of query parameters only (choosing a table, a version to compare) is not animated (`core/view-transitions.ts`). Browsers without the API just swap.
+  - **Scrolling**: `appReveal` (`shared/motion.ts`) fades and raises a block once when it scrolls into view, optionally staggered (`appRevealDelay`); the landing page's top bar gets its border and blur once the page scrolls, and its navigation highlights the section being read. Both use IntersectionObserver, so no scroll listener runs.
+  - **Entrances and exits**: toasts, menus and dialogs animate out as well as in (`animate.leave`, and a closing class on the native dialog); the mobile drawer slides and its backdrop fades.
+  - **Numbers and bars**: score rings draw themselves, figures count up (written straight to the DOM, so counting never triggers change detection), bars fill from empty by scaling (`transform`, composited) instead of animating their width.
+  - **Hover and press**: buttons and cards lift on hover only with a real pointer (`@media (hover: hover)`), the lifted shadow is a layer that fades in (opacity), a press sinks slightly.
+  - **Cost**: only `opacity` and `transform` are animated, except the ring's stroke; there is no blur behind modals, and the sticky bars blur only on large screens.
+  - **Reduced motion**: with `prefers-reduced-motion: reduce` (for example Windows "Show animations" turned off) every animation and transition is cut to nothing, counters jump to their value and reveals show at once. If a browser seems to show no animation at all, check that setting.
 
 ## Accessibility and responsive design
 

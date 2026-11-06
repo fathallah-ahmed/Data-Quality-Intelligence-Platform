@@ -97,7 +97,7 @@
 
 .group__chevron {
   color: var(--text-subtle);
-  transition: transform 160ms var(--ease);
+  transition: transform var(--dur-fast) var(--ease);
 }
 
 details[open] > summary .group__chevron {

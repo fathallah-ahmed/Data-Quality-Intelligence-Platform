@@ -3,7 +3,13 @@
   grid-template-columns: minmax(0, 1fr);
   gap: var(--space-5);
   min-width: 0;
-  animation: rise 260ms var(--ease);
+}
+
+/* Browsers with view transitions animate the page change themselves (see styles.css); the others get a rise. */
+@supports not (view-transition-name: none) {
+  :host {
+    animation: rise var(--dur-base) var(--ease) backwards;
+  }
 }
 
 .page-head {

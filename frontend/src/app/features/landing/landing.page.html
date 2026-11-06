@@ -1,6 +1,8 @@
 <a class="skip" href="#content" (click)="$event.preventDefault(); scrollTo('content')">Skip to the content</a>
 
-<header class="top">
+<div id="top-marker" class="marker" aria-hidden="true"></div>
+
+<header class="top" [class.top--scrolled]="scrolled()">
   <div class="top__inner">
     <a class="brand" routerLink="/" aria-label="Data Quality Wevioo, home">
       <span class="brand__mark" aria-hidden="true">
@@ -10,10 +12,10 @@
     </a>
 
     <nav class="top__nav" aria-label="Sections">
-      <button type="button" (click)="scrollTo('benefits')">Why</button>
-      <button type="button" (click)="scrollTo('features')">Features</button>
-      <button type="button" (click)="scrollTo('how')">How it works</button>
-      <button type="button" (click)="scrollTo('preview')">Preview</button>
+      <button type="button" [class.active]="active() === 'benefits'" [attr.aria-current]="active() === 'benefits' ? 'true' : null" (click)="scrollTo('benefits')">Why</button>
+      <button type="button" [class.active]="active() === 'features'" [attr.aria-current]="active() === 'features' ? 'true' : null" (click)="scrollTo('features')">Features</button>
+      <button type="button" [class.active]="active() === 'how'" [attr.aria-current]="active() === 'how' ? 'true' : null" (click)="scrollTo('how')">How it works</button>
+      <button type="button" [class.active]="active() === 'preview'" [attr.aria-current]="active() === 'preview' ? 'true' : null" (click)="scrollTo('preview')">Preview</button>
     </nav>
 
     <div class="top__actions">
@@ -82,14 +84,14 @@
 
   <!-- ------------------------------------------------------------ benefits -->
   <section class="section" id="benefits" aria-labelledby="benefits-title">
-    <div class="section__head">
+    <div class="section__head" appReveal>
       <p class="eyebrow">Why Data Quality</p>
       <h2 id="benefits-title">Stop wondering whether the numbers are right</h2>
       <p>Bad data quietly costs time and money. Data Quality tells you what is wrong, where, and how much it matters.</p>
     </div>
     <div class="benefits">
-      @for (item of benefits; track item.title) {
-        <article class="benefit">
+      @for (item of benefits; track item.title; let index = $index) {
+        <article class="benefit" appReveal [appRevealDelay]="index">
           <span class="benefit__icon"><app-icon [name]="item.icon" [size]="22" /></span>
           <h3>{{ item.title }}</h3>
           <p>{{ item.text }}</p>
@@ -100,14 +102,14 @@
 
   <!-- ------------------------------------------------------------ features -->
   <section class="section section--tinted" id="features" aria-labelledby="features-title">
-    <div class="section__head">
+    <div class="section__head" appReveal>
       <p class="eyebrow">Features</p>
       <h2 id="features-title">Everything you need in one place</h2>
       <p>From the first check to the final report, without leaving the page.</p>
     </div>
     <ul class="features">
-      @for (item of features; track item.title) {
-        <li class="feature">
+      @for (item of features; track item.title; let index = $index) {
+        <li class="feature" appReveal [appRevealDelay]="index % 4">
           <span class="feature__icon"><app-icon [name]="item.icon" [size]="20" /></span>
           <div>
             <h3>{{ item.title }}</h3>
@@ -120,13 +122,13 @@
 
   <!-- ------------------------------------------------------------ how it works -->
   <section class="section" id="how" aria-labelledby="how-title">
-    <div class="section__head">
+    <div class="section__head" appReveal>
       <p class="eyebrow">How it works</p>
       <h2 id="how-title">From files to answers in three steps</h2>
     </div>
     <ol class="steps">
       @for (step of steps; track step.title; let index = $index) {
-        <li class="step">
+        <li class="step" appReveal [appRevealDelay]="index">
           <span class="step__number" aria-hidden="true">{{ index + 1 }}</span>
           <span class="step__icon"><app-icon [name]="step.icon" [size]="22" /></span>
           <h3>{{ step.title }}</h3>
@@ -138,13 +140,13 @@
 
   <!-- ------------------------------------------------------------ preview -->
   <section class="section section--tinted" id="preview" aria-labelledby="preview-title">
-    <div class="section__head">
+    <div class="section__head" appReveal>
       <p class="eyebrow">Preview</p>
       <h2 id="preview-title">A look inside</h2>
       <p>Sample screens, built with made-up data.</p>
     </div>
 
-    <div class="tabs" role="tablist" aria-label="Preview screens">
+    <div class="tabs" role="tablist" aria-label="Preview screens" appReveal>
       @for (tab of previewTabs; track tab.id) {
         <button
           type="button"
@@ -159,7 +161,7 @@
       }
     </div>
 
-    <div class="stage" role="tabpanel" [id]="'panel-' + preview()" [attr.aria-labelledby]="'tab-' + preview()">
+    <div class="stage" appReveal [appRevealDelay]="1" role="tabpanel" [id]="'panel-' + preview()" [attr.aria-labelledby]="'tab-' + preview()">
       @switch (preview()) {
         @case ('health') {
           <div class="screen">
@@ -212,7 +214,7 @@
   </section>
 
   <!-- ------------------------------------------------------------ final call -->
-  <section class="cta" aria-labelledby="cta-title">
+  <section class="cta" aria-labelledby="cta-title" appReveal>
     <h2 id="cta-title">Ready to check your data?</h2>
     <p>Sign in, add your files, and see your first results in a few minutes.</p>
     @if (signedIn()) {

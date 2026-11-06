@@ -1,10 +1,11 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, afterNextRender, computed, inject, signal } from '@angular/core';
 import { Title } from '@angular/platform-browser';
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../../core/auth.service';
 import { ThemeService } from '../../core/theme.service';
 import { ScoreRing } from '../../shared/components';
 import { Icon, IconName } from '../../shared/icon';
+import { Reveal, prefersReducedMotion, watchSections } from '../../shared/motion';
 
 export interface Feature {
   icon: IconName;
@@ -53,7 +54,7 @@ export const PREVIEW_TABS: { id: PreviewTab; label: string; icon: IconName }[] =
 /** Public front page: explains the service and leads to the sign-in page. */
 @Component({
   selector: 'app-landing-page',
-  imports: [RouterLink, Icon, ScoreRing],
+  imports: [RouterLink, Icon, ScoreRing, Reveal],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './landing.page.html',
   styleUrl: './landing.page.css'
@@ -68,12 +69,32 @@ export class LandingPage {
   readonly previewTabs = PREVIEW_TABS;
   readonly preview = signal<PreviewTab>('health');
   readonly year = new Date().getFullYear();
+  /** True once the page has scrolled: the top bar then gets its border and blur. */
+  readonly scrolled = signal(false);
+  /** The section being read, highlighted in the navigation. */
+  readonly active = signal('');
 
   /** Someone already signed in goes straight back to their work. */
   readonly signedIn = computed(() => this.auth.isAuthenticated());
 
   constructor() {
     inject(Title).setTitle('Data Quality – Know if your data can be trusted');
+    const destroyRef = inject(DestroyRef);
+    afterNextRender(() => {
+      const stopSections = watchSections(['benefits', 'features', 'how', 'preview'], (id) => this.active.set(id));
+      // An observer on a marker at the very top tells when the page has scrolled, with no scroll listener to run.
+      const marker = globalThis.document?.getElementById('top-marker');
+      const observer = marker && typeof IntersectionObserver !== 'undefined'
+        ? new IntersectionObserver(([entry]) => this.scrolled.set(!entry.isIntersecting))
+        : null;
+      if (marker && observer) {
+        observer.observe(marker);
+      }
+      destroyRef.onDestroy(() => {
+        stopSections();
+        observer?.disconnect();
+      });
+    });
   }
 
   show(tab: PreviewTab): void {
@@ -82,7 +103,6 @@ export class LandingPage {
 
   /** Smooth scroll to a section, without animation for people who asked for less motion. */
   scrollTo(id: string): void {
-    const reduced = globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
-    globalThis.document?.getElementById(id)?.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'start' });
+    globalThis.document?.getElementById(id)?.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'start' });
   }
 }

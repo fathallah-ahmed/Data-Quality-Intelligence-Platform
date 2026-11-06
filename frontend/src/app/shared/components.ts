@@ -57,7 +57,10 @@ export class LlmBadge {
 
 const COUNT_UP_MS = 1100;
 
-/** Circular score gauge (0–100) coloured by the quality scale; it draws itself and counts up when it appears. */
+/**
+ * Circular score gauge (0–100) coloured by the quality scale; it draws itself and counts up when it appears.
+ * The number is written straight to the DOM on every frame, so counting never triggers a change-detection pass.
+ */
 @Component({
   selector: 'app-score-ring',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -69,8 +72,8 @@ const COUNT_UP_MS = 1100;
           stroke-linecap="round" [attr.stroke-dasharray]="circumference" [attr.stroke-dashoffset]="offset()" transform="rotate(-90 50 50)" />
       }
     </svg>
-    <span class="ring__label">
-      <strong>{{ display() }}</strong>
+    <span class="ring__label" aria-hidden="true">
+      <strong #number></strong>
       @if (caption()) {
         <small>{{ caption() }}</small>
       }
@@ -80,7 +83,7 @@ const COUNT_UP_MS = 1100;
     :host { position: relative; display: inline-grid; place-items: center; flex: none; }
     svg { display: block; }
     .ring__track { stroke: var(--surface-sunken); }
-    .ring__value { stroke: var(--tone-fg, var(--primary)); transition: stroke-dashoffset 700ms var(--ease); animation: ring-draw 1100ms var(--ease) both; }
+    .ring__value { stroke: var(--tone-fg, var(--primary)); transition: stroke-dashoffset var(--dur-slow) var(--ease); animation: ring-draw 1100ms var(--ease) both; }
     @keyframes ring-draw { from { stroke-dashoffset: 263.9; } }
     :host([data-tone='warning']) .ring__value { stroke: var(--warning); }
     .ring__label { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; line-height: 1.05; }
@@ -99,33 +102,33 @@ export class ScoreRing {
   readonly circumference = 2 * Math.PI * 42;
   readonly tone = computed(() => scoreTone(this.value()));
   readonly offset = computed(() => this.circumference * (1 - Math.max(0, Math.min(100, this.value() ?? 0)) / 100));
-  /** The number on screen: it counts up to the value (and from the old value when the score changes). */
-  private readonly shown = signal(0);
+  private readonly label = viewChild.required<ElementRef<HTMLElement>>('number');
+  /** What the number shows right now (so a changed score counts from where it is, not from zero). */
+  private current = 0;
 
   constructor() {
     effect((onCleanup) => {
+      const element = this.label().nativeElement;
       const target = this.value();
-      if (target === null || target === undefined) {
+      const grade = this.showGrade();
+      const size = this.size();
+      if (grade || target === null || target === undefined) {
+        element.textContent = grade ? qualityGrade(target).grade : formatScore(target);
+        this.current = target ?? 0;
         return;
       }
-      const from = untracked(() => this.shown());
-      onCleanup(animateNumber(from, target, COUNT_UP_MS, (value) => this.shown.set(value)));
+      const write = (value: number) => {
+        this.current = value;
+        element.textContent = size < 56 ? String(Math.round(value)) : formatScore(value);
+      };
+      onCleanup(animateNumber(untracked(() => this.current), target, COUNT_UP_MS, write));
     });
   }
 
-  readonly display = computed(() => {
-    if (this.showGrade()) {
-      return qualityGrade(this.value()).grade;
-    }
-    const value = this.value();
-    if (value === null || value === undefined) {
-      return formatScore(value);
-    }
-    const counted = this.shown();
-    return this.size() < 56 ? String(Math.round(counted)) : formatScore(counted);
-  });
   readonly fontSize = computed(() => `${Math.round(this.size() * (this.showGrade() ? 0.34 : 0.24))}px`);
-  readonly ariaLabel = computed(() => `Quality score ${formatScore(this.value())} out of 100`);
+  readonly ariaLabel = computed(() => this.showGrade()
+    ? `Quality grade ${qualityGrade(this.value()).grade}, score ${formatScore(this.value())} out of 100`
+    : `Quality score ${formatScore(this.value())} out of 100`);
 }
 
 @Component({
@@ -218,11 +221,41 @@ export class Modal {
     effect(() => {
       const element = this.dialog().nativeElement;
       if (this.open() && !element.open) {
+        element.classList.remove('modal--closing');
         element.showModal?.();
       } else if (!this.open() && element.open) {
-        element.close();
+        this.dismiss(element);
       }
     });
+  }
+
+  /** Plays the closing animation, then closes the dialog (at once with reduced motion). */
+  private dismiss(element: HTMLDialogElement): void {
+    const reduced = globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+    if (reduced || element.classList.contains('modal--closing')) {
+      element.close();
+      return;
+    }
+    element.classList.add('modal--closing');
+    let finished = false;
+    const finish = () => {
+      if (finished) {
+        return;
+      }
+      finished = true;
+      element.removeEventListener('animationend', onEnd);
+      element.classList.remove('modal--closing');
+      if (element.open && !this.open()) {
+        element.close();
+      }
+    };
+    const onEnd = (event: Event) => {
+      if (event.target === element) {
+        finish();
+      }
+    };
+    element.addEventListener('animationend', onEnd);
+    setTimeout(finish, 320);
   }
 
   onCancel(event: Event): void {
@@ -358,7 +391,7 @@ export class Tabs {
   template: `
     <div class="toasts" role="status" aria-live="polite" aria-relevant="additions">
       @for (toast of toasts.toasts(); track toast.id) {
-        <div class="toast" [attr.data-tone]="toast.tone === 'error' ? 'danger' : toast.tone">
+        <div class="toast" animate.leave="toast--leave" [attr.data-tone]="toast.tone === 'error' ? 'danger' : toast.tone">
           <app-icon [name]="icon(toast.tone)" [size]="20" />
           <p>{{ toast.message }}</p>
           <button type="button" class="btn btn--ghost btn--icon btn--sm" aria-label="Dismiss" (click)="toasts.dismiss(toast.id)"><app-icon name="x" [size]="16" /></button>

@@ -194,7 +194,7 @@
 
 .login__form-wrap {
   width: min(100%, 380px);
-  animation: rise 300ms var(--ease);
+  animation: rise var(--dur-slow) var(--ease);
 }
 
 .login__form-wrap h1 {

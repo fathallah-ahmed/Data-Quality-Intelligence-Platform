@@ -43,7 +43,7 @@
   font: inherit;
   text-align: left;
   cursor: pointer;
-  transition: background 140ms var(--ease), border-color 140ms var(--ease);
+  transition: background var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease);
 }
 
 .table-item:hover {

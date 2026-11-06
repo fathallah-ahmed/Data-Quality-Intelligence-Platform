@@ -27,7 +27,7 @@
     radial-gradient(520px 220px at 0% 0%, color-mix(in srgb, var(--primary) 16%, transparent), transparent 70%),
     radial-gradient(420px 220px at 100% 100%, color-mix(in srgb, var(--accent) 12%, transparent), transparent 70%),
     var(--surface);
-  animation: rise 360ms var(--ease) both;
+  animation: rise var(--dur-slow) var(--ease) backwards;
 }
 
 .dash__head h1 {
@@ -60,7 +60,7 @@
   border-radius: var(--radius-lg);
   background: var(--surface);
   box-shadow: var(--shadow-sm);
-  animation: rise 420ms var(--ease) both;
+  animation: rise var(--dur-slow) var(--ease) backwards;
 }
 
 .kpi:nth-child(2) { animation-delay: 60ms; }
@@ -119,7 +119,7 @@
   border-radius: var(--radius-md);
   background: var(--surface);
   color: var(--text-subtle);
-  transition: border-color 150ms var(--ease), box-shadow 150ms var(--ease);
+  transition: border-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
 }
 
 .search:focus-within {
@@ -153,7 +153,7 @@
   background: var(--surface);
   color: var(--text-muted);
   cursor: pointer;
-  transition: background 150ms var(--ease), border-color 150ms var(--ease), color 150ms var(--ease);
+  transition: background var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
 }
 
 .chip span {
@@ -201,6 +201,7 @@
 }
 
 .ds {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
@@ -212,9 +213,21 @@
   box-shadow: var(--shadow-sm);
   color: inherit;
   text-decoration: none;
-  animation: rise 420ms var(--ease) both;
+  animation: rise var(--dur-slow) var(--ease) backwards;
   animation-delay: calc(min(var(--i, 0), 11) * 45ms);
-  transition: transform 180ms var(--ease), box-shadow 180ms var(--ease), border-color 180ms var(--ease);
+  transition: transform var(--dur-base) var(--ease), border-color var(--dur-base) var(--ease);
+}
+
+/* The lifted shadow is a layer that fades in, so hovering only changes opacity and transform. */
+.ds::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: var(--shadow-md);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--dur-base) var(--ease);
 }
 
 .ds::before {
@@ -226,16 +239,30 @@
   opacity: 0.85;
 }
 
-.ds:hover,
-.ds:focus-visible {
-  transform: translateY(-3px);
-  border-color: var(--border-strong);
-  box-shadow: var(--shadow-md);
+@media (hover: hover) {
+  .ds:hover {
+    transform: translateY(-4px);
+    border-color: var(--border-strong);
+  }
+
+  .ds:hover::after {
+    opacity: 1;
+  }
+}
+
+.ds:active {
+  transform: translateY(-1px) scale(0.995);
+  transition-duration: 80ms;
 }
 
 .ds:focus-visible {
+  border-color: var(--border-strong);
   outline: 2px solid var(--focus);
   outline-offset: 2px;
+}
+
+.ds:focus-visible::after {
+  opacity: 1;
 }
 
 .ds--loading {
@@ -371,7 +398,7 @@
 }
 
 .ds__open app-icon {
-  transition: transform 180ms var(--ease);
+  transition: transform var(--dur-base) var(--ease);
 }
 
 .ds:hover .ds__open app-icon {
@@ -390,7 +417,7 @@
     radial-gradient(600px 260px at 15% 0%, var(--primary-soft), transparent 70%),
     var(--surface);
   box-shadow: var(--shadow-md);
-  animation: rise 300ms var(--ease) both;
+  animation: rise var(--dur-slow) var(--ease) backwards;
 }
 
 .welcome h1 {

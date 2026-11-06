@@ -239,7 +239,7 @@ Error codes: 400 invalid request, 401 missing or invalid token (pipeline token i
 
 ```powershell
 cd .\backend; .\mvnw.cmd test                                                   # 110 tests
-cd .\frontend; npm run build; npm test                                         # 69 tests
+cd .\frontend; npm run build; npm test                                         # 76 tests
 cd .\Data_Quality_Wevioo; .\venv\Scripts\python.exe -m pip install -r requirements-dev.txt; .\venv\Scripts\python.exe -m pytest   # 67 tests
 cd .\graphrag; .\.venv\Scripts\python.exe -m pytest                            # 39 tests
 ```

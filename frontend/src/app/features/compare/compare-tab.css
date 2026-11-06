@@ -21,7 +21,7 @@
   background:
     radial-gradient(520px 200px at 0% 0%, var(--primary-softer), transparent 70%),
     var(--surface);
-  transition: opacity 160ms var(--ease);
+  transition: opacity var(--dur-fast) var(--ease);
 }
 
 .hero--loading {

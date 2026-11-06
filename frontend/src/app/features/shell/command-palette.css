@@ -14,7 +14,7 @@
 .palette[open] {
   display: flex;
   flex-direction: column;
-  animation: modal-in 160ms var(--ease);
+  animation: modal-in var(--dur-fast) var(--ease);
 }
 
 .palette::backdrop {
