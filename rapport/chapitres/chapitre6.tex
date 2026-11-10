@@ -1,0 +1,191 @@
+\chapter{Réalisation : Sprints 3 et 4}
+
+\section*{Introduction}
+\addcontentsline{toc}{section}{Introduction}
+Ce chapitre poursuit la présentation de la réalisation avec les sprints~3 et~4. Le sprint~3 rend les résultats compréhensibles : le contexte métier oriente l'analyse, chaque colonne reçoit un rôle expliqué, et le score est décomposé en dimensions dont le calcul est visible. Le sprint~4 permet de surveiller la qualité dans le temps grâce à des règles évaluées à chaque exécution, et rend l'ensemble déployable et testé. Pour chaque sprint, nous présentons l'objectif et le backlog, les éléments réalisés, les diagrammes de séquence et d'activité des fonctionnalités clés, puis les résultats obtenus lors de la revue de sprint.
+
+%==============================================================================
+\section{Sprint 3 — Contexte, rôles et dimensions}
+%==============================================================================
+
+Le troisième sprint réalise l'epic E3. Nous présentons son objectif et son backlog, puis le contexte métier, les rôles de colonnes, l'analyse contrôlée par le modèle, les dimensions de qualité et la comparaison de versions.
+
+\subsection{Sprint Goal et Sprint Backlog}
+
+Le \textbf{Sprint Goal} du sprint~3 est le suivant : \textit{« comprendre à quoi sert chaque colonne et expliquer le score de qualité »}. Le tableau~\ref{tab:backlog-s3} détaille les récits retenus et leurs tâches.
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{|C{1.1cm}|L{4.6cm}|C{1.2cm}|L{6.4cm}|}
+\hline
+\thd{US} & \thd{Récit utilisateur} & \thd{ID} & \thd{Tâche} \\ \hline
+\multirow{2}{*}{US10} & \multirow{2}{4.6cm}{Contexte métier} & T3.1 & Saisie du domaine, de l'objectif et du grain d'une ligne \\ \cline{3-4}
+ & & T3.2 & Contexte libre global ou par table \\ \hline
+\multirow{2}{*}{US11} & \multirow{2}{4.6cm}{Rôle des colonnes} & T3.3 & Notation du rôle par indices (nom, valeurs, formats) \\ \cline{3-4}
+ & & T3.4 & Arbitrage des colonnes incertaines par le modèle \\ \hline
+\multirow{2}{*}{US12} & \multirow{2}{4.6cm}{Analyse contrôlée} & T3.5 & Flux générer, valider, réparer, replier \\ \cline{3-4}
+ & & T3.6 & Statut du modèle et analyse globale \\ \hline
+US13 & Score et dimensions & T3.7 & Calcul du score, des notes et de quatre dimensions expliquées \\ \hline
+US14 & Comparaison de versions & T3.8 & Différences entre deux versions \\ \hline
+\end{tabular}
+\caption{Sprint Backlog du sprint 3}
+\label{tab:backlog-s3}
+\end{table}
+
+\subsection{Contexte métier}
+
+À l'envoi, l'utilisateur peut indiquer le \textbf{domaine}, l'\textbf{objectif} de l'analyse et ce que \textbf{représente une ligne} (un client, un compte, une transaction). Ces trois informations sont enregistrées dans un fichier de contexte à côté des fichiers CSV, conservées lors d'une relance et lues par le pipeline pour guider les rôles, l'analyse du modèle et les règles proposées. Elles évitent une erreur typique : un identifiant répété n'est un problème que s'il contredit ce qu'une ligne représente. Un contexte libre, global ou propre à une table, peut aussi être fourni par un fichier réservé dont le nom n'est jamais traité comme une table.
+
+\subsection{Rôle des colonnes}
+
+Le rôle de chaque colonne est noté à partir des mots de son nom, des statistiques de ses valeurs et des formats qu'elles suivent ; les indices qui ont fait pencher la décision sont conservés. Le tableau~\ref{tab:roles-exemples} donne quelques exemples du raisonnement.
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{|L{3.2cm}|L{4.8cm}|L{3.2cm}|C{2.4cm}|}
+\hline
+\thd{Colonne} & \thd{Indices} & \thd{Rôle} & \thd{Décidé par} \\ \hline
+\texttt{customer\_id} & Mot \textit{id}, valeurs presque toutes distinctes & Identifiant & Indices \\ \hline
+\texttt{email} & Mot \textit{email}, valeurs au format courriel & Courriel & Indices \\ \hline
+\texttt{opened\_on} & Valeurs lisibles comme des dates & Date & Indices \\ \hline
+Colonne au nom opaque & Aucun indice net & Rôle proposé par le modèle & Modèle \\ \hline
+\end{tabular}
+\caption{Exemples d'attribution du rôle d'une colonne}
+\label{tab:roles-exemples}
+\end{table}
+
+Le diagramme d'activité de la figure~\ref{fig:act-roles} résume la décision.
+
+\figplaceholder[0.6]{act_roles.png}{Diagramme d'activité — Attribution du rôle d'une colonne}{fig:act-roles}{Diagramme d'activité (généré).}
+
+\subsection{Analyse contrôlée par le modèle}
+
+Pour chaque table, le modèle produit une analyse structurée : constats, causes probables, impacts, recommandations. Le flux \textit{générer, valider, réparer, replier} compare chaque pourcentage cité à la colonne qu'il concerne : une valeur attribuée à une autre colonne est rejetée, tandis que des formes raccourcies de la réponse sont tolérées. Si l'analyse reste non fiable, une analyse déterministe est publiée. L'interface indique l'origine du résultat, par exemple « Déterministe seulement – Ollama indisponible ». Le diagramme de séquence de la figure~\ref{fig:seq-analyse} décrit les échanges.
+
+\figplaceholder[1]{seq_analyse_table.png}{Diagramme de séquence — Analyse d'une table par le modèle}{fig:seq-analyse}{Diagramme de séquence (généré).}
+
+L'analyse globale suit le même principe : une charge compacte est construite à partir des résultats de table, un seul appel du modèle est effectué si l'option est activée, et une analyse déterministe sert de repli.
+
+\subsection{Score et dimensions de qualité}
+
+L'onglet « Vue d'ensemble » affiche le score de la version et sa note, puis les quatre dimensions de qualité avec la manière dont chacune est calculée. Une dimension qui ne peut pas être mesurée l'indique et en donne la raison, plutôt que d'afficher une valeur trompeuse. Le tableau~\ref{tab:dimensions-affichees} résume ces dimensions.
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{|L{2.8cm}|L{6.4cm}|L{4.8cm}|}
+\hline
+\thd{Dimension} & \thd{Numérateur / dénominateur} & \thd{Exemple de non-mesure} \\ \hline
+Complétude & Cellules renseignées / cellules (lignes $\times$ colonnes) & -- \\ \hline
+Unicité & Lignes qui ne sont pas la copie exacte d'une autre / lignes (un identifiant répété n'est pas un doublon) & -- \\ \hline
+Validité & Valeurs au bon format / valeurs renseignées des colonnes courriel, téléphone, URL ou date & Aucune colonne reconnue comme courriel, téléphone, URL ou date \\ \hline
+Cohérence & Lignes où les règles d'ordre de dates approuvées sont respectées / lignes où les deux dates sont remplies & Aucune règle d'ordre de dates approuvée \\ \hline
+\end{tabular}
+\caption{Dimensions de qualité affichées}
+\label{tab:dimensions-affichees}
+\end{table}
+
+\figplaceholder[0.95]{capture_dimensions.png}{Score, note et dimensions de qualité}{fig:capture-dimensions}{Capture de l'onglet « Vue d'ensemble » : anneau de score, note, quatre dimensions avec leur calcul, état de chaque table, colonnes à revoir.}
+
+\subsection{Comparaison de versions}
+
+L'onglet « Comparer » montre les différences entre une version et une version plus ancienne : variation du score, nombre de lignes, colonnes ajoutées ou supprimées, changements de type et valeurs manquantes. La comparaison s'appuie sur les signatures de contenu et de schéma calculées au sprint~1.
+
+\subsection{Résultats du sprint 3}
+
+L'utilisateur dispose désormais d'un score expliqué, de colonnes dont le rôle est justifié et d'une analyse en langage naturel dont l'origine est affichée. La figure~\ref{fig:capture-insights} présente l'analyse sémantique et la figure~\ref{fig:capture-model} le modèle de données déduit.
+
+\figplaceholder[0.95]{capture_insights.png}{Analyse sémantique d'une table}{fig:capture-insights}{Capture de l'onglet « Analyses » : groupes dépliables (rôles de colonnes, contrat de données, surveillance, causes, impacts) et recommandations globales.}
+
+\figplaceholder[0.95]{capture_model.png}{Modèle de données déduit des relations}{fig:capture-model}{Capture de l'onglet « Modèle de données » : tables et relations, avec couverture et cardinalité.}
+
+\noindent\textbf{Sprint Review.} L'incrément livré rend les résultats explicables. La rétrospective a identifié le besoin de surveiller la qualité dans le temps plutôt que de la constater une fois, ce qui fait l'objet du sprint~4.
+
+%==============================================================================
+\section{Sprint 4 — Règles de qualité et industrialisation}
+%==============================================================================
+
+Le quatrième sprint réalise l'epic E4. Après son objectif et son backlog, nous présentons les règles, leur évaluation et leurs alertes, le rapport imprimable, puis le déploiement et les tests automatisés.
+
+\subsection{Sprint Goal et Sprint Backlog}
+
+Le \textbf{Sprint Goal} du sprint~4 est le suivant : \textit{« surveiller la qualité par des règles et livrer une plateforme déployable et testée »}. Le tableau~\ref{tab:backlog-s4} détaille les récits retenus et leurs tâches.
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{|C{1.1cm}|L{4.6cm}|C{1.2cm}|L{6.4cm}|}
+\hline
+\thd{US} & \thd{Récit utilisateur} & \thd{ID} & \thd{Tâche} \\ \hline
+US15 & Créer des règles & T4.1 & Types de règles, gravité, pause, édition \\ \hline
+\multirow{2}{*}{US16} & \multirow{2}{4.6cm}{Règles proposées} & T4.2 & Suggestion à partir de l'objectif, filtrée par le code \\ \cline{3-4}
+ & & T4.3 & Approbation et rejet définitif \\ \hline
+\multirow{2}{*}{US17} & \multirow{2}{4.6cm}{Évaluation et alertes} & T4.4 & Évaluation en fin d'exécution et à la demande \\ \cline{3-4}
+ & & T4.5 & Alerte : notification, badge, bandeau \\ \hline
+US18 & Rapport imprimable & T4.6 & Page imprimable et export Markdown \\ \hline
+\multirow{3}{*}{US19} & \multirow{3}{4.6cm}{Déploiement et tests} & T4.7 & Dockerfiles et Compose à la racine \\ \cline{3-4}
+ & & T4.8 & Script de démarrage unique pour le développement \\ \cline{3-4}
+ & & T4.9 & Intégration continue et suites de tests \\ \hline
+\end{tabular}
+\caption{Sprint Backlog du sprint 4}
+\label{tab:backlog-s4}
+\end{table}
+
+\subsection{Règles de qualité}
+
+Une règle est définie par son type, sa table et sa colonne, son seuil et sa gravité (\texttt{WARNING} ou \texttt{CRITICAL}) ; elle peut être suspendue. Neuf types sont disponibles (chapitre~4). Les deux plus récents portent sur le \textbf{format} des valeurs (courriel, téléphone, URL, date, nombre) et sur l'\textbf{ordre de deux dates}, et s'appuient sur les mesures du sprint~1 : le serveur les juge sans relire les fichiers.
+
+Les règles sont évaluées à la fin de chaque exécution et à la demande (bouton « Vérifier maintenant »). Chaque résultat est \texttt{PASS}, \texttt{FAIL} ou \texttt{SKIPPED} (non évaluée, avec la raison : table absente de la version ou aucune version précédente à comparer, par exemple ; une colonne absente donne en revanche un échec), accompagné d'un message explicatif. Le diagramme de séquence de la figure~\ref{fig:seq-regles} décrit l'enchaînement.
+
+\figplaceholder[1]{seq_regles.png}{Diagramme de séquence — Proposition, approbation et évaluation des règles}{fig:seq-regles}{Diagramme de séquence (généré).}
+
+\subsection{Règles proposées à partir de l'objectif}
+
+Le pipeline demande au modèle de proposer des règles pour l'objectif indiqué : « contacter les clients » donne par exemple un courriel renseigné et bien formé. Le code ne conserve que les règles réellement vérifiables sur les données. Sans objectif, ou sans modèle, un petit ensemble de règles est dérivé des mesures. Ces règles restent des \textbf{suggestions} (état \texttt{SUGGESTED}) tant que l'utilisateur ne les a pas approuvées, et une suggestion écartée ne revient pas.
+
+\subsection{Alertes}
+
+Un échec de règle déclenche une alerte visible à trois niveaux : une notification en direct, où que se trouve l'utilisateur, un badge dans la liste des jeux de données et un bandeau dans la vue d'ensemble. Les échecs de gravité critique sont comptés à part.
+
+\figplaceholder[0.95]{capture_regles.png}{Onglet des règles de qualité}{fig:capture-regles}{Capture de l'onglet « Règles » : règles et résultats de la version, règles proposées à approuver, création d'une règle.}
+
+\subsection{Rapport imprimable}
+
+Le bouton « Rapport » ouvre une page imprimable de la version (impression ou enregistrement en PDF, ou export Markdown) qui reprend le score, les dimensions avec la définition de chaque score, les tables et les règles.
+
+\subsection{Déploiement et tests automatisés}
+
+Le dossier racine contient un fichier Docker Compose qui inclut ceux du worker et de Neo4j : tous les services partagent un réseau et les mêmes secrets, et le serveur joint Airflow, Neo4j et le service de questions par le nom de leur service. Une seule commande construit et démarre l'ensemble. Pour le développement sous Windows, un script ouvre une fenêtre par service (Ollama, Airflow, questions, serveur, interface) et lance Neo4j en arrière-plan ; le navigateur s'ouvre lorsque tout répond.
+
+Quatre suites de tests couvrent les blocs, et un workflow d'intégration continue les exécute à chaque modification, avec la validation du fichier Compose (tableau~\ref{tab:tests}).
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{|L{3.6cm}|L{6.2cm}|C{1.6cm}|L{2.6cm}|}
+\hline
+\thd{Bloc} & \thd{Périmètre couvert} & \thd{Tests} & \thd{Outil} \\ \hline
+Serveur & Authentification, dépôt, statuts, règles, dimensions, comparaison, corrections, graphe, reprise & 110 & Maven \\ \hline
+Interface & Connexion et appels API, événements, formatage, règles, modèle de données, gardes de routes, page d'accueil, tableau de bord, animations & 76 & Vitest \\ \hline
+Worker & Client du serveur, rôles, formats, règles proposées, contexte, formes de réponse du modèle, phases de bout en bout avec un faux serveur & 67 & pytest \\ \hline
+Service de questions & Garde-fous, tri, réponses, service HTTP & 39 & pytest \\ \hline
+\end{tabular}
+\caption{Suites de tests automatisés}
+\label{tab:tests}
+\end{table}
+
+Ces tests n'ont besoin ni d'Airflow, ni de Neo4j, ni d'Ollama : ces services sont simulés.
+
+\subsection{Résultats du sprint 4}
+
+La plateforme surveille désormais la qualité par des règles, alerte l'utilisateur et se déploie par une commande. La figure~\ref{fig:capture-airflow} présente la vue de l'orchestrateur pour une exécution réussie.
+
+\figplaceholder[0.95]{capture_airflow.png}{Interface d'Airflow — vue graphe d'une exécution réussie}{fig:capture-airflow}{Capture de l'interface d'Airflow : les neuf tâches du DAG en succès.}
+
+\noindent\textbf{Sprint Review.} L'incrément livré rend la plateforme exploitable en continu. La rétrospective a identifié le besoin de passer de la détection à la correction, ce qui fait l'objet du sprint~5.
+
+\section*{Conclusion}
+\addcontentsline{toc}{section}{Conclusion}
+Ce chapitre a présenté la réalisation des sprints~3 et~4 : le contexte métier, les rôles de colonnes, l'analyse contrôlée et les dimensions de qualité, puis les règles, les alertes, le rapport, le déploiement et les tests. Le chapitre suivant présente les sprints~5 à~7 : les corrections, le graphe de connaissances et les questions en langage naturel.

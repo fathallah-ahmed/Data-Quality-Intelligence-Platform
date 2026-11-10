@@ -1,0 +1,14 @@
+\chapter*{Résumé}
+\markboth{Résumé}{}
+\addcontentsline{toc}{chapter}{Résumé}
+
+Dans un contexte où les données constituent un actif stratégique, leur qualité conditionne directement la fiabilité des analyses, des tableaux de bord et des modèles décisionnels. Pourtant, l'évaluation de la qualité des données reste, dans de nombreuses organisations, une activité manuelle, longue et dépendante de l'expertise individuelle : les outils de profilage mesurent sans interpréter, et les outils de validation exigent des règles écrites à l'avance.
+
+Ce projet de fin d'études, réalisé au sein de \textbf{Wevioo}, répond à cette problématique par la conception et la mise en place de \textbf{\projet}, une plateforme web d'évaluation intelligente de la qualité des données, fondée sur un principe : \textbf{le code mesure et contrôle, le modèle interprète et rédige}. Un traitement orchestré par \textbf{Apache Airflow} lit des fichiers hétérogènes, calcule les métriques de chaque table, détermine le rôle de chaque colonne à partir d'indices explicites et mesure les formats, l'ordre des dates et les liens entre tables. Un \textbf{grand modèle de langage exécuté localement} (Ollama) interprète ces mesures ; ses affirmations sont confrontées aux mesures, avec une analyse déterministe de repli.
+
+Un serveur \textbf{Spring Boot} versionne les dépôts, sécurise l'accès par jetons, évalue des \textbf{règles de qualité} à chaque exécution et alerte en cas d'échec, applique des \textbf{corrections} sur une copie sans jamais modifier l'original, et construit un \textbf{graphe de connaissances} dans \textbf{Neo4j}. Une interface \textbf{Angular} restitue les résultats en temps réel. Un service de questions en langage naturel (\textbf{GraphRAG}) répond sur les données, leur qualité et l'usage de l'outil ; les requêtes Cypher écrites par le modèle sont contrôlées (lecture seule, périmètre d'une version, plan d'exécution, durée) avant d'être exécutées.
+
+La plateforme est déployable par une commande Docker Compose et couverte par 292 tests automatisés. Une comparaison de trois modèles de langage sur un jeu de questions rejouable éclaire le choix du modèle.
+
+\vspace{0.4cm}
+\noindent\textbf{Mots-clés :} qualité des données, profilage de données, grands modèles de langage, LLM local, Ollama, GraphRAG, Neo4j, Spring Boot, Angular, Apache Airflow, Docker, gouvernance des données.

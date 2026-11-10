@@ -1,0 +1,19 @@
+sequenceDiagram
+  autonumber
+  participant B as Serveur
+  participant A as Airflow
+  participant W as Worker
+  participant S as Stockage
+  B->>A: Déclencher le DAG (conf de la version)
+  A->>W: Valider la demande
+  W->>B: start
+  W->>S: Découvrir les CSV de la version
+  loop Pour chaque table
+    W->>W: Lecture tolérante, profil SweetViz
+    alt Table illisible ou vide
+      W-->>B: Table en échec (raison)
+    else Table lue
+      W->>S: Métriques, rôles, formats, relations
+    end
+  end
+  W-->>B: Premiers résultats

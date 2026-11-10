@@ -1,0 +1,18 @@
+flowchart TB
+  subgraph L1[Contrôleurs REST et sécurité]
+    C1[Authentification] --- C2[Datasets] --- C3[Règles] --- C4[Corrections] --- C5[Graphe] --- C6[Questions] --- C7[Pipeline] --- C8[Evenements]
+  end
+  subgraph L2[Services métier]
+    S1[DatasetService] --- S2[RuleService] --- S3[CorrectionService] --- S4[GraphService] --- S5[QualityDimensions] --- S6[VersionDiff]
+  end
+  subgraph L3[Domaine et persistance]
+    D1[Entités JPA] --- D2[Dépôts Spring Data] --- D3[(H2 ou MySQL)]
+  end
+  subgraph L4[Clients externes]
+    X1[AirflowClient] --- X2[Neo4j] --- X3[Ollama] --- X4[Service de questions]
+  end
+  subgraph T[Transverse]
+    T1[Surveillance des exécutions] --- T2[Reprise au démarrage] --- T3[Flux SSE]
+  end
+  L1 --> L2 --> L3
+  L2 --> L4

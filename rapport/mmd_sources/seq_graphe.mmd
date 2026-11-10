@@ -1,0 +1,21 @@
+sequenceDiagram
+  autonumber
+  actor U as Administrateur
+  participant F as Interface
+  participant B as Serveur
+  participant M as Modèle local
+  participant N as Neo4j
+  U->>F: Ouvrir l'onglet Graphe
+  F->>B: graph/schema
+  B->>B: Déduire entités, propriétés, relations
+  B->>M: Noms proposes (optionnel)
+  M-->>B: Noms
+  B-->>F: Modèle, conflits, liens incertains
+  U->>F: Construire
+  F->>B: graph/build
+  B->>N: Créer nœuds et relations avec _scope
+  N-->>B: Comptes
+  B-->>F: Résultat et requête pour Neo4j Browser
+  U->>F: Supprimer ce graphe
+  F->>B: DELETE graph
+  B->>N: Supprimer les nœuds du _scope

@@ -1,0 +1,22 @@
+flowchart LR
+  ADM([Administrateur])
+  AF([Airflow])
+  OL([Ollama])
+  subgraph S[Deposer et analyser un jeu de données]
+    U0([Deposer et analyser])
+    U1([Valider les fichiers])
+    U2([Créer la version])
+    U3([Lancer le pipeline])
+    U4([Suivre l'avancement])
+    U5([Renseigner le contexte métier])
+    U6([Relancer une analyse])
+  end
+  ADM --- U0
+  U0 -. include .-> U1
+  U0 -. include .-> U2
+  U0 -. include .-> U3
+  U0 -. include .-> U4
+  U5 -. extend .-> U0
+  U6 -. extend .-> U0
+  U3 --- AF
+  U3 --- OL

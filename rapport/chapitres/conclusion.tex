@@ -1,0 +1,30 @@
+\chapter*{Conclusion Générale et Perspectives}
+\markboth{Conclusion Générale}{}
+\addcontentsline{toc}{chapter}{Conclusion Générale et Perspectives}
+
+Ce projet de fin d'études, réalisé au sein de Wevioo, avait pour objectif d'automatiser de bout en bout l'évaluation de la qualité de jeux de données tabulaires, en produisant non seulement des indicateurs fiables, mais aussi une interprétation, une surveillance, des corrections et une interrogation en langage naturel, dans le respect de la confidentialité des données.
+
+Pour y répondre, nous avons conçu et réalisé \textbf{\projet}, une plateforme web fondée sur un principe unique : \textbf{le code mesure et contrôle, le modèle interprète et rédige}. Le traitement de profilage, orchestré par Airflow, lit de manière robuste des exports hétérogènes, calcule les métriques de chaque table, détermine le rôle de chaque colonne à partir d'indices explicites, mesure les formats, l'ordre des dates et les liens entre tables, puis fait analyser chaque table par un modèle local dont les affirmations sont confrontées aux mesures, avec une analyse déterministe de repli. Un serveur Spring Boot versionne les dépôts, sécurise l'accès par jeton, évalue des règles de qualité à chaque exécution, applique des corrections sur une copie et construit le graphe de chaque version dans Neo4j. Une interface Angular restitue ces résultats en temps réel, et un service de questions répond en langage naturel sur les données, leur qualité et l'usage de l'outil, avec des garde-fous qui n'exécutent que des requêtes en lecture seule limitées au périmètre d'une version.
+
+Les contraintes initiales ont été respectées : la confidentialité est garantie par l'exécution locale du modèle, de la base de graphe et du service de questions ; la reproductibilité, par un déploiement en une commande ; la fiabilité, par des statuts explicites, une reprise après incident et 292 tests automatisés ; et la traçabilité, par le statut du modèle, le journal des corrections et la restitution de la requête et des lignes de chaque réponse.
+
+Ce travail a également permis de tirer des enseignements sur l'usage des LLM dans un contexte de qualité des données. Un modèle est utile pour interpréter, rédiger et traduire une demande, mais il ne doit ni calculer ni décider seul : confronter chaque chiffre à sa colonne, limiter le modèle à des opérations connues et contrôler chaque requête avant exécution ont été plus efficaces que d'affiner indéfiniment les consignes. De même, signaler une dimension « non mesurée » plutôt que d'afficher une valeur flatteuse, ou conserver toutes les valeurs d'un conflit plutôt que d'en choisir une, renforce la confiance de l'utilisateur.
+
+Enfin, le projet comporte des limites qu'il convient de souligner : un seul rôle utilisateur est défini à ce stade ; la base de métadonnées par défaut est une base de fichiers adaptée à un poste, non à une montée en charge ; la plateforme lit des fichiers CSV et non directement des bases de données ; et l'évaluation des modèles repose sur un jeu de 19 questions, posées une seule fois à chaque modèle.
+
+Sur le plan personnel, ce stage m'a permis de consolider mes compétences en ingénierie des données et en développement d'applications web (Java, Angular, Python), de découvrir en profondeur l'exploitation des LLM en environnement local, les bases de graphe et la sécurisation d'un modèle qui écrit des requêtes, et de pratiquer une démarche agile, de la vision du produit à la revue de sprint. Il m'a aussi appris à évaluer un modèle de langage avec méthode : mesurer plutôt que supposer, documenter ses limites et contrôler ce qu'il produit avant de s'y fier.
+
+Ces résultats et ces limites ouvrent plusieurs pistes d'évolution, présentées ci-après.
+
+\section*{Perspectives}
+
+Plusieurs évolutions permettraient d'enrichir la solution :
+\begin{itemize}
+  \item \textbf{Gestion de plusieurs rôles} : distinguer l'ingénieur de données, l'analyste et le responsable métier, avec des droits adaptés (lecture seule, approbation des règles, correction).
+  \item \textbf{Sources de données élargies} : connecter directement la plateforme aux bases de données et aux entrepôts (SQL, Parquet) plutôt qu'aux seuls exports CSV.
+  \item \textbf{Montée en charge} : migrer la base de métadonnées vers un serveur de base de données, traiter les tables en parallèle et suivre les temps d'exécution.
+  \item \textbf{Évaluation plus large des modèles} : enrichir le jeu de questions, répéter chaque mesure, évaluer la qualité de rédaction par des évaluateurs humains et comparer les modèles sur les corrections en langage naturel.
+  \item \textbf{Règles exécutables} : exporter les règles approuvées vers des outils de validation existants (par exemple Great Expectations), pour les vérifier dans les chaînes de données des clients.
+  \item \textbf{Graphe enrichi} : exploiter des algorithmes de graphe (communautés, centralité) pour détecter les entités dupliquées et les anomalies de structure.
+  \item \textbf{Mémoire de conversation} : permettre des questions de suivi dans l'onglet de questions, en conservant le contexte des réponses précédentes.
+\end{itemize}

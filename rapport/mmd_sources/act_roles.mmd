@@ -1,0 +1,13 @@
+flowchart TD
+  A([Colonne]) --> B[Mots du nom de la colonne]
+  A --> C[Statistiques des valeurs]
+  A --> D[Formats des valeurs]
+  B --> E[Notation de chaque rôle]
+  C --> E
+  D --> E
+  E --> F{Un rôle domine nettement ?}
+  F -- oui --> G[Rôle retenu, indices conservés]
+  F -- non --> H[Soumis au modèle avec objectif et grain]
+  H --> I{Réponse valide ?}
+  I -- oui --> J[Rôle du modèle, source enregistrée]
+  I -- non --> K[Rôle inconnu]

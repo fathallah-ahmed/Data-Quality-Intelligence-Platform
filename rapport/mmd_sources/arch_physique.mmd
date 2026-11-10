@@ -1,0 +1,30 @@
+flowchart TB
+  subgraph H[Machine hôte]
+    OL{{Ollama 11434}}
+    VOL[(Volumes de données)]
+    subgraph DC[Reseau Docker Compose]
+      FE[frontend nginx 4200]
+      BE[backend 8081]
+      AW[airflow-webserver 8080]
+      AS[airflow-scheduler]
+      AI[airflow-init]
+      PG[(postgres)]
+      N4[(neo4j 7474 7687)]
+      QA[graphrag 8090]
+    end
+  end
+  USR([Navigateur]) --> FE
+  USR --> BE
+  FE --> BE
+  BE --> AW
+  AS --> PG
+  AW --> PG
+  AI --> PG
+  BE --> N4
+  BE --> QA
+  QA --> N4
+  AS --> OL
+  BE --> OL
+  QA --> OL
+  BE --- VOL
+  AS --- VOL

@@ -1,0 +1,16 @@
+flowchart LR
+  ADM([Administrateur])
+  OL([Ollama])
+  subgraph S[Corriger une table]
+    U0([Corriger une table])
+    U1([Prévisualiser les corrections])
+    U2([Appliquer sur une copie])
+    U3([Choisir une correction trouvee])
+    U4([Décrire une correction en langage naturel])
+  end
+  ADM --- U0
+  U0 -. include .-> U1
+  U0 -. include .-> U2
+  U3 -. extend .-> U0
+  U4 -. extend .-> U0
+  U4 --- OL

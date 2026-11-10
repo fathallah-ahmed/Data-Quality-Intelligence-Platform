@@ -1,0 +1,16 @@
+flowchart TD
+  A[Fichier CSV] --> B[Lecture tolérante]
+  B --> C[Métriques et formats]
+  C --> D[Rôles par indices]
+  D --> E[Relations entre tables]
+  E --> F[Signature de contenu]
+  F --> G[/Premier résultat publié/]
+  D --> H{Rôle incertain ?}
+  H -- oui --> I[Modèle : arbitrage]
+  I --> D
+  G --> J[Modèle : analyse de la table]
+  J --> K{Valide contre les preuves ?}
+  K -- oui --> L[/Résultat enrichi publié/]
+  K -- non, réparation --> J
+  K -- non, repli --> M[Analyse déterministe]
+  M --> L

@@ -1,0 +1,16 @@
+\chapter*{Abstract}
+\markboth{Abstract}{}
+\addcontentsline{toc}{chapter}{Abstract}
+\begin{otherlanguage}{english}
+
+In a context where data is a strategic asset, its quality directly determines the reliability of analyses, dashboards and decision models. Yet, in many organizations, data quality assessment remains a manual, time-consuming and expert-dependent task: profiling tools measure without interpreting, and validation tools require rules to be written in advance.
+
+This end-of-studies project, carried out at \textbf{Wevioo}, addresses this problem through the design and implementation of \textbf{\projet}, a web platform for intelligent data quality assessment built on one principle: \textbf{code measures and controls, the model interprets and writes}. A processing pipeline orchestrated by \textbf{Apache Airflow} reads heterogeneous files, computes the metrics of each table, determines the role of each column from explicit clues, and measures formats, date order and links between tables. A \textbf{locally executed large language model} (Ollama) interprets these measurements; its claims are checked against the measurements, with a deterministic fallback analysis.
+
+A \textbf{Spring Boot} server versions uploads, secures access with tokens, evaluates \textbf{quality rules} on each run and raises alerts on failure, applies \textbf{corrections} to a copy without ever modifying the original, and builds a \textbf{knowledge graph} in \textbf{Neo4j}. An \textbf{Angular} interface presents the results in real time. A natural-language question service (\textbf{GraphRAG}) answers about the data, its quality and the use of the tool; the Cypher queries written by the model are checked (read-only, scoped to one version, execution plan, time limit) before they run.
+
+The platform can be deployed with a single Docker Compose command and is covered by 292 automated tests. A comparison of three language models on a replayable question set supports the choice of the model.
+
+\vspace{0.4cm}
+\noindent\textbf{Keywords:} data quality, data profiling, large language models, local LLM, Ollama, GraphRAG, Neo4j, Spring Boot, Angular, Apache Airflow, Docker, data governance.
+\end{otherlanguage}

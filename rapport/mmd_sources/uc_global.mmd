@@ -1,0 +1,32 @@
+flowchart LR
+  ADM([Administrateur])
+  AF([Airflow])
+  OL([Ollama])
+  N4([Neo4j])
+  QS([Service de questions])
+  subgraph S[DQ-Insight]
+    U1([S'authentifier])
+    U2([Deposer des jeux de données])
+    U3([Suivre l'exécution])
+    U4([Consulter les résultats])
+    U5([Definir et surveiller des règles])
+    U6([Corriger une table])
+    U7([Construire ou supprimer le graphe])
+    U8([Poser une question])
+    U9([Comparer deux versions])
+    U10([Générer le rapport])
+  end
+  ADM --- U1
+  ADM --- U2
+  ADM --- U3
+  ADM --- U4
+  ADM --- U5
+  ADM --- U6
+  ADM --- U7
+  ADM --- U8
+  ADM --- U9
+  ADM --- U10
+  U2 --- AF
+  U6 --- OL
+  U7 --- N4
+  U8 --- QS

@@ -1,0 +1,12 @@
+flowchart LR
+  U([Navigateur]) --> FE[Interface Angular]
+  FE -- REST + JWT --> BE[Serveur Spring Boot]
+  BE -- SSE --> FE
+  BE -- API REST --> AF[Airflow : worker Python]
+  AF -- rappels avec jeton --> BE
+  BE -- Bolt --> N4[(Neo4j)]
+  BE -- question + faits --> QA[Service de questions FastAPI]
+  QA -- Bolt, lecture seule --> N4
+  AF --> OL{{Ollama : modèle local}}
+  BE --> OL
+  QA --> OL

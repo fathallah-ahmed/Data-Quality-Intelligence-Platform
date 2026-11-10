@@ -1,0 +1,333 @@
+\chapter{État de l'Art et Étude Technologique}
+
+\section*{Introduction}
+\addcontentsline{toc}{section}{Introduction}
+Ce chapitre présente les fondements théoriques sur lesquels repose notre solution. Nous définissons d'abord la notion de qualité des données et ses dimensions, puis les techniques de profilage et les mesures statistiques mobilisées. Nous abordons ensuite les grands modèles de langage, leur exécution locale et les techniques permettant de fiabiliser leurs sorties. Nous présentons les concepts d'orchestration et de conteneurisation, puis ceux d'application web sécurisée, de graphe de connaissances et de génération augmentée par un graphe (GraphRAG). Nous justifions enfin nos choix technologiques à travers des études comparatives.
+
+%==============================================================================
+\section{La qualité des données}
+%==============================================================================
+
+La qualité des données est l'objet même de notre projet. Nous en donnons d'abord une définition, puis nous présentons les dimensions qui permettent de la mesurer et les enjeux qu'elle représente.
+
+\subsection{Définition}
+
+La qualité des données se définit généralement comme l'\textbf{aptitude des données à l'usage} (\textit{fitness for use}) : une donnée est de bonne qualité si elle permet de répondre correctement au besoin pour lequel elle est exploitée~\cite{wang}. Cette définition souligne le caractère relatif de la qualité : un même jeu de données peut être suffisant pour un tableau de bord agrégé et insuffisant pour une campagne de relance client nominative. Le référentiel DAMA-DMBOK~\cite{dama} fait de la gestion de la qualité des données l'une des fonctions centrales de la gouvernance des données, et la norme ISO/IEC 25012~\cite{iso25012} en propose un modèle formel.
+
+Cette notion générale doit cependant être déclinée en propriétés mesurables, appelées dimensions de la qualité.
+
+\subsection{Dimensions de la qualité des données}
+
+La qualité des données est évaluée selon plusieurs dimensions complémentaires. Le tableau~\ref{tab:dimensions} présente celles qui sont les plus couramment retenues et la manière dont elles sont mesurées dans notre solution.
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{|L{2.6cm}|L{5.6cm}|L{5.8cm}|}
+\hline
+\thd{Dimension} & \thd{Définition} & \thd{Indicateurs exploités par \projet} \\ \hline
+Complétude & Proportion de valeurs renseignées par rapport aux valeurs attendues. & Pourcentage de valeurs manquantes par colonne ; détection des colonnes quasi vides. \\ \hline
+Unicité & Absence de doublons d'enregistrements ou d'identifiants. & Pourcentage de valeurs distinctes ; détection des colonnes de type identifiant ; lignes dupliquées. \\ \hline
+Validité & Conformité des valeurs à un format, un type ou un domaine attendu. & Type inféré vs type attendu ; dates non analysables ; valeurs numériques stockées comme texte. \\ \hline
+Cohérence & Absence de contradiction entre valeurs, colonnes ou sources. & Associations fortes entre colonnes (redondances) ; incohérences inter-tables relevées par l'analyse globale. \\ \hline
+Exactitude & Conformité des valeurs à la réalité qu'elles décrivent. & Valeurs extrêmes, asymétrie, aplatissement, proportion de zéros. \\ \hline
+Actualité & Fraîcheur des données au regard de leur usage. & Bornes temporelles des colonnes de dates. \\ \hline
+\end{tabular}
+\caption{Principales dimensions de la qualité des données}
+\label{tab:dimensions}
+\end{table}
+
+Mesurer ces dimensions n'a de sens que si l'on en comprend la portée pour l'organisation, ce que nous précisons ci-après.
+
+\subsection{Enjeux de la qualité des données}
+
+Une donnée de mauvaise qualité a un coût direct (erreurs opérationnelles, relances inutiles, rapprochements manuels) et un coût indirect (décisions erronées, perte de confiance dans les tableaux de bord, non-conformité réglementaire). Dans le secteur de l'assurance, elle peut affecter la tarification, le calcul des provisions ou la connaissance client. C'est pourquoi l'évaluation de la qualité doit intervenir le plus tôt possible, idéalement dès l'arrivée de nouvelles données, et de façon systématique. Le profilage des données constitue la première étape de cette évaluation.
+
+%==============================================================================
+\section{Le profilage des données}
+%==============================================================================
+
+Le profilage est la technique qui permet de mesurer les dimensions présentées ci-dessus. Nous en présentons la définition, puis trois notions centrales pour notre solution : l'inférence du type sémantique, les mesures d'association et les statistiques de distribution.
+
+\subsection{Définition et objectifs}
+
+Le \textbf{profilage des données} (\textit{data profiling}) désigne l'ensemble des traitements qui calculent des métadonnées et des statistiques descriptives à partir d'un jeu de données, afin d'en comprendre la structure, le contenu et la qualité~\cite{abedjan}. On distingue trois niveaux d'analyse :
+\begin{itemize}
+  \item \textbf{l'analyse d'une colonne} : type, cardinalité, valeurs manquantes, distribution, valeurs fréquentes, bornes, quantiles ;
+  \item \textbf{l'analyse multi-colonnes} : corrélations et associations, dépendances, redondances ;
+  \item \textbf{l'analyse multi-tables} : clés candidates, chevauchements de valeurs et correspondances d'entités entre sources.
+\end{itemize}
+
+Le premier niveau repose sur une question préalable : quel est le rôle de chaque colonne ?
+
+\subsection{Inférence du type sémantique}
+
+Le type physique d'une colonne (entier, chaîne de caractères, etc.) ne suffit pas à l'interpréter. Une colonne d'entiers peut représenter une mesure continue, une catégorie codée, un indicateur booléen ou un identifiant. L'\textbf{inférence du type sémantique} consiste à déterminer ce rôle par des heuristiques : ratio de valeurs distinctes, nombre de modalités, capacité à être lue comme une date, présence de mots-clés dans le nom de la colonne. Ce type conditionne les statistiques pertinentes : moyenne et écart-type pour une mesure, fréquences pour une catégorie, bornes temporelles pour une date, unicité pour un identifiant.
+
+Une fois le rôle de chaque colonne établi, il devient possible d'étudier les relations entre colonnes.
+
+\subsection{Mesures d'association}
+
+Pour détecter les redondances et les dépendances entre colonnes, trois mesures d'association sont utilisées selon la nature des variables~\cite{sweetviz}.
+
+\paragraph{Coefficient de corrélation de Pearson (numérique / numérique).} Il mesure l'intensité de la relation linéaire entre deux variables continues $X$ et $Y$ :
+\begin{equation}
+r_{XY} = \frac{\operatorname{cov}(X,Y)}{\sigma_X\,\sigma_Y} \in [-1, 1].
+\end{equation}
+
+\paragraph{Rapport de corrélation $\eta$ (catégorielle / numérique).} Il mesure la part de la variance d'une variable numérique $Y$ expliquée par les modalités $x$ d'une variable catégorielle $X$ :
+\begin{equation}
+\eta^2 = \frac{\sum_{x} n_x\,(\bar{y}_x - \bar{y})^2}{\sum_{i} (y_i - \bar{y})^2} \in [0, 1].
+\end{equation}
+
+\paragraph{Coefficient d'incertitude de Theil $U$ (catégorielle / catégorielle).} Fondé sur l'entropie de Shannon $H$, il mesure la part d'incertitude sur $X$ levée par la connaissance de $Y$. Il est asymétrique, ce qui permet de détecter des dépendances directionnelles (un code postal détermine une ville, mais pas l'inverse) :
+\begin{equation}
+U(X \mid Y) = \frac{H(X) - H(X \mid Y)}{H(X)} \in [0, 1].
+\end{equation}
+
+Une association proche de 1 signale souvent une redondance ou une dépendance fonctionnelle, que l'analyse de qualité doit mettre en évidence. Ces mesures relationnelles sont complétées par des indicateurs propres à chaque colonne numérique.
+
+\subsection{Statistiques de distribution}
+
+Au-delà de la moyenne, de l'écart-type et des quantiles, deux indicateurs de forme sont utiles pour repérer des anomalies : le \textbf{coefficient d'asymétrie} (\textit{skewness}), qui signale une distribution tirée vers des valeurs extrêmes, et le \textbf{coefficient d'aplatissement} (\textit{kurtosis}), qui signale des queues de distribution épaisses, souvent liées à des valeurs aberrantes. L'\textbf{écart interquartile} $\text{IQR} = Q_3 - Q_1$ sert de base à la détection des valeurs atypiques, et le \textbf{coefficient de variation} $\text{CV} = \sigma / \mu$ permet de comparer la dispersion de variables d'échelles différentes.
+
+Le profilage fournit ainsi des mesures fiables, mais il ne les interprète pas. C'est le rôle que nous confions aux grands modèles de langage, présentés dans la section suivante.
+
+%==============================================================================
+\section{Les grands modèles de langage}
+%==============================================================================
+
+Les grands modèles de langage constituent la composante d'intelligence artificielle de notre solution. Nous en rappelons le principe, puis nous abordons leur exécution locale, les familles de modèles utilisées, les paramètres de génération, les techniques d'ingénierie des instructions et leurs limites.
+
+\subsection{Principe}
+
+Les \textbf{grands modèles de langage} (LLM) sont des réseaux de neurones de très grande taille, fondés sur l'architecture \textit{Transformer}~\cite{vaswani} et entraînés sur d'immenses corpus de textes pour prédire le jeton suivant d'une séquence. Ce pré-entraînement, complété par un ajustement sur des instructions, leur confère des capacités générales de compréhension, de raisonnement et de génération~\cite{brown}. Des travaux récents ont montré que ces modèles peuvent être appliqués à des tâches de préparation et de nettoyage de données, telles que la détection d'erreurs ou l'appariement d'entités~\cite{narayan}.
+
+Dans notre projet, le LLM ne calcule aucune statistique : ce rôle est confié au profilage, déterministe et vérifiable. Le LLM intervient en aval pour \textbf{interpréter} les statistiques, \textbf{relier} les constats au contexte métier, \textbf{prioriser} les problèmes et \textbf{formuler} des recommandations. Cette répartition limite le risque d'erreurs de calcul du modèle et rend ses conclusions vérifiables. Encore faut-il pouvoir exécuter ces modèles sans exposer les données.
+
+\subsection{Exécution locale des modèles}
+
+L'utilisation de LLM hébergés par des tiers implique de transmettre les données à l'extérieur de l'organisation, ce qui est incompatible avec les exigences de confidentialité des données d'assurance. L'exécution \textbf{locale} des modèles lève cette contrainte. Elle est rendue possible par la disponibilité de modèles ouverts performants et par la \textbf{quantification}, qui réduit la précision des poids du modèle (par exemple sur 4 bits) pour diminuer fortement la mémoire nécessaire, au prix d'une légère perte de qualité. \textbf{Ollama}~\cite{ollama} est un environnement qui simplifie le téléchargement, la gestion et le service de ces modèles sur un poste ou un serveur, et qui permet de contraindre la sortie du modèle à un format structuré.
+
+Parmi les modèles ouverts exécutables localement, notre plateforme n'est liée à aucun modèle en particulier : le modèle est choisi par la variable de configuration \texttt{OLLAMA\_MODEL}, ce qui permet de changer de modèle sans modifier le code.
+
+\subsection{Les modèles utilisés}
+
+La famille \textbf{Qwen}, développée par Alibaba Cloud~\cite{qwen25}, a servi de référence pour le profilage intelligent : \textbf{Qwen 2.5 14B Instruct}, un modèle de 14 milliards de paramètres ajusté sur des instructions et réputé pour sa capacité à respecter un format de sortie, est la valeur par défaut du traitement par table. Le service de questions et la correction en langage naturel utilisent le modèle présent dans Ollama (par exemple \texttt{gemma4:cloud} lors des évaluations). Trois modèles sont comparés sur un jeu de questions rejouable au chapitre~\ref{chap:benchmark}.
+
+Quel que soit le modèle choisi, son comportement dépend de paramètres de génération que nous présentons à présent.
+
+\subsection{Paramètres de génération}
+
+La génération d'un LLM est un processus d'échantillonnage contrôlé par plusieurs paramètres :
+\begin{itemize}
+  \item la \textbf{température} règle le caractère aléatoire de la génération : une valeur faible rend les réponses plus déterministes, une valeur élevée plus variées ;
+  \item le paramètre \textbf{top-p} (\textit{nucleus sampling}) restreint l'échantillonnage aux jetons dont la probabilité cumulée atteint $p$ ;
+  \item la \textbf{longueur maximale} borne le nombre de jetons générés, et donc la durée de la réponse.
+\end{itemize}
+
+Ces paramètres règlent la manière dont le modèle répond ; le contenu de sa réponse dépend, lui, des instructions qui lui sont fournies.
+
+\subsection{Ingénierie des instructions et sorties structurées}
+
+L'\textbf{ingénierie des instructions} (\textit{prompt engineering}) regroupe les techniques de formulation des consignes données au modèle. Pour notre usage, les principes suivants sont déterminants : attribuer un \textbf{rôle} explicite au modèle (« expert en qualité des données ») ; fournir un \textbf{contexte} structuré et compact ; décomposer la tâche en \textbf{sections} ; imposer un \textbf{schéma de sortie} explicite ; \textbf{prioriser} certains constats pour orienter l'attention du modèle.
+
+Une sortie structurée est indispensable pour que la réponse puisse être exploitée automatiquement (tableaux de bord, stockage, transmission à une application). Elle doit néanmoins être \textbf{validée} : un modèle peut produire une structure invalide, l'encapsuler dans du texte ou omettre des champs. Au-delà de la forme, le contenu même de la réponse peut être erroné, ce qui constitue la principale limite des LLM.
+
+\subsection{Limites : les hallucinations}
+
+Les LLM peuvent produire des contenus plausibles mais faux, appelés \textbf{hallucinations}~\cite{ji} : colonnes inexistantes, relations inventées, chiffres approximatifs. Dans un contexte de qualité des données, ce risque est critique, puisque l'outil doit précisément détecter des erreurs. Plusieurs mesures permettent de le réduire : ancrer le modèle sur des statistiques calculées de manière déterministe, lui fournir l'inventaire exhaustif des colonnes, exiger des preuves pour chaque constat, limiter la taille du contexte et prévoir une validation humaine. Le chapitre~\ref{chap:benchmark} observe, sur trois modèles, ce type d'erreur dans les réponses du service de questions.
+
+Disposer d'un profilage fiable et d'un modèle maîtrisé ne suffit pas : il faut encore enchaîner ces traitements de manière fiable et en garder la trace, ce qui relève de l'orchestration et de l'observabilité.
+
+%==============================================================================
+\section{Orchestration, conteneurisation et observabilité}
+%==============================================================================
+
+Cette section présente les trois concepts qui permettent d'industrialiser un pipeline d'IA : l'orchestration, la conteneurisation et l'observabilité.
+
+\subsection{Orchestration de flux de données}
+
+Un pipeline de données enchaîne des tâches dépendantes les unes des autres. Un \textbf{orchestrateur} se charge de les exécuter dans le bon ordre, de les planifier, de les relancer en cas d'échec et d'en conserver l'historique. \textbf{Apache Airflow}~\cite{airflow} modélise un pipeline sous forme de \textbf{DAG} (\textit{Directed Acyclic Graph}), un graphe orienté acyclique dont les nœuds sont des tâches et les arcs des dépendances, et propose une interface de suivi de chaque exécution. Pour que ces exécutions soient identiques sur tous les environnements, l'orchestrateur et ses services sont généralement conteneurisés.
+
+\subsection{Conteneurisation}
+
+La \textbf{conteneurisation} consiste à empaqueter une application avec toutes ses dépendances dans une image exécutable de manière identique sur n'importe quel hôte. \textbf{Docker} en est la technologie de référence, et \textbf{Docker Compose}~\cite{docker} permet de décrire un ensemble de services interconnectés et de les démarrer en une seule opération. Une fois le pipeline exécuté de manière reproductible, il reste à en observer le fonctionnement, en particulier celui du modèle de langage.
+
+\subsection{Observabilité et traçabilité}
+
+Un système qui s'appuie sur un modèle de langage doit rendre visible ce que le modèle a produit et pourquoi. Dans notre plateforme, cette traçabilité repose sur quatre mécanismes simples et locaux : l'historique et les journaux de chaque exécution dans Airflow, un \textbf{statut du modèle} enregistré avec chaque analyse (\texttt{ok}, \texttt{unavailable}, \texttt{invalid}, \texttt{disabled}, \texttt{pending}), le \textbf{versionnement} des jeux de données et de leurs résultats, et, pour les questions, la restitution de la requête exécutée et des lignes obtenues avec chaque réponse.
+
+Ces fondements posés, nous pouvons justifier les technologies retenues pour chacune des briques de la solution.
+
+%==============================================================================
+\section{Applications web, graphes de connaissances et GraphRAG}
+%==============================================================================
+
+Au-delà du traitement des données, la plateforme est une application web utilisée par plusieurs profils. Cette section présente les notions qui la fondent : l'architecture d'une application web sécurisée, les bases de données de graphe, puis l'interrogation d'un graphe en langage naturel.
+
+\subsection{Applications web, API REST et temps réel}
+
+Une application web moderne sépare l'\textbf{interface}, exécutée dans le navigateur, du \textbf{serveur applicatif}, qui expose une \textbf{API REST}~\cite{fielding} : des ressources (jeux de données, versions, règles) manipulées par les verbes HTTP. L'authentification sans état repose sur des \textbf{jetons JWT} signés~\cite{jwt}, présentés à chaque appel. Pour suivre une exécution longue sans interroger le serveur en boucle, celui-ci peut pousser des événements au navigateur par \textbf{Server-Sent Events} (SSE), le navigateur revenant à une interrogation périodique si le flux est interrompu.
+
+\subsection{Bases de données de graphe}
+
+Une base de données de \textbf{graphe} stocke des \textbf{nœuds} (les entités), des \textbf{relations} entre ces nœuds et des \textbf{propriétés} sur les uns et les autres. Elle est adaptée aux données fortement reliées, où l'on cherche des chemins ou des voisinages plutôt que des agrégats par table. \textbf{Neo4j}~\cite{neo4j} est la base de graphe la plus répandue ; elle s'interroge avec le langage déclaratif \textbf{Cypher}, dont la clause \texttt{MATCH} décrit un motif de nœuds et de relations. Un ensemble de fichiers tabulaires peut être converti en graphe : une ligne devient un nœud, une colonne de référence vers une autre table devient une relation.
+
+\subsection{Génération augmentée par la recherche et par le graphe}
+
+La \textbf{génération augmentée par la recherche} (\textit{Retrieval-Augmented Generation}, RAG)~\cite{lewis} consiste à fournir au modèle, avec la question, des informations retrouvées dans une source de référence, afin que sa réponse s'appuie sur elles plutôt que sur sa mémoire. Le \textbf{GraphRAG}~\cite{edge} applique ce principe à un graphe de connaissances : le modèle traduit la question en requête Cypher (approche \textit{text-to-Cypher}), la requête est exécutée, et la réponse est rédigée à partir des seules lignes obtenues. Comme le modèle écrit la requête, celle-ci ne peut pas être de confiance : elle doit être vérifiée (lecture seule, périmètre limité, plan d'exécution contrôlé) avant d'être exécutée. Nous détaillons ces garde-fous au chapitre~4.
+
+Ces fondements posés, nous pouvons justifier les technologies retenues pour chacune des briques de la solution.
+
+%==============================================================================
+\section{Étude comparative et choix technologiques}
+%==============================================================================
+
+Pour chaque brique de la solution, nous avons comparé les principales alternatives selon des critères adaptés à notre contexte, en particulier la confidentialité, la facilité de déploiement et la maturité de l'écosystème.
+
+\subsection{Choix de l'outil de profilage}
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{|L{3.8cm}|L{3.2cm}|L{3.2cm}|L{3.4cm}|}
+\hline
+\thd{Critère} & \thd{SweetViz} & \thd{ydata-profiling} & \thd{Module sur mesure} \\ \hline
+Rapport visuel prêt à l'emploi & Oui & Oui & Non \\ \hline
+Associations entre types mixtes & Oui ($r$, $\eta$, $U$) & Oui & Oui ($r$, $\eta$, $U$) \\ \hline
+Export structuré des statistiques & Indirect & Natif & Natif \\ \hline
+Types sémantiques & Partiels & Oui & Oui, paramétrables \\ \hline
+Performance sur gros fichiers & Moyenne & Faible à moyenne & Maîtrisée \\ \hline
+\end{tabular}
+\caption{Comparaison des outils de profilage}
+\label{tab:cmp-profiling}
+\end{table}
+
+\noindent\textbf{Choix retenu :} \textbf{SweetViz}, pour la richesse de ses mesures d'association, complété par un traitement sur mesure (rôles des colonnes, formats, liens entre tables) qui produit les mesures que la plateforme exploite. L'interface de restitution est construite par l'application à partir des résultats structurés. Le profilage établi, il fallait choisir l'environnement d'exécution des modèles de langage.
+
+\subsection{Choix de l'environnement d'exécution des LLM}
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{|L{3.6cm}|L{2.5cm}|L{2.5cm}|L{2.5cm}|L{2.6cm}|}
+\hline
+\thd{Critère} & \thd{Ollama} & \thd{llama.cpp} & \thd{vLLM} & \thd{API cloud} \\ \hline
+Données traitées localement & Oui & Oui & Oui & Non \\ \hline
+Facilité d'installation & Très élevée & Moyenne & Faible (serveur GPU) & Très élevée \\ \hline
+Interface de service intégrée & Oui & Oui & Oui & Oui \\ \hline
+Sortie structurée contrainte & Oui & Oui & Oui & Selon fournisseur \\ \hline
+Gestion du catalogue de modèles & Intégrée & Manuelle & Manuelle & -- \\ \hline
+Coût & Gratuit & Gratuit & Gratuit & Payant à l'usage \\ \hline
+\end{tabular}
+\caption{Comparaison des environnements d'exécution de LLM}
+\label{tab:cmp-runtime}
+\end{table}
+
+\noindent\textbf{Choix retenu :} \textbf{Ollama}, pour sa simplicité de déploiement, son support de la sortie structurée et sa gestion intégrée des modèles quantifiés ; les API cloud ont été écartées pour des raisons de confidentialité. Restait à choisir l'orchestrateur du pipeline.
+
+\subsection{Choix de l'orchestrateur}
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{|L{3.8cm}|L{2.5cm}|L{2.5cm}|L{2.5cm}|L{2.4cm}|}
+\hline
+\thd{Critère} & \thd{Airflow} & \thd{Prefect} & \thd{Dagster} & \thd{Planificateur système} \\ \hline
+Maturité et communauté & Très élevée & Élevée & Moyenne & -- \\ \hline
+Interface de suivi & Oui & Oui & Oui & Non \\ \hline
+Reprise sur erreur & Oui & Oui & Oui & Manuelle \\ \hline
+Déclenchement par API REST & Oui & Oui & Oui & Non \\ \hline
+Adoption en entreprise & Très large & Moyenne & Croissante & -- \\ \hline
+\end{tabular}
+\caption{Comparaison des orchestrateurs}
+\label{tab:cmp-orch}
+\end{table}
+
+\noindent\textbf{Choix retenu :} \textbf{Apache Airflow}, standard de fait dans l'industrie, déjà répandu dans les environnements des clients et déclenchable par son API REST depuis le serveur applicatif. Le serveur applicatif lui-même est le choix suivant.
+
+\subsection{Choix du serveur applicatif}
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{|L{3.8cm}|L{3.3cm}|L{3.3cm}|L{3.4cm}|}
+\hline
+\thd{Critère} & \thd{Spring Boot} & \thd{FastAPI} & \thd{Django REST} \\ \hline
+Sécurité intégrée (authentification, rôles) & Spring Security & À assembler & Oui \\ \hline
+Gestion des transactions et de la persistance & JPA / Hibernate & À assembler & ORM intégré \\ \hline
+Typage et robustesse sur un gros code & Fort (Java) & Moyen & Moyen \\ \hline
+Adoption en entreprise & Très large & Croissante & Large \\ \hline
+Tests d'intégration & Très outillés & Outillés & Outillés \\ \hline
+\end{tabular}
+\caption{Comparaison des serveurs applicatifs}
+\label{tab:cmp-backend}
+\end{table}
+
+\noindent\textbf{Choix retenu :} \textbf{Spring Boot}~\cite{spring}, qui apporte la sécurité, les transactions et la persistance dont le serveur a besoin (versions, règles, résultats), dans un écosystème très répandu chez les clients de Wevioo. Les traitements Python restent dans le worker Airflow et dans le service de questions. L'interface est le choix suivant.
+
+\subsection{Choix du framework de l'interface}
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{|L{3.8cm}|L{3.3cm}|L{3.3cm}|L{3.4cm}|}
+\hline
+\thd{Critère} & \thd{Angular} & \thd{React} & \thd{Vue} \\ \hline
+Cadre complet (routage, formulaires, HTTP) & Oui & À assembler & Partiel \\ \hline
+Typage statique natif & TypeScript & Optionnel & Optionnel \\ \hline
+Gestion d'état réactive & Signaux & Hooks & Réactivité native \\ \hline
+Cohérence sur un projet long & Forte (conventions) & Variable & Moyenne \\ \hline
+\end{tabular}
+\caption{Comparaison des frameworks d'interface}
+\label{tab:cmp-front}
+\end{table}
+
+\noindent\textbf{Choix retenu :} \textbf{Angular}~\cite{angular} (composants autonomes et signaux), pour son cadre complet et ses conventions strictes, adaptés à une application aux nombreux écrans. Le dernier choix concerne la base de graphe.
+
+\subsection{Choix de la base de graphe}
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{|L{3.8cm}|L{3.3cm}|L{3.3cm}|L{3.4cm}|}
+\hline
+\thd{Critère} & \thd{Neo4j} & \thd{Memgraph} & \thd{ArangoDB} \\ \hline
+Langage de requête & Cypher & Cypher & AQL \\ \hline
+Édition communautaire gratuite & Oui & Oui & Oui \\ \hline
+Outils d'exploration visuelle & Neo4j Browser & Memgraph Lab & Interface web \\ \hline
+Bibliothèque GraphRAG & \texttt{neo4j-graphrag} & Non officielle & Non officielle \\ \hline
+Communauté et documentation & Très large & Moyenne & Moyenne \\ \hline
+\end{tabular}
+\caption{Comparaison des bases de graphe}
+\label{tab:cmp-graph}
+\end{table}
+
+\noindent\textbf{Choix retenu :} \textbf{Neo4j}, pour Cypher, son navigateur d'exploration et sa bibliothèque \texttt{neo4j-graphrag} qui fournit les composants de génération de requêtes. Le tableau suivant récapitule l'ensemble de ces choix.
+
+\subsection{Récapitulatif de l'environnement technologique}
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{|L{3.8cm}|L{4.2cm}|L{6cm}|}
+\hline
+\thd{Domaine} & \thd{Technologie} & \thd{Rôle dans le projet} \\ \hline
+Interface & Angular, TypeScript & Écrans, suivi en temps réel, commandes clavier \\ \hline
+Serveur applicatif & Spring Boot, Java 17, Spring Security & API REST, authentification JWT, règles, corrections \\ \hline
+Persistance & H2 (MySQL possible), JPA & Jeux de données, versions, règles, résultats \\ \hline
+Traitement des données & Python, pandas, SweetViz & Lecture, profilage, rôles, relations \\ \hline
+Orchestration & Apache Airflow, PostgreSQL & Pipeline en neuf phases, reprise sur erreur \\ \hline
+Intelligence artificielle & Ollama, modèles ouverts, LangGraph & Analyse contrôlée, règles, corrections, questions \\ \hline
+Graphe et questions & Neo4j, FastAPI, \texttt{neo4j-graphrag} & Graphe de chaque version, service de questions \\ \hline
+Déploiement et qualité & Docker Compose, GitHub Actions & Déploiement reproductible, intégration continue \\ \hline
+Gestion de versions & Git & Versionnement du projet \\ \hline
+\end{tabular}
+\caption{Récapitulatif des technologies retenues}
+\label{tab:recap-techno}
+\end{table}
+
+\section*{Conclusion}
+\addcontentsline{toc}{section}{Conclusion}
+Ce chapitre a présenté les notions de qualité et de profilage des données, les principes des grands modèles de langage et de leur exécution locale, les concepts d'orchestration, d'application web, de graphe de connaissances et de GraphRAG. Les études comparatives nous ont permis de justifier une pile technologique entièrement open source et exécutable localement. Le chapitre suivant est consacré à l'analyse et à la spécification des besoins de la solution.

@@ -1,0 +1,20 @@
+flowchart LR
+  ADM([Administrateur])
+  QS([Service de questions])
+  N4([Neo4j])
+  OL([Ollama])
+  subgraph S[Poser une question]
+    U0([Poser une question])
+    U1([Trier la question])
+    U2([Interroger le graphe])
+    U3([Consulter les résultats de qualité])
+    U4([Consulter le guide d'utilisation])
+  end
+  ADM --- U0
+  U0 -. include .-> U1
+  U2 -. extend .-> U0
+  U3 -. extend .-> U0
+  U4 -. extend .-> U0
+  U1 --- QS
+  U2 --- N4
+  U1 --- OL

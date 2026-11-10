@@ -1,0 +1,11 @@
+flowchart TB
+  PB["<b>Product Backlog</b><br/>besoins priorisés par le Product Owner"]
+  SP["<b>Sprint Planning</b><br/>Sprint Goal et choix des récits"]
+  SB["<b>Sprint Backlog</b><br/>récits et tâches du sprint"]
+  SPR["<b>Sprint</b><br/>3 semaines<br/>Daily Scrum"]
+  INC["<b>Incrément</b><br/>produit utilisable"]
+  SR["<b>Sprint Review</b><br/>démonstration à l'encadrant"]
+  RT["<b>Sprint Rétrospective</b><br/>amélioration du travail"]
+  PB --> SP --> SB --> SPR --> INC --> SR --> RT
+  RT -. sprint suivant .-> SP
+  SR -. retours .-> PB

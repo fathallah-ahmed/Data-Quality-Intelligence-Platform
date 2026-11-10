@@ -1,0 +1,265 @@
+%==============================================================================
+%  Rapport de Projet de Fin d'Études — Data Quality Wevioo
+%  Compilation : pdfLaTeX (Overleaf : Menu > Compiler = pdfLaTeX)
+%  Compiler deux fois pour mettre à jour la table des matières et les listes.
+%==============================================================================
+\documentclass[12pt,a4paper,oneside]{report}
+
+%------------------------------------------------------------------------------
+%  Encodage, langue, police
+%------------------------------------------------------------------------------
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\IfFileExists{french.ldf}
+  {\usepackage[english,french]{babel}}
+  {\usepackage[english]{babel}\babelprovide[import,main]{french}}
+\usepackage{mathptmx}          % Times (comme le modèle)
+\usepackage[scaled=0.92]{helvet}
+\usepackage{courier}
+\usepackage{csquotes}
+\usepackage{underscore}   % autorise la coupure après « _ » dans \texttt
+\setlength{\emergencystretch}{3em}
+
+%------------------------------------------------------------------------------
+%  Mise en page
+%------------------------------------------------------------------------------
+\usepackage[a4paper,top=2.5cm,bottom=2.5cm,left=2.5cm,right=2.5cm,headheight=15pt]{geometry}
+\usepackage{setspace}
+\onehalfspacing
+\setlength{\parindent}{1cm}
+\setlength{\parskip}{4pt}
+
+%------------------------------------------------------------------------------
+%  Paquets généraux
+%------------------------------------------------------------------------------
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{xcolor}
+\usepackage{amsmath,amssymb}
+\usepackage{array,tabularx,longtable,booktabs,multirow,makecell}
+\usepackage[table]{xcolor}
+\usepackage{enumitem}
+\setlist{itemsep=2pt,topsep=4pt}
+\setlist[itemize]{label=\textbullet}
+\usepackage{caption}
+\usepackage{listings}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+\usepackage{titletoc}
+\usepackage{etoolbox}
+\usepackage[hidelinks]{hyperref}
+
+%------------------------------------------------------------------------------
+%  Couleurs
+%------------------------------------------------------------------------------
+\definecolor{espritred}{RGB}{200,16,46}
+\definecolor{captionblue}{RGB}{46,84,150}
+\definecolor{headgray}{RGB}{90,90,90}
+\definecolor{tablehead}{RGB}{217,226,243}
+\definecolor{codebg}{RGB}{247,247,250}
+\definecolor{codekw}{RGB}{0,51,153}
+\definecolor{codestr}{RGB}{163,21,21}
+\definecolor{codecom}{RGB}{0,128,0}
+\definecolor{wbox}{RGB}{235,241,250}
+\definecolor{wboxborder}{RGB}{46,84,150}
+
+%------------------------------------------------------------------------------
+%  Légendes (style du modèle : bleu, italique, petit)
+%------------------------------------------------------------------------------
+\captionsetup{font={small,it,color=captionblue},labelfont={small,it,color=captionblue},labelsep=colon,justification=centering}
+\captionsetup[table]{position=bottom}
+\addto\captionsfrench{%
+  \renewcommand{\figurename}{Figure}%
+  \renewcommand{\tablename}{Tableau}%
+  \renewcommand{\listfigurename}{Liste des Figures}%
+  \renewcommand{\listtablename}{Liste des Tableaux}%
+  \renewcommand{\contentsname}{Sommaire}%
+  \renewcommand{\bibname}{Bibliographie}%
+}
+\AtBeginDocument{%
+  \renewcommand{\figurename}{Figure}%
+  \renewcommand{\tablename}{Tableau}%
+  \renewcommand{\listfigurename}{Liste des Figures}%
+  \renewcommand{\listtablename}{Liste des Tableaux}%
+  \renewcommand{\contentsname}{Sommaire}%
+  \renewcommand{\bibname}{Bibliographie}%
+  \renewcommand{\chaptername}{Chapitre}%
+}
+% Numérotation continue des figures et tableaux (Figure 1, 2, 3 ...)
+\counterwithout{figure}{chapter}
+\counterwithout{table}{chapter}
+\renewcommand{\lstlistingname}{Extrait de code}
+
+%------------------------------------------------------------------------------
+%  Titres de chapitres et sections
+%------------------------------------------------------------------------------
+\titleformat{\chapter}[display]
+  {\normalfont\bfseries\centering}
+  {\LARGE\chaptertitlename\ \thechapter}
+  {8pt}
+  {\titlerule[1.2pt]\vspace{6pt}\Huge}
+  [{\vspace{4pt}\titlerule[1.2pt]}]
+\titlespacing*{\chapter}{0pt}{20pt}{30pt}
+
+
+\renewcommand{\thesection}{\Roman{section}}
+\renewcommand{\thesubsection}{\Roman{section}.\arabic{subsection}}
+\renewcommand{\thesubsubsection}{\Roman{section}.\arabic{subsection}.\arabic{subsubsection}}
+\titleformat{\section}{\normalfont\Large\bfseries\color{black}}{\thesection.}{0.6em}{}
+\titleformat{\subsection}{\normalfont\large\bfseries}{\thesubsection}{0.6em}{}
+\titleformat{\subsubsection}{\normalfont\normalsize\bfseries\itshape}{\thesubsubsection}{0.6em}{}
+\titlespacing*{\section}{0pt}{18pt}{8pt}
+\titlespacing*{\subsection}{0pt}{14pt}{6pt}
+\setcounter{secnumdepth}{3}
+\setcounter{tocdepth}{2}
+
+%------------------------------------------------------------------------------
+%  En-têtes et pieds de page (nom du chapitre en haut, n° de page en bas à droite)
+%------------------------------------------------------------------------------
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\chaptermark}[1]{\markboth{\ifnum\value{chapter}>0 \chaptername\ \thechapter\ : \fi #1}{}}
+\fancyhead[L]{\small\color{headgray}\leftmark}
+\fancyfoot[R]{\small\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\footrulewidth}{0.4pt}
+\fancypagestyle{plain}{%
+  \fancyhf{}\fancyfoot[R]{\small\thepage}%
+  \renewcommand{\headrulewidth}{0pt}\renewcommand{\footrulewidth}{0.4pt}}
+
+%------------------------------------------------------------------------------
+%  Listings (code)
+%------------------------------------------------------------------------------
+\lstdefinestyle{pfe}{
+  backgroundcolor=\color{codebg},
+  basicstyle=\ttfamily\footnotesize,
+  keywordstyle=\color{codekw}\bfseries,
+  stringstyle=\color{codestr},
+  commentstyle=\color{codecom}\itshape,
+  numbers=left, numberstyle=\tiny\color{gray}, numbersep=6pt,
+  frame=single, rulecolor=\color{gray!40},
+  breaklines=true, breakatwhitespace=false, showstringspaces=false,
+  tabsize=2, columns=fullflexible, keepspaces=true,
+  xleftmargin=14pt, framexleftmargin=14pt,
+  captionpos=b, aboveskip=8pt, belowskip=8pt,
+  literate={é}{{\'e}}1 {è}{{\`e}}1 {à}{{\`a}}1 {ç}{{\c c}}1 {ê}{{\^e}}1 {ô}{{\^o}}1 {É}{{\'E}}1 {→}{{$\rightarrow$}}1
+}
+\lstset{style=pfe}
+\lstdefinelanguage{json}{
+  morestring=[b]", stringstyle=\color{codestr},
+  literate={:}{{\textcolor{codekw}{:}}}1 {,}{{\textcolor{codekw}{,}}}1
+           {\{}{{\textcolor{codekw}{\{}}}1 {\}}{{\textcolor{codekw}{\}}}}1
+           {[}{{\textcolor{codekw}{[}}}1 {]}{{\textcolor{codekw}{]}}}1
+}
+\lstdefinelanguage{yaml}{
+  keywords={true,false,null}, morecomment=[l]{\#}, morestring=[b]", morestring=[b]'
+}
+
+%------------------------------------------------------------------------------
+%  Emplacement de figure à remplir
+%  \figplaceholder[largeur]{fichier.png}{Légende}{label}{Indication de contenu}
+%  -> Déposez simplement l'image dans figures/ avec ce nom : elle s'affichera
+%     automatiquement à la place du cadre.
+%------------------------------------------------------------------------------
+\NewDocumentCommand{\figplaceholder}{O{0.85} m m m m}{%
+  \begin{figure}[H]
+    \centering
+    \IfFileExists{figures/#2}%
+      {\includegraphics[width=#1\linewidth,height=0.7\textheight,keepaspectratio]{figures/#2}}%
+      {\fcolorbox{espritred}{gray!6}{%
+        \parbox[c]{#1\linewidth}{\centering\vspace*{1.1cm}
+          {\large\bfseries\color{espritred} FIGURE À INSÉRER}\\[6pt]
+          {\small\ttfamily figures/\detokenize{#2}}\\[8pt]
+          \begin{minipage}{0.88\linewidth}\centering\small\itshape #5\end{minipage}\par\vspace*{1.1cm}}}}
+    \caption{#3}\label{#4}
+  \end{figure}}
+
+% Logo d'outil : déposez figures/logos/<nom>.png et il remplace le cadre
+\newcommand{\toolicon}[1]{\IfFileExists{figures/logos/#1}%
+  {\raisebox{-0.35\height}{\includegraphics[height=0.9cm,width=1.6cm,keepaspectratio]{figures/logos/#1}}}%
+  {\raisebox{-0.35\height}{\fcolorbox{espritred}{gray!6}{\parbox[c][0.75cm][c]{1.5cm}{\centering\tiny\color{espritred}logo\\ \detokenize{#1}}}}}}
+
+% Espace réservé à une section dont le contenu sera fourni plus tard
+\newcommand{\espacereserve}[1]{%
+  \begin{center}
+  \fcolorbox{espritred}{gray!4}{\parbox[c][#1][c]{0.92\linewidth}{\centering
+    {\color{espritred}\bfseries Section réservée}\\[4pt]
+    {\small\itshape Le contenu de cette section sera communiqué ultérieurement.}}}
+  \end{center}}
+
+% Encadré « à compléter » pour les informations à vérifier
+\newcommand{\acompleter}[1]{\textcolor{espritred}{\textbf{[#1]}}}
+
+% Encadré de synthèse
+\newcommand{\encadre}[2]{%
+  \begin{center}
+  \fcolorbox{wboxborder}{wbox}{\parbox{0.92\linewidth}{\textbf{#1}\par\vspace{3pt}#2}}
+  \end{center}}
+
+% En-tête de tableau coloré
+\newcommand{\thd}[1]{\cellcolor{tablehead}\textbf{#1}}
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
+\newcolumntype{C}[1]{>{\centering\arraybackslash}p{#1}}
+\renewcommand{\arraystretch}{1.25}
+
+% Nom de la solution (modifiable ici : il sera mis à jour dans tout le rapport)
+\newcommand{\projet}{DQ-Insight}
+% Informations générales (à compléter)
+\newcommand{\etudiant}{Ahmed FATHALLAH}
+\newcommand{\encadrantacad}{Rim ALOUANE}
+\newcommand{\encadrantpro}{Ines BEN AMOR}
+\newcommand{\ecole}{ESPRIT}
+\newcommand{\anneeuniv}{2025 -- 2026}
+
+%==============================================================================
+\begin{document}
+%==============================================================================
+
+%------------------------------ Page de garde ---------------------------------
+\input{pages/page_de_garde}
+
+%------------------------------ Pages liminaires ------------------------------
+\pagenumbering{roman}
+\input{pages/dedicaces}
+\input{pages/remerciements}
+\input{pages/resume}
+
+\cleardoublepage
+\markboth{Sommaire}{}
+\tableofcontents
+
+\cleardoublepage
+\phantomsection
+\addcontentsline{toc}{chapter}{Liste des Figures}
+\markboth{Table des figures}{}
+\listoffigures
+
+\cleardoublepage
+\phantomsection
+\addcontentsline{toc}{chapter}{Liste des Tableaux}
+\markboth{Liste des tableaux}{}
+\listoftables
+
+\input{pages/abreviations}
+
+%------------------------------ Corps du rapport ------------------------------
+\cleardoublepage
+\pagenumbering{arabic}
+\input{chapitres/introduction}
+\input{chapitres/chapitre1}
+\input{chapitres/chapitre2}
+\input{chapitres/chapitre3}
+\input{chapitres/chapitre4}
+\input{chapitres/chapitre5}
+\input{chapitres/chapitre6}
+\input{chapitres/chapitre7}
+\input{chapitres/chapitre8}
+\input{chapitres/conclusion}
+
+%------------------------------ Bibliographie ---------------------------------
+\input{pages/bibliographie}
+
+%------------------------------ Abstract (4e de couverture) -------------------
+\input{pages/abstract}
+
+\end{document}

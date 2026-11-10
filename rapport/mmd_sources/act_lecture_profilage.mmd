@@ -1,0 +1,16 @@
+flowchart TD
+  A([Table a lire]) --> B[Essayer un encodage et un séparateur]
+  B --> C{Plus de colonnes que la meilleure lecture ?}
+  C -- oui --> D[Retenir cette lecture]
+  C -- non --> E{Autre combinaison ?}
+  D --> E
+  E -- oui --> B
+  E -- non --> F{Lecture stricte réussie ?}
+  F -- non --> G[Analyseur indulgent, avertissement]
+  F -- oui --> H[Marqueurs d'absence lus comme manquants]
+  G --> H
+  H --> I{Table avec des lignes ?}
+  I -- non --> J[Conservée à 0 ligne, signalée en échec]
+  I -- oui --> K[Profil et métriques]
+  K --> L([Table profilée])
+  J --> L

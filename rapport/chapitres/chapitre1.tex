@@ -1,0 +1,315 @@
+\chapter{Contexte Général du Projet}
+
+\section*{Introduction}
+\addcontentsline{toc}{section}{Introduction}
+Ce premier chapitre pose le cadre général du projet. Nous présentons d'abord l'organisme d'accueil, Wevioo, puis le contexte dans lequel s'inscrit le sujet et la problématique qu'il adresse. Nous étudions ensuite les solutions existantes selon des critères définis, afin d'en dégager les limites, avant de présenter la solution proposée et ses objectifs. Nous terminons par la méthodologie de travail adoptée.
+
+%==============================================================================
+\section{Organisme d'accueil}
+%==============================================================================
+
+Ce projet de fin d'études a été réalisé au sein de Wevioo. Avant d'aborder le sujet lui-même, il est utile de présenter l'entreprise, son organisation et ses domaines d'activité, qui éclairent les enjeux du projet.
+
+\subsection{Présentation de Wevioo}
+
+\textbf{Wevioo} est un groupe international de conseil et de services numériques, fondé en 1998, qui accompagne ses clients dans leurs enjeux d'innovation, de transformation et de performance opérationnelle~\cite{wevioo}. Il dispose de bureaux à Paris, Tunis, Riyadh, Dubaï et Abidjan, et mobilise plus de 460 collaborateurs.
+
+Le groupe affirme sa vision en ces termes : dans un monde marqué par le numérique, les données et l'intelligence artificielle, la technologie doit avoir du sens et servir de levier à une performance responsable et à la création de valeur durable. Sa mission est de transformer la complexité en décisions claires et en exécution fiable, en combinant compétences métier et excellence technologique (intelligence artificielle, \textit{low-code}, \textit{cloud}, cybersécurité, données). Quatre valeurs structurent son approche : innover, partager, prendre soin (\textit{care}) et livrer (\textit{deliver}).
+
+Wevioo revendique des projets menés dans plus de trente pays de la zone EMEA, avec de grands acteurs de l'assurance, de la banque, de l'industrie et du secteur public.
+
+\figplaceholder[0.45]{logo_wevioo.png}{Logo de Wevioo}{fig:logo}{Logo de Wevioo.}
+
+Après cette présentation générale, nous décrivons l'organisation de l'offre du groupe et situons l'équipe dans laquelle le stage s'est déroulé.
+
+\subsection{Organisation et structure}
+
+Wevioo ne publie pas d'organigramme hiérarchique. Son organisation se lit à travers ses implantations, ses domaines d'expertise et les secteurs qu'il sert (figure~\ref{fig:organigramme}). Notre stage s'est déroulé au sein de l'équipe \textbf{Data}, qui relève du domaine d'expertise \textit{Data \& Analytics}, voisin du domaine \textit{Artificial Intelligence}.
+
+\figplaceholder[1]{organigramme_wevioo.png}{Organisation du groupe Wevioo : implantations, domaines d'expertise et secteurs}{fig:organigramme}{Schéma de l'organisation de l'offre de Wevioo, d'après son site institutionnel, avec l'équipe d'accueil mise en évidence.}
+
+Cette organisation reflète la diversité des services proposés par Wevioo, que nous détaillons à présent.
+
+\subsection{Services}
+
+Wevioo présente son offre à travers douze domaines d'expertise : \textit{Application Services}, \textit{Artificial Intelligence}, \textit{Business Strategy \& Transformation}, \textit{Cloud \& IT Infrastructure}, \textit{Cybersecurity}, \textit{Data \& Analytics}, \textit{Enterprise Architecture}, \textit{Managed Services}, \textit{Nearshore Development}, \textit{Operational Excellence}, \textit{Process Automation} et \textit{Software Development}. Elle s'appuie sur un écosystème de partenaires stratégiques dans le \textit{cloud}, les données, l'intelligence artificielle et le \textit{low-code}.
+
+C'est précisément à l'intersection des domaines \textit{Data \& Analytics} et \textit{Artificial Intelligence} et des besoins des clients du secteur de l'assurance que se situe notre projet, dont nous présentons maintenant le contexte.
+
+%==============================================================================
+\section{Contexte général et problématique}
+%==============================================================================
+
+Cette section décrit le contexte métier dans lequel le projet a vu le jour, puis formalise la problématique à laquelle il répond.
+
+\subsection{Contexte général du projet}
+
+Les clients de Wevioo, en particulier dans les secteurs de l'\textbf{assurance} et de la finance, manipulent des données issues de multiples systèmes : référentiels clients, contrats et polices, avenants, sinistres, agences et intermédiaires, encaissements. Ces données sont régulièrement extraites sous forme de fichiers tabulaires pour alimenter des projets de migration, de reporting ou d'analyse. Avant toute exploitation, il est indispensable d'en évaluer la qualité : un champ de date mal formé, un identifiant client dupliqué ou une colonne décalée lors de l'export peuvent compromettre l'ensemble d'un projet.
+
+Dans les missions de données, cette phase d'audit de la qualité est traditionnellement conduite par des consultants qui explorent manuellement chaque table. Elle mobilise un temps important, dépend fortement de l'expertise individuelle et produit des livrables hétérogènes d'une mission à l'autre. L'émergence des grands modèles de langage ouvre une perspective nouvelle : automatiser non seulement le calcul des indicateurs, mais aussi leur \textbf{interprétation} et la formulation de \textbf{recommandations}, à condition de maîtriser la fiabilité des résultats et la confidentialité des données.
+
+Ce contexte fait apparaître un ensemble de difficultés concrètes, que nous formalisons sous forme de problématique.
+
+\subsection{Problématique}
+
+L'analyse du processus actuel d'évaluation de la qualité des données fait ressortir plusieurs difficultés :
+\begin{itemize}
+  \item \textbf{Un effort manuel important} : chaque jeu de données doit être chargé, exploré et documenté individuellement, ce qui devient rapidement ingérable lorsque le portefeuille compte des dizaines de tables.
+  \item \textbf{Des rapports techniques difficiles à exploiter} : les outils de profilage produisent des rapports exhaustifs mais sans interprétation, et leur lecture requiert une expertise statistique.
+  \item \textbf{L'absence de vision transverse} : l'analyse est menée table par table, sans identification des entités partagées (client, contrat, agence) ni des causes communes aux anomalies observées dans plusieurs sources.
+  \item \textbf{Des contraintes fortes de confidentialité} : les données d'assurance contiennent des informations personnelles et commerciales sensibles, ce qui exclut l'envoi de ces données à des services d'IA hébergés par des tiers.
+  \item \textbf{Un manque de reproductibilité et de traçabilité} : les analyses manuelles sont difficilement rejouables, et leurs conclusions ne sont ni historisées ni auditables.
+\end{itemize}
+
+Pour évaluer dans quelle mesure ces difficultés sont déjà prises en charge par des solutions existantes, nous avons mené une étude de l'existant, présentée dans la section suivante.
+
+%==============================================================================
+\section{Étude de l'existant}
+%==============================================================================
+
+L'étude de l'existant suit une démarche en quatre temps : nous définissons d'abord les critères d'évaluation, nous étudions ensuite chaque solution individuellement, puis nous les comparons avant d'en faire la critique.
+
+\subsection{Critères d'évaluation}
+
+Les critères suivants découlent directement de la problématique exposée ci-dessus :
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{|C{1.1cm}|L{4.2cm}|L{8.7cm}|}
+\hline
+\thd{Code} & \thd{Critère} & \thd{Question posée} \\ \hline
+C1 & Automatisation du profilage & La solution calcule-t-elle automatiquement les indicateurs de qualité de chaque colonne ? \\ \hline
+C2 & Absence de règles préalables & Peut-on l'utiliser sur un jeu de données inconnu, sans écrire de règles au préalable ? \\ \hline
+C3 & Interprétation en langage naturel & Produit-elle une lecture compréhensible par un profil non technique ? \\ \hline
+C4 & Recommandations priorisées & Propose-t-elle des actions correctives classées par impact et par effort ? \\ \hline
+C5 & Vision transverse & Rapproche-t-elle les entités et les problèmes communs à plusieurs tables ? \\ \hline
+C6 & Confidentialité & Les données restent-elles sur l'infrastructure locale ? \\ \hline
+C7 & Industrialisation & Peut-elle être orchestrée, rejouée et tracée ? \\ \hline
+C8 & Coût & Quel est le coût de licence et de mise en œuvre ? \\ \hline
+\end{tabular}
+\caption{Critères d'évaluation des solutions existantes}
+\label{tab:criteres}
+\end{table}
+
+Ces critères posés, nous pouvons examiner une à une les principales solutions disponibles.
+
+\subsection{Étude des solutions existantes}
+
+Nous avons retenu six familles de solutions, représentatives des pratiques actuelles, de la plus manuelle à la plus intégrée.
+
+\subsubsection{L'exploration manuelle}
+
+\textbf{Principe.} L'analyste charge chaque fichier dans un tableur ou un environnement d'analyse et calcule lui-même les indicateurs dont il a besoin : valeurs manquantes, valeurs distinctes, distributions, doublons.
+
+\textbf{Fonctionnalités.} Totale liberté d'analyse ; possibilité d'interpréter les résultats au regard du métier et de rédiger des recommandations.
+
+\textbf{Limites.} Approche lente, non reproductible, dont la qualité dépend entièrement de l'expertise de la personne ; elle ne passe pas à l'échelle d'un portefeuille de plusieurs dizaines de tables.
+
+\subsubsection{ydata-profiling}
+
+\textbf{Principe.} Bibliothèque open source~\cite{ydata} qui génère automatiquement un rapport d'analyse exploratoire d'un jeu de données.
+
+\textbf{Fonctionnalités.} Statistiques par colonne, détection de types, alertes automatiques (forte cardinalité, valeurs constantes, fortes corrélations), matrices de corrélation, export structuré.
+
+\textbf{Limites.} Rapport descriptif sans interprétation métier ni recommandation ; temps de calcul élevé sur les tables volumineuses ; analyse limitée à une table à la fois.
+
+\subsubsection{SweetViz}
+
+\textbf{Principe.} Bibliothèque open source~\cite{sweetviz} d'analyse exploratoire, qui produit un rapport interactif et très visuel. C'est la bibliothèque que nous avons \textbf{retenue et exploitée} dans ce projet comme socle du profilage.
+
+\textbf{Fonctionnalités.} Résumé du jeu de données, statistiques détaillées par colonne, valeurs fréquentes, histogrammes et, surtout, une analyse des associations adaptée au type des variables, ainsi que la comparaison de deux jeux de données.
+
+\textbf{Limites.} Les statistiques ne sont pas exportées de manière structurée ; aucune interprétation ni recommandation ; certaines étapes internes sont coûteuses sur les gros fichiers ; analyse limitée à une table.
+
+\subsubsection{Great Expectations}
+
+\textbf{Principe.} Cadre open source~\cite{gx} de validation des données fondé sur des « attentes » déclaratives (par exemple : « cette colonne ne doit pas contenir de valeur nulle »).
+
+\textbf{Fonctionnalités.} Large bibliothèque d'attentes prédéfinies, exécution automatique des contrôles, documentation générée, intégration aux orchestrateurs.
+
+\textbf{Limites.} Les règles doivent être connues et écrites à l'avance par un expert ; l'outil vérifie mais n'explique pas, et il est peu adapté à la découverte d'un nouveau jeu de données.
+
+\subsubsection{Deequ et Soda Core}
+
+\textbf{Principe.} Deequ~\cite{deequ}, développé par Amazon, et Soda Core~\cite{soda} appliquent la même logique de \textbf{contrôles déclaratifs}, à grande échelle pour le premier et à l'aide d'un langage de contrôle dédié pour le second.
+
+\textbf{Fonctionnalités.} Calcul de métriques et vérification de contraintes sur de gros volumes, suggestion automatique de contraintes, suivi des métriques dans le temps.
+
+\textbf{Limites.} Mêmes limites que Great Expectations : écriture préalable des règles, absence d'interprétation et de recommandations ; infrastructure distribuée nécessaire pour Deequ.
+
+\subsubsection{Les suites commerciales}
+
+\textbf{Principe.} Plateformes intégrées (Informatica Data Quality, Talend Data Quality) couvrant l'ensemble du cycle de la qualité des données.
+
+\textbf{Fonctionnalités.} Profilage, règles métier, standardisation, déduplication, tableaux de bord, gestion des anomalies et des processus de correction.
+
+\textbf{Limites.} Coûts de licence élevés, mise en œuvre lourde, inadaptées à une mission d'audit ponctuelle ; intégration encore limitée de l'IA générative en environnement local.
+
+Après cette étude individuelle, il convient de confronter ces solutions entre elles au regard des critères définis.
+
+\subsection{Étude comparative}
+
+Le tableau~\ref{tab:comparatif-existant} confronte les solutions étudiées aux critères définis.
+
+\begin{table}[H]
+\centering
+\scriptsize
+\begin{tabular}{|L{2.1cm}|L{2.2cm}|L{2.3cm}|L{2.4cm}|L{2.4cm}|L{2.4cm}|}
+\hline
+\thd{Critère} & \thd{Exploration manuelle} & \thd{ydata-profiling / SweetViz} & \thd{Great Exp. / Deequ / Soda} & \thd{Suites commerciales} & \thd{\projet} \\ \hline
+C1 Profilage & Calcul manuel, colonne par colonne & Automatique et complet & Métriques ciblées par les règles & Automatique et complet & Automatique, avec rôle de chaque colonne \\ \hline
+C2 Sans règles & Oui & Oui & Non : règles à écrire & Non : règles à configurer & Oui, et règles proposées à partir de l'objectif \\ \hline
+C3 Interprétation & Rédigée par l'analyste & Aucune & Aucune & Limitée & Générée par un LLM local, vérifiée par les mesures \\ \hline
+C4 Recommandations & Selon l'expertise & Aucune & Aucune (échecs de contrôle) & Processus de correction & Règles, alertes et corrections appliquées sur une copie \\ \hline
+C5 Vision transverse & Rarement & Non (une table) & Non & Partielle & Modèle de données, graphe Neo4j et questions en langage naturel \\ \hline
+C6 Confidentialité & Locale & Locale & Locale & Selon déploiement & Locale (LLM local) \\ \hline
+C7 Industrialisation & Non & Non & Oui & Oui & Oui \\ \hline
+C8 Coût & Temps humain élevé & Gratuit & Gratuit & Licences élevées & Gratuit (open source) \\ \hline
+\end{tabular}
+\caption{Comparaison des solutions existantes selon les critères retenus}
+\label{tab:comparatif-existant}
+\end{table}
+
+Cette comparaison fait ressortir, pour chaque solution, des manques précis que nous analysons dans la critique qui suit.
+
+\subsection{Critique de l'existant}
+
+Le tableau~\ref{tab:critique} synthétise, pour chaque solution, les critères qu'elle ne satisfait pas et l'impact de ces limites dans notre contexte.
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{|L{3.4cm}|L{2.6cm}|L{8cm}|}
+\hline
+\thd{Solution} & \thd{Critères non satisfaits} & \thd{Impact dans notre contexte} \\ \hline
+Exploration manuelle & C1, C5, C7, C8 & Ne passe pas à l'échelle d'un portefeuille ; résultats hétérogènes et non reproductibles d'une mission à l'autre. \\ \hline
+ydata-profiling, SweetViz & C3, C4, C5, C7 & Fournissent les bons indicateurs, mais laissent à l'expert tout le travail d'interprétation et de recommandation. \\ \hline
+Great Expectations, Deequ, Soda & C2, C3, C4, C5 & Inutilisables lors de la découverte d'un nouveau jeu de données, puisque les règles ne sont pas encore connues. \\ \hline
+Suites commerciales & C3, C6, C8 & Coût et lourdeur disproportionnés pour une mission d'audit ; IA générative peu disponible en local. \\ \hline
+\end{tabular}
+\caption{Critique des solutions existantes}
+\label{tab:critique}
+\end{table}
+
+Il en ressort qu'aucune solution ne couvre simultanément l'automatisation du profilage, l'interprétation, les recommandations, la vision transverse et la confidentialité. Ce constat justifie la conception d'une nouvelle solution, que nous présentons à présent.
+
+\subsection{Solution proposée}
+
+Pour répondre à ces limites, nous proposons \textbf{\projet}, une plateforme web d'évaluation automatisée et intelligente de la qualité des données tabulaires. Son principe est de \textbf{séparer ce qui se mesure de ce qui s'explique} : le code mesure de façon déterministe l'état de chaque table (valeurs manquantes, doublons, formats, rôle de chaque colonne, liens entre tables), un \textbf{grand modèle de langage exécuté localement} interprète ces mesures et propose des actions, et chacune de ses affirmations est confrontée aux mesures avant d'être affichée. À partir de ces résultats, la plateforme permet de définir des \textbf{règles de qualité} surveillées à chaque exécution, d'appliquer des \textbf{corrections} sur une copie des données, de construire un \textbf{graphe de connaissances} dans Neo4j et de \textbf{poser des questions en langage naturel} sur les données, leur qualité et l'usage de l'outil. Elle fonctionne sans intervention manuelle, sur l'infrastructure de l'entreprise, et conserve la trace de chacun de ses traitements.
+
+\figplaceholder[0.9]{vue_generale_solution.png}{Vue générale de la solution proposée}{fig:vue-generale}{Schéma synthétique et simple : données sources $\rightarrow$ profilage statistique $\rightarrow$ analyse intelligente (LLM local) $\rightarrow$ résultats et recommandations, avec l'orchestration et la traçabilité en transverse.}
+
+La solution s'articule autour de cinq blocs : une interface web, un serveur applicatif, un traitement de profilage orchestré par Airflow, un service de questions et une base de graphe. Leur conception est détaillée au chapitre~4 et leur réalisation, sprint par sprint, aux chapitres~5 à~7. Il convient auparavant de préciser les objectifs que la solution doit atteindre.
+
+\subsection{Objectifs du projet}
+
+L'\textbf{objectif général} du projet est de réduire significativement le temps et l'expertise nécessaires à l'audit de la qualité d'un portefeuille de données, tout en améliorant la lisibilité et la traçabilité des conclusions. Il se décline en objectifs spécifiques :
+
+\begin{itemize}
+  \item \textbf{Automatiser l'évaluation de bout en bout} : tout jeu de données déposé doit être lu, profilé, analysé et restitué sans configuration préalable ni écriture de règles.
+  \item \textbf{Fiabiliser les mesures} : toutes les statistiques doivent être calculées de façon déterministe et vérifiable, l'intelligence artificielle intervenant pour les interpréter et ses affirmations étant contrôlées.
+  \item \textbf{Rendre les résultats intelligibles} pour des profils non techniques : score et note, dimensions de qualité expliquées, recommandations en langage naturel.
+  \item \textbf{Intégrer le contexte métier} : permettre à l'utilisateur de décrire le domaine, l'objectif et ce que représente une ligne, pour orienter l'analyse et proposer des règles adaptées.
+  \item \textbf{Surveiller et corriger} : évaluer des règles de qualité à chaque exécution, alerter en cas d'échec et corriger les données sur une copie, sans jamais modifier l'original.
+  \item \textbf{Offrir une vision transverse} : relier les tables entre elles, construire un graphe de leurs entités et permettre de l'interroger en langage naturel.
+  \item \textbf{Garantir la confidentialité} en exécutant les modèles de langage exclusivement sur l'infrastructure locale.
+  \item \textbf{Industrialiser et sécuriser} : exécution orchestrée avec reprise sur erreur, authentification, déploiement reproductible et tests automatisés.
+  \item \textbf{Assurer la traçabilité} : versionner les jeux de données et conserver la trace de chaque exécution, de chaque correction et de chaque réponse du modèle.
+\end{itemize}
+
+Atteindre ces objectifs dans un contexte aussi exploratoire supposait une méthode de travail adaptée, que nous décrivons dans la dernière section de ce chapitre.
+
+%==============================================================================
+\section{Méthodologie de travail}
+%==============================================================================
+
+Cette section justifie le choix d'une démarche agile, présente le framework Scrum retenu et décrit la manière dont il a été appliqué au projet.
+
+\subsection{La méthodologie Agile}
+
+L'\textbf{agilité} est une approche de gestion de projet fondée sur le Manifeste Agile (2001), qui privilégie les individus et leurs interactions, un produit opérationnel, la collaboration avec le client et l'adaptation au changement. Le produit est construit de manière \textbf{itérative et incrémentale} : il est livré par petites parties fonctionnelles, présentées régulièrement aux parties prenantes, dont les retours orientent la suite du travail.
+
+Cette approche est particulièrement adaptée à notre projet, dont le caractère est fortement exploratoire : la qualité des réponses d'un modèle de langage, la manière de structurer les instructions qui lui sont données ou le choix entre plusieurs modèles ne pouvaient être déterminés qu'en expérimentant. Les besoins se sont par ailleurs précisés au fil des démonstrations à l'encadrant, au point de faire évoluer le périmètre du produit au fil des sprints, des règles de qualité jusqu'aux questions en langage naturel. Une démarche agile nous a permis d'intégrer ces évolutions sans remettre en cause le travail déjà réalisé.
+
+Parmi les cadres de mise en œuvre de l'agilité, nous avons retenu Scrum, présenté ci-après.
+
+\subsection{Le framework Scrum}
+
+\textbf{Scrum}~\cite{scrum} n'est pas une méthodologie en soi, mais un \textbf{framework} (cadre de travail) qui met en œuvre la méthodologie Agile. Il définit un ensemble minimal de rôles, d'artefacts et d'événements, et organise le travail en itérations de durée fixe, au plus d'un mois, appelées \textbf{sprints}, au terme desquelles un incrément utilisable du produit est livré. Nous l'avons retenu pour sa simplicité, son découpage en itérations courtes et la place qu'il accorde aux retours réguliers.
+
+\figplaceholder[0.8]{cycle_scrum.png}{Cycle de vie Scrum}{fig:scrum}{Schéma classique du cycle Scrum : Product Backlog $\rightarrow$ Sprint Planning $\rightarrow$ Sprint Backlog $\rightarrow$ Sprint (avec Daily Scrum) $\rightarrow$ Incrément $\rightarrow$ Sprint Review et Sprint Retrospective.}
+
+Le cadre étant posé, nous décrivons maintenant son application concrète à notre projet, en commençant par la vision du produit qui a précédé les sprints.
+
+\subsection{Application de Scrum au projet}
+
+L'application de Scrum au projet s'est articulée autour d'une vision du produit partagée, d'une répartition claire des rôles, des artefacts et des événements prévus par le Scrum Guide, et d'une planification en sprints de durée égale.
+
+\subsubsection{Vision du projet}
+
+Avant le premier sprint, une phase de cadrage a permis de construire, avec le Product Owner, une vision commune du produit : étude du sujet et de l'existant, identification des utilisateurs, définition des objectifs et premières orientations techniques. Cette phase n'est pas un sprint : elle ne produit pas d'incrément logiciel, mais un livrable de cadrage, le \textbf{Project Vision Statement}, qui guide l'ensemble du développement.
+
+\encadre{Project Vision Statement}{\itshape Pour les équipes data et les responsables métier des organisations du secteur de l'assurance, qui doivent auditer rapidement la qualité de leurs données sensibles, \projet{} est une plateforme web d'évaluation intelligente de la qualité des données qui profile automatiquement chaque table, explique le résultat en langage naturel, surveille des règles, corrige sur une copie et répond aux questions des utilisateurs. Contrairement aux outils de profilage, qui ne font que mesurer, et aux outils de validation, qui exigent des règles écrites à l'avance, notre produit interprète et recommande sans configuration préalable, en exécutant ses modèles d'IA localement pour garantir la confidentialité des données.}
+
+Cette vision a servi de base à la définition de l'objectif du produit (\textit{Product Goal}) et du backlog produit présenté au chapitre~3.
+
+\subsubsection{Rôles}
+
+Le tableau~\ref{tab:roles} présente la répartition des trois responsabilités définies par Scrum.
+
+\begin{table}[H]
+\centering
+\begin{tabular}{|L{4cm}|L{10cm}|}
+\hline
+\thd{Rôle Scrum} & \thd{Affectation} \\ \hline
+Product Owner & \encadrantpro{} (Wevioo) \\ \hline
+Scrum Master & \encadrantpro{} (Wevioo) \\ \hline
+Développeurs & \etudiant \\ \hline
+\end{tabular}
+\caption{Répartition des rôles Scrum}
+\label{tab:roles}
+\end{table}
+
+\subsubsection{Artefacts et engagements}
+
+Conformément au Scrum Guide, chaque artefact est associé à un engagement qui en fixe l'objectif :
+\begin{itemize}
+  \item le \textbf{Product Backlog}, associé au \textbf{Product Goal} « disposer d'une plateforme locale qui évalue, explique, corrige et permet d'interroger la qualité de ses données », regroupe sous forme d'epics et de récits utilisateurs l'ensemble des besoins fonctionnels ; il est présenté au chapitre~3 ;
+  \item le \textbf{Sprint Backlog}, associé à un \textbf{Sprint Goal}, détaille pour chaque sprint les récits retenus et les tâches associées ; il est présenté en tête de la section consacrée au sprint, aux chapitres~5 à~7 ;
+  \item l'\textbf{Incrément}, associé à une \textbf{Definition of Done}, est la partie de la plateforme rendue opérationnelle à la fin de chaque sprint. Un récit est considéré comme terminé lorsqu'il est fonctionnel de bout en bout, testé sur les jeux de données de démonstration, documenté et présenté lors de la revue de sprint.
+\end{itemize}
+
+\subsubsection{Événements}
+
+Chaque sprint a débuté par un \textit{Sprint Planning} avec le Product Owner pour fixer le Sprint Goal et sélectionner les récits. Des points de synchronisation, trois fois par semaine, ont joué le rôle de \textit{Daily Scrum}. Chaque sprint s'est terminé par une \textit{Sprint Review}, sous forme de démonstration de l'incrément, puis par une \textit{Sprint Retrospective}, qui a permis d'ajuster la suite du travail.
+
+\subsubsection{Planification des sprints}
+
+Le stage s'est déroulé du 23 février au 23 août 2026, soit vingt-six semaines. Le développement a été organisé en sept sprints de trois semaines, précédés de deux semaines de vision. La figure~\ref{fig:gantt} présente cette planification sous forme de diagramme de Gantt et le tableau~\ref{tab:calendrier} en donne le calendrier.
+
+\figplaceholder[1]{gantt_planning.png}{Diagramme de Gantt de la planification du projet}{fig:gantt}{Diagramme de Gantt (généré).}
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{|L{7.4cm}|C{2.6cm}|L{4cm}|}
+\hline
+\thd{Phase} & \thd{Semaines} & \thd{Période (2026)} \\ \hline
+Vision du projet & 1 à 2 & 23 févr. -- 6 mars \\ \hline
+Sprint 1 : ingestion et profilage & 3 à 5 & 9 mars -- 27 mars \\ \hline
+Sprint 2 : application web et exécution suivie & 6 à 8 & 30 mars -- 17 avr. \\ \hline
+Sprint 3 : contexte, rôles et dimensions & 9 à 11 & 20 avr. -- 8 mai \\ \hline
+Sprint 4 : règles de qualité et alertes & 12 à 14 & 11 mai -- 29 mai \\ \hline
+Sprint 5 : corrections & 15 à 17 & 1 juin -- 19 juin \\ \hline
+Sprint 6 : graphe Neo4j & 18 à 20 & 22 juin -- 10 juil. \\ \hline
+Sprint 7 : questions en langage naturel & 21 à 23 & 13 juil. -- 31 juil. \\ \hline
+\end{tabular}
+\caption{Calendrier des sprints}
+\label{tab:calendrier}
+\end{table}
+
+
+\section*{Conclusion}
+\addcontentsline{toc}{section}{Conclusion}
+Ce chapitre nous a permis de présenter l'organisme d'accueil et de situer le projet dans son contexte. L'étude des solutions existantes, menée selon des critères explicites, a mis en évidence l'absence d'une solution combinant profilage automatique, interprétation intelligente, vision transverse et confidentialité, ce qui justifie la solution proposée. Nous avons enfin présenté la démarche agile adoptée. Le chapitre suivant présente l'état de l'art et les choix technologiques sur lesquels repose cette solution.

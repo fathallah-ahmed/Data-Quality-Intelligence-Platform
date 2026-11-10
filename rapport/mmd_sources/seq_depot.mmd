@@ -1,0 +1,22 @@
+sequenceDiagram
+  autonumber
+  actor U as Administrateur
+  participant F as Interface
+  participant B as Serveur
+  participant A as Airflow
+  participant W as Worker
+  U->>F: Deposer les CSV et le contexte
+  F->>B: POST /api/datasets/upload (JWT)
+  B->>B: Valider tout, SHA-256, créer la version
+  B-->>F: Version créée (PENDING)
+  B->>A: Déclencher le DAG après commit
+  A->>W: Exécuter les phases
+  loop Pour chaque table
+    W->>B: table-analysis (métriques)
+    W->>B: table-analysis (enrichi par le modèle)
+    B-->>F: Événement SSE
+  end
+  W->>B: rule-suggestions, global-analysis
+  W->>B: complete (success, partial ou failed)
+  B->>B: Évaluer les règles
+  B-->>F: Événement SSE, alerte si règle en échec

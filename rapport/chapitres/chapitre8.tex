@@ -1,0 +1,150 @@
+\chapter{Évaluation de la Solution et Choix du Modèle}\label{chap:benchmark}
+
+\section*{Introduction}
+\addcontentsline{toc}{section}{Introduction}
+Les chapitres précédents ont montré que la qualité des résultats de \projet{} repose sur deux piliers : un code déterministe, vérifiable par des tests automatisés, et un modèle de langage, dont le comportement ne peut pas se prouver mais doit se mesurer. Ce chapitre présente d'abord les tests automatisés et les tests fonctionnels, puis une évaluation comparative de trois modèles de langage sur un jeu de questions rejouable, qui éclaire le choix du modèle sur la tâche où il compte le plus : répondre à des questions en langage naturel.
+
+%==============================================================================
+\section{Tests automatisés}
+%==============================================================================
+
+Le code déterministe de la plateforme est couvert par 292 tests automatisés répartis en quatre suites (tableau~\ref{tab:tests}), exécutées à chaque modification par l'intégration continue. Elles vérifient en particulier les comportements dont dépend la confiance dans les résultats : le rejet d'un téléversement invalide avant toute écriture, la détection d'un dépôt identique, la reprise des exécutions bloquées, l'évaluation de chaque type de règle, le refus par les garde-fous des requêtes qui écrivent ou qui sortent du périmètre d'une version, l'attribution des rôles de colonnes et la validation des réponses du modèle. Ces tests n'ont besoin ni d'Airflow, ni de Neo4j, ni d'Ollama, qui sont simulés. Les suites du worker (67 tests) et du service de questions (39 tests) ont été rejouées lors de la rédaction de ce rapport et réussissent toutes.
+
+%==============================================================================
+\section{Tests fonctionnels}
+%==============================================================================
+
+Le tableau~\ref{tab:tests-fonctionnels} présente onze scénarios de test fonctionnel, joués sur la plateforme en fonctionnement. Le scénario TF4, qui suppose un modèle injoignable, a été vérifié par un test automatisé du worker plutôt qu'en arrêtant Ollama.
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{|C{1cm}|L{3.6cm}|L{4.2cm}|L{4cm}|}
+\hline
+\thd{ID} & \thd{Scénario} & \thd{Résultat attendu} & \thd{Résultat obtenu} \\ \hline
+TF1 & Dépôt d'un fichier invalide parmi plusieurs & Aucun fichier écrit, fichier fautif signalé & Réussi : HTTP 400, aucun jeu de données créé \\ \hline
+TF2 & Table à l'encodage et au séparateur non standard & Lecture correcte de toutes les colonnes & Réussi : 4 colonnes et 20 lignes lues \\ \hline
+TF3 & Dépôt identique à une version existante & Proposition d'ouvrir ou de relancer & Réussi : doublon détecté, pas de relance \\ \hline
+TF4 & Modèle indisponible & Analyse déterministe, statut du modèle \texttt{unavailable} & Réussi (test automatisé : modèle injoignable simulé) \\ \hline
+TF5 & Redémarrage du serveur pendant une exécution & Exécution reprise ou signalée, sans blocage & Réussi : \texttt{COMPLETED} malgré le redémarrage, 6\,s après le dépôt \\ \hline
+TF6 & Règle de format sur une colonne courriel & Échec avec nombre de valeurs invalides & Réussi : échec à 93,0\,\% avec un exemple \\ \hline
+TF7 & Correction d'une date ambiguë & Date non devinée, avertissement affiché & Réussi : 2 dates converties, 3 ambiguës laissées à la revue \\ \hline
+TF8 & Correction appliquée & Nouvelle version créée, version d'origine intacte & Réussi : version 2 dérivée, fichier d'origine identique (même empreinte) \\ \hline
+TF9 & Question demandant de supprimer des données & Requête refusée, aucune écriture dans Neo4j & Réussi : aucune requête exécutée, 548 nœuds avant et après \\ \hline
+TF10 & Question sur les données sans graphe construit & Message demandant de construire le graphe & Réussi : demande de construire le graphe \\ \hline
+TF11 & Déploiement par Docker Compose & Services démarrés et sains & Réussi : conteneurs démarrés, ceux d'Airflow sains \\ \hline
+\end{tabular}
+\caption{Scénarios de tests fonctionnels}
+\label{tab:tests-fonctionnels}
+\end{table}
+
+%==============================================================================
+\section{Évaluation comparative de trois modèles sur les questions}
+%==============================================================================
+
+Les tests précédents vérifient le code, pas le comportement d'un modèle réel. Nous avons donc comparé trois modèles sur la tâche où leur qualité se voit le mieux : le service de questions, qui leur demande de classer une question, d'écrire une requête Cypher, puis de rédiger une réponse fidèle aux lignes obtenues.
+
+\subsection{Modèles candidats}
+
+Les modèles comparés sont ceux qui sont installés dans Ollama sur la machine de développement (tableau~\ref{tab:bm-modeles}) : un modèle de taille moyenne qui tient en mémoire graphique, un modèle plus grand qui ne tient pas entièrement en mémoire graphique, et un modèle servi à distance.
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{|L{4cm}|L{2.6cm}|C{2.6cm}|L{3.8cm}|}
+\hline
+\thd{Modèle} & \thd{Éditeur} & \thd{Taille sur disque} & \thd{Exécution} \\ \hline
+Qwen 2.5 14B Instruct & Alibaba Cloud & 9,0 Go & Locale, mémoire graphique \\ \hline
+Qwen 3.5 35B & Alibaba Cloud & 23 Go & Locale, avec déchargement vers la mémoire vive \\ \hline
+Gemma 4 (\texttt{gemma4:cloud}) & Google & -- & \textbf{Distante} : servie par le service cloud d'Ollama \\ \hline
+\end{tabular}
+\caption{Modèles candidats}
+\label{tab:bm-modeles}
+\end{table}
+
+\noindent\textbf{Remarque de confidentialité.} Le modèle \texttt{gemma4:cloud} n'est pas exécuté sur la machine : Ollama transmet les requêtes à un service distant. Il a été utilisé pendant le développement et dans cette évaluation sur des données fictives, mais il ne respecte pas l'exigence de confidentialité du projet et ne doit pas recevoir de données client. Pour des données sensibles, la plateforme doit être configurée avec un modèle local.
+
+\subsection{Protocole}
+
+Le jeu comprend 19 questions (une question par cas) portant sur trois jeux de données de démonstration : un magasin de vélos de neuf tables (\texttt{MyBikeStore}), un jeu de comptes (\texttt{check-accounts}) et un jeu de clients et de commandes (\texttt{graph-shop}). Le graphe de chaque version est construit avant l'évaluation, et deux règles de qualité sont approuvées sur \texttt{check-accounts}, comme le suppose l'un des cas. Les questions couvrent quatre catégories : questions sur les \textbf{données} (réponse par le graphe), sur la \textbf{qualité} (règles, scores, constats), sur l'\textbf{usage} de l'outil, et des cas \textbf{sans type attendu} (définitions, demandes d'écriture qui doivent être refusées, questions hors sujet).
+
+Pour chaque modèle, le service de questions est redémarré avec le modèle voulu (variable \texttt{OLLAMA\_MODEL}), puis les 19 questions sont posées dans le même ordre, une fois chacune, par l'intermédiaire du serveur applicatif. Un cas est réussi si le type de la réponse est celui attendu et si elle contient les éléments attendus (par exemple le nombre exact de commandes) sans contenir de mot interdit (par exemple une confirmation de suppression). Pour une question sur les données, la requête exécutée doit aussi être fournie avec la réponse. Nous relevons en outre la latence de chaque cas, le nombre de requêtes Cypher produites et le nombre de tentatives de requêtes refusées par les garde-fous.
+
+\subsection{Résultats}
+
+Le tableau~\ref{tab:eval-modeles} et la figure~\ref{fig:eval-modeles} présentent les résultats.
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{|L{3.2cm}|C{1.7cm}|C{1.5cm}|C{1.4cm}|C{1.1cm}|C{1.3cm}|C{1.6cm}|C{1.5cm}|}
+\hline
+\thd{Modèle} & \thd{Total} & \thd{Données} & \thd{Qualité} & \thd{Aide} & \thd{Autres} & \thd{Latence moy. (s)} & \thd{Refus Cypher} \\ \hline
+Gemma 4 (cloud) & 19/19 (100\,\%) & 6/6 & 4/4 & 2/2 & 7/7 & 1,4 & 0 \\ \hline
+Qwen 3.5 35B & 18/19 (95\,\%) & 5/6 & 4/4 & 2/2 & 7/7 & 25,0 & 0 \\ \hline
+Qwen 2.5 14B Instruct & 17/19 (89\,\%) & 5/6 & 4/4 & 2/2 & 6/7 & 14,4 & 2 \\ \hline
+\end{tabular}
+\caption{Résultats de l'évaluation des questions pour trois modèles}
+\label{tab:eval-modeles}
+\end{table}
+
+\figplaceholder[1]{eval_modeles.png}{Taux de réussite par catégorie et latence moyenne des trois modèles}{fig:eval-modeles}{Deux graphiques : à gauche, cas réussis par catégorie pour chaque modèle ; à droite, latence moyenne par modèle.}
+
+\subsection{Analyse des échecs}
+
+Les trois échecs se répartissent sur deux cas seulement.
+\begin{itemize}
+  \item \textbf{« Combien de clients et de commandes ? »} (\texttt{graph-shop} : 40 clients et 120 commandes). Les deux modèles locaux échouent, de deux façons différentes. Qwen 3.5 35B produit une requête admissible, que les garde-fous laissent passer, mais sa réponse annonce « 4\,800 clients et 4\,800 commandes » : ce nombre est égal à $40 \times 120$, ce qui évoque un produit cartésien entre les deux ensembles. Les garde-fous contrôlent la sécurité d'une requête, pas son exactitude : c'est pourquoi la requête exécutée est toujours affichée avec la réponse, pour que l'utilisateur puisse repérer ce type d'erreur. Qwen 2.5 14B voit ses deux requêtes refusées par les garde-fous ; la réponse se rabat alors sur les faits de qualité, sans requête, et elle est fausse (le contrôle la signale comme « réponse du graphe sans requête »). Aucune requête dangereuse n'a été exécutée dans ce second cas.
+  \item \textbf{« Quelle différence entre un avertissement et une règle critique ? »} Qwen 2.5 14B échoue le contrôle lexical : sa réponse, plausible, n'emploie aucun des termes attendus (« à corriger en premier », « rouge », « séparément »). Ce cas illustre la limite d'un contrôle par mots-clés, qui peut rejeter une réponse correcte formulée autrement.
+\end{itemize}
+Gemma 4 réussit les 19 cas. Aucun modèle ne s'est trompé sur le type d'une question ni ne s'est plié à une demande d'écriture ou à une question hors sujet.
+
+\subsection{Latence}
+
+Les réponses du modèle distant arrivent en moyenne en 1,4\,s, contre 14,4\,s pour Qwen 2.5 14B et 25,0\,s pour Qwen 3.5 35B, le plus lent des trois, ce qui est cohérent avec sa taille (23\,Go, déchargé en partie vers la mémoire vive). Ces durées, de l'ordre de la dizaine de secondes, sont acceptables pour une question posée dans l'interface.
+
+%==============================================================================
+\section{Choix du modèle}
+%==============================================================================
+
+Le modèle intervient dans quatre tâches de la plateforme, dont les exigences diffèrent (tableau~\ref{tab:bm-taches}).
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{|L{4cm}|L{6cm}|L{4cm}|}
+\hline
+\thd{Tâche} & \thd{Exigence principale} & \thd{Réglage} \\ \hline
+Analyse d'une table & Validité du format, fidélité aux chiffres, faible latence (nombreuses tables) & \texttt{OLLAMA\_MODEL} du worker \\ \hline
+Analyse globale & Raisonnement riche, grand contexte ; appel unique & Même modèle, appel désactivable \\ \hline
+Correction en langage naturel & Respect strict des opérations autorisées, aucune valeur inventée & \texttt{OLLAMA\_MODEL} du serveur \\ \hline
+Questions & Génération de Cypher admissible et exacte, réponses fidèles aux lignes obtenues & \texttt{OLLAMA\_MODEL} du service \\ \hline
+\end{tabular}
+\caption{Tâches confiées au modèle et exigences}
+\label{tab:bm-taches}
+\end{table}
+
+Aucune de ces tâches n'est liée à un modèle précis : chacune lit le modèle dans la configuration. Les résultats appellent trois conclusions.
+\begin{itemize}
+  \item Le modèle distant est le plus juste et de loin le plus rapide, mais il ne respecte pas la confidentialité : il ne convient qu'à des données fictives ou publiques.
+  \item Pour des données sensibles, le choix se fait entre les deux modèles locaux. Qwen 3.5 35B a réussi un cas de plus que Qwen 2.5 14B, mais il est près de deux fois plus lent et occupe 23\,Go. Avec 19 cas et une seule exécution, un écart d'un cas n'est pas significatif : nous gardons le modèle de taille moyenne par défaut, plus rapide et qui tient en mémoire graphique, et la plateforme laisse le choix à l'utilisateur.
+  \item Quel que soit le modèle, la requête exécutée doit rester visible avec la réponse : c'est la seule défense contre une requête admissible mais erronée, comme le produit cartésien observé.
+\end{itemize}
+
+%==============================================================================
+\section{Limites de l'évaluation}
+%==============================================================================
+
+Plusieurs limites doivent être gardées à l'esprit dans l'interprétation des résultats :
+\begin{itemize}
+  \item la \textbf{taille du jeu} : 19 questions, posées une seule fois à chaque modèle, sur trois jeux de démonstration ; les écarts de un ou deux cas ne sont pas statistiquement significatifs ;
+  \item le \textbf{contrôle par mots-clés}, qui ne vérifie ni la qualité de rédaction ni la pertinence d'une explication, et peut rejeter une réponse correcte ;
+  \item la \textbf{dépendance aux consignes} : les résultats sont mesurés avec un jeu de consignes donné, qu'un autre modèle pourrait mieux exploiter s'il était adapté ;
+  \item la \textbf{dépendance au matériel} : la latence des modèles locaux dépend de la mémoire graphique disponible ;
+  \item la \textbf{portée de l'évaluation} : seules les questions ont été comparées entre modèles. Une première mesure sur l'analyse d'une table, avec quatre tables fictives aux défauts injectés, n'a pas été retenue : les constats structurés étant bornés par les mesures du pipeline, les trois modèles obtenaient exactement les mêmes résultats, et cette mesure ne permettait pas de les départager ;
+  \item l'\textbf{absence d'évaluation de la pertinence} des recommandations rédigées par le modèle, qui exigerait plusieurs évaluateurs humains.
+\end{itemize}
+
+\section*{Conclusion}
+\addcontentsline{toc}{section}{Conclusion}
+Ce chapitre a présenté l'évaluation de \projet{} : 292 tests automatisés qui couvrent le code déterministe, onze scénarios fonctionnels joués sur la plateforme, et une comparaison de trois modèles sur 19 questions rejouables. Cette comparaison montre des différences réelles de justesse et de latence, identifie le type d'erreur le plus difficile à détecter (une requête admissible mais inexacte) et justifie le choix de toujours montrer la requête exécutée avec la réponse.

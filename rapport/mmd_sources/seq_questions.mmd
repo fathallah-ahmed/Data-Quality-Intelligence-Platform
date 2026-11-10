@@ -1,0 +1,25 @@
+sequenceDiagram
+  autonumber
+  actor U as Administrateur
+  participant F as Interface
+  participant B as Serveur
+  participant Q as Service de questions
+  participant M as Modèle local
+  participant N as Neo4j
+  U->>F: Saisir une question
+  F->>B: POST ask
+  B->>B: Joindre les faits de qualité
+  B->>Q: question, périmètre, faits (X-QA-Token)
+  Q->>M: Trier la question
+  M-->>Q: Type : données
+  Q->>M: Écrire une requête Cypher
+  M-->>Q: Requête
+  Q->>Q: Garde-fous : lecture seule, périmètre
+  Q->>N: EXPLAIN
+  N-->>Q: Plan en lecture
+  Q->>N: Exécuter (15 s, 50 lignes)
+  N-->>Q: Lignes
+  Q->>M: Rédiger à partir des lignes seules
+  M-->>Q: Réponse
+  Q-->>B: Réponse, requête, lignes
+  B-->>F: Réponse avec sa source

@@ -1,0 +1,9 @@
+flowchart LR
+  A[(Fichiers CSV)] --> B[Profilage et mesures deterministes]
+  B --> C[Analyse par un LLM local verifiee]
+  C --> D[Score, dimensions, règles, alertes]
+  D --> E[Corrections sur une copie]
+  D --> F[Graphe Neo4j]
+  F --> G[Questions en langage naturel]
+  H{{Airflow : orchestration}} -.-> B
+  I{{Spring Boot : sécurité et versions}} -.-> D

@@ -1,0 +1,208 @@
+\chapter{Réalisation : Sprints 5 à 7}
+
+\section*{Introduction}
+\addcontentsline{toc}{section}{Introduction}
+Ce chapitre conclut la présentation de la réalisation avec les trois derniers sprints. Le sprint~5 permet de corriger les données sans jamais toucher à l'original. Le sprint~6 représente les tables sous la forme d'un graphe de connaissances dans Neo4j. Le sprint~7 permet d'interroger l'ensemble en langage naturel, et soigne l'expérience d'utilisation de l'interface. Pour chaque sprint, nous présentons l'objectif et le backlog, les éléments réalisés, les diagrammes de séquence des fonctionnalités clés, puis les résultats de la revue de sprint.
+
+%==============================================================================
+\section{Sprint 5 — Corrections}
+%==============================================================================
+
+Le cinquième sprint réalise l'epic E5. Nous présentons son objectif et son backlog, puis les opérations de correction, leurs deux sources, l'aperçu et l'application sur une copie.
+
+\subsection{Sprint Goal et Sprint Backlog}
+
+Le \textbf{Sprint Goal} du sprint~5 est le suivant : \textit{« corriger les données sans jamais modifier l'original »}. Le tableau~\ref{tab:backlog-s5} détaille les récits retenus et leurs tâches.
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{|C{1.1cm}|L{4.6cm}|C{1.2cm}|L{6.4cm}|}
+\hline
+\thd{US} & \thd{Récit utilisateur} & \thd{ID} & \thd{Tâche} \\ \hline
+\multirow{2}{*}{US20} & \multirow{2}{4.6cm}{Corrections trouvées} & T5.1 & Repérage des défauts courants d'une table \\ \cline{3-4}
+ & & T5.2 & Moteur d'exécution des opérations \\ \hline
+\multirow{2}{*}{US21} & \multirow{2}{4.6cm}{Correction en langage naturel} & T5.3 & Traduction d'une demande en opérations par le modèle \\ \cline{3-4}
+ & & T5.4 & Vérification des opérations contre les colonnes \\ \hline
+\multirow{3}{*}{US22} & \multirow{3}{4.6cm}{Aperçu et application} & T5.5 & Aperçu chiffré avec exemples et avertissements \\ \cline{3-4}
+ & & T5.6 & Création d'une version dérivée et journal \\ \cline{3-4}
+ & & T5.7 & Interface de l'onglet « Corrections » \\ \hline
+\end{tabular}
+\caption{Sprint Backlog du sprint 5}
+\label{tab:backlog-s5}
+\end{table}
+
+\subsection{Opérations de correction}
+
+Toute correction se ramène à l'une des douze opérations du tableau~\ref{tab:operations}. Ce choix est délibéré : le modèle ne peut pas écrire de code ni inventer une transformation, il ne peut qu'assembler des opérations dont le comportement est connu et testé.
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{|L{3.8cm}|L{10.2cm}|}
+\hline
+\thd{Opération} & \thd{Effet} \\ \hline
+\texttt{TRIM} & Supprimer les espaces autour des valeurs. \\ \hline
+\texttt{COLLAPSE\_SPACES} & Réduire les espaces répétés à un seul. \\ \hline
+\texttt{CASE} & Passer en majuscules, en minuscules ou en casse de titre. \\ \hline
+\texttt{REPLACE\_VALUES} & Remplacer des valeurs entières (fautes de frappe, un même pays écrit de plusieurs façons). \\ \hline
+\texttt{REPLACE\_TEXT} & Remplacer une partie d'une valeur (une unité, un préfixe). \\ \hline
+\texttt{EMPTY\_TO\_NULL} & Transformer des marqueurs d'absence (\texttt{N/A}, \texttt{-}\ldots) en cellules vides. \\ \hline
+\texttt{FILL\_EMPTY} & Remplir les cellules vides avec une valeur. \\ \hline
+\texttt{NORMALIZE\_DATE} & Écrire les dates au format \texttt{aaaa-mm-jj} ; en mode automatique, une date ambiguë est laissée à la revue. \\ \hline
+\texttt{DIGITS\_ONLY} & Ne garder que les chiffres (et un \texttt{+} initial). \\ \hline
+\texttt{PAD\_LEFT} & Rétablir des zéros initiaux perdus dans un code. \\ \hline
+\texttt{DROP\_EMPTY\_ROWS} & Supprimer les lignes où une colonne est vide. \\ \hline
+\texttt{DROP\_DUPLICATE\_ROWS} & Supprimer les lignes copies exactes d'une ligne précédente. \\ \hline
+\end{tabular}
+\caption{Opérations de correction}
+\label{tab:operations}
+\end{table}
+
+\subsection{Deux sources de corrections}
+
+Les corrections proposées viennent de deux sources. La première est le \textbf{repérage automatique} : l'application inspecte la table et propose les opérations qui correspondent à ce qu'elle y trouve (espaces, marqueurs d'absence, dates en plusieurs formats, valeur écrite de plusieurs façons, doublons). La seconde est une \textbf{demande écrite en langage naturel}. Le modèle reçoit la demande, la table et ses colonnes, avec des règles strictes : n'utiliser que des colonnes qui existent, ne jamais inventer de valeur (un remplacement doit provenir de la demande ou des valeurs les plus fréquentes), ne pas deviner le format d'une date ambiguë, et renvoyer une liste vide en expliquant pourquoi si la demande ne peut pas se faire avec ces opérations. La réponse est ensuite vérifiée par le code contre les colonnes de la table.
+
+\subsection{Aperçu et application sur une copie}
+
+Avant toute application, l'interface affiche un aperçu chiffré qui se met à jour à chaque modification de la liste : nombre de valeurs touchées, nombre à revoir, nombre non reconnues, exemples et avertissements. L'application crée alors une \textbf{nouvelle version}, dérivée de la première, analysée comme un dépôt et accompagnée d'un journal ; la version d'origine n'est jamais modifiée. Les fichiers corrigés sont écrits en UTF-8, séparés par des virgules, avec l'en-tête inchangé. Des essais sur de vraies données ont conduit à une règle supplémentaire : ne rien changer qui n'ait été demandé (en-tête, encodage, données tronquées, fuseaux horaires).
+
+\subsection{Modélisation dynamique}
+
+Le diagramme de séquence de la figure~\ref{fig:seq-corrections} décrit une correction écrite en langage naturel, de la demande à la nouvelle version.
+
+\figplaceholder[1]{seq_corrections.png}{Diagramme de séquence — Correction d'une table}{fig:seq-corrections}{Diagramme de séquence (généré).}
+
+\subsection{Résultats du sprint 5}
+
+L'utilisateur peut désormais corriger une table en quelques clics ou en une phrase, en voyant exactement ce qui sera modifié, et retrouver sa version d'origine intacte. La figure~\ref{fig:capture-corrections} présente l'onglet « Corrections ».
+
+\figplaceholder[0.95]{capture_corrections.png}{Onglet « Corrections »}{fig:capture-corrections}{Capture de l'onglet « Corrections » : corrections trouvées, demande en langage naturel, aperçu chiffré, bouton d'application sur une copie.}
+
+\noindent\textbf{Sprint Review.} L'incrément livré permet de passer de la détection à la correction. La rétrospective a mis en évidence que les tables restaient vues isolément : les liens entre les entités n'étaient exploitables ni visuellement ni par des requêtes, ce qui fait l'objet du sprint~6.
+
+%==============================================================================
+\section{Sprint 6 — Graphe de connaissances}
+%==============================================================================
+
+Le sixième sprint réalise l'epic E6. Nous présentons son objectif et son backlog, puis la déduction du modèle de graphe, les cas particuliers, la gestion des conflits et la construction dans Neo4j.
+
+\subsection{Sprint Goal et Sprint Backlog}
+
+Le \textbf{Sprint Goal} du sprint~6 est le suivant : \textit{« représenter les tables comme des entités et des relations dans Neo4j »}. Le tableau~\ref{tab:backlog-s6} détaille les récits retenus et leurs tâches.
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{|C{1.1cm}|L{4.6cm}|C{1.2cm}|L{6.4cm}|}
+\hline
+\thd{US} & \thd{Récit utilisateur} & \thd{ID} & \thd{Tâche} \\ \hline
+\multirow{2}{*}{US23} & \multirow{2}{4.6cm}{Modèle de graphe} & T6.1 & Déduction des entités, propriétés et relations \\ \cline{3-4}
+ & & T6.2 & Noms proposés par le modèle, relecture avant construction \\ \hline
+\multirow{4}{*}{US24} & \multirow{4}{4.6cm}{Cas courants} & T6.3 & Identification par une combinaison de références \\ \cline{3-4}
+ & & T6.4 & Table de liaison transformée en relation \\ \cline{3-4}
+ & & T6.5 & Colonne de numéros de ligne d'un fichier sans identifiant \\ \cline{3-4}
+ & & T6.6 & Référence vers la même table \\ \hline
+\multirow{3}{*}{US25} & \multirow{3}{4.6cm}{Construction et suppression} & T6.7 & Signalement des conflits et des liens incertains \\ \cline{3-4}
+ & & T6.8 & Construction dans Neo4j avec périmètre par version \\ \cline{3-4}
+ & & T6.9 & Suppression du graphe d'une version \\ \hline
+\end{tabular}
+\caption{Sprint Backlog du sprint 6}
+\label{tab:backlog-s6}
+\end{table}
+
+\subsection{Déduction du modèle de graphe}
+
+Le modèle est déduit des rôles de colonnes et des relations entre tables mesurées au sprint~1. Une ligne d'une table de comptes devient un nœud \textit{Compte}. Une colonne qui référence un client crée un nœud \textit{Client} à part entière, dont les propriétés sont les colonnes constantes pour un client, et une relation entre les deux. Le modèle proposé est présenté à l'utilisateur dans l'onglet « Graphe » avant la construction : entités, propriétés, relations, conflits. Le modèle peut aussi proposer des noms plus parlants pour les entités et les relations, que l'utilisateur peut accepter ou modifier.
+
+\subsection{Cas particuliers}
+
+Des essais sur des jeux de données variés ont montré que les fichiers réels n'ont pas toujours d'identifiant déclaré. Quatre cas sont donc gérés (chapitre~4) : l'identification par une combinaison de références, la colonne de numéros de ligne d'un autre fichier, la table de deux références transformée en relation, et la référence d'une table vers elle-même. Les marqueurs d'absence (\texttt{NULL}, \texttt{N/A}, \texttt{NaN}) sont lus comme « pas de valeur », comme dans l'analyse.
+
+\subsection{Conflits, incertitudes et périmètre}
+
+Lorsque les lignes d'une même clé se contredisent, le graphe conserve toutes les valeurs dans une propriété de candidats, marque le nœud comme conflictuel et ne choisit aucune valeur : la plateforme ne tranche pas à la place de l'utilisateur. Les références vers un nœud inexistant, les tables liées à rien et les liens incertains sont listés avant la construction. Chaque nœud porte une propriété de périmètre (\texttt{d<jeu>v<version>}) : les graphes de plusieurs versions coexistent dans la même base sans se mélanger. Un bouton permet de supprimer le graphe d'une version, et l'onglet signale la présence d'autres graphes dans Neo4j.
+
+\subsection{Modélisation dynamique}
+
+Le diagramme de séquence de la figure~\ref{fig:seq-graphe} décrit la proposition et la construction du graphe.
+
+\figplaceholder[1]{seq_graphe.png}{Diagramme de séquence — Proposition et construction du graphe}{fig:seq-graphe}{Diagramme de séquence (généré).}
+
+\subsection{Résultats du sprint 6}
+
+L'utilisateur obtient pour chaque version un graphe qu'il a pu relire avant de le construire, et une requête prête à copier dans le navigateur de Neo4j, avec le filtre de périmètre déjà écrit. La figure~\ref{fig:capture-graphe} présente l'onglet « Graphe » et la figure~\ref{fig:capture-neo4j} le graphe dans Neo4j.
+
+\figplaceholder[0.95]{capture_graphe.png}{Onglet « Graphe »}{fig:capture-graphe}{Capture de l'onglet « Graphe » : modèle proposé, conflits, liens incertains, construction et suppression.}
+
+\figplaceholder[0.9]{capture_neo4j.png}{Graphe d'une version dans Neo4j Browser}{fig:capture-neo4j}{Capture de Neo4j Browser : nœuds et relations d'une version, avec le filtre de périmètre.}
+
+\noindent\textbf{Sprint Review.} L'incrément livré met les données en relation et les rend interrogeables. La rétrospective a conclu que l'interroger demandait de connaître Cypher, ce qui fait l'objet du sprint~7.
+
+%==============================================================================
+\section{Sprint 7 — Questions en langage naturel}
+%==============================================================================
+
+Le septième sprint réalise l'epic E7. Nous présentons son objectif et son backlog, puis le tri des questions, la génération contrôlée des requêtes, la rédaction des réponses, l'évaluation rejouable et l'expérience d'utilisation de l'interface.
+
+\subsection{Sprint Goal et Sprint Backlog}
+
+Le \textbf{Sprint Goal} du sprint~7 est le suivant : \textit{« répondre en langage naturel aux questions sur les données, leur qualité et l'usage de l'outil »}. Le tableau~\ref{tab:backlog-s7} détaille les récits retenus et leurs tâches.
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{|C{1.1cm}|L{4.6cm}|C{1.2cm}|L{6.4cm}|}
+\hline
+\thd{US} & \thd{Récit utilisateur} & \thd{ID} & \thd{Tâche} \\ \hline
+US26 & Tri des questions & T7.1 & Classement en données, qualité ou aide \\ \hline
+\multirow{2}{*}{US27} & \multirow{2}{4.6cm}{Requêtes contrôlées} & T7.2 & Génération de Cypher par le modèle \\ \cline{3-4}
+ & & T7.3 & Garde-fous : lecture seule, périmètre, \texttt{EXPLAIN}, durée, tentatives \\ \hline
+\multirow{3}{*}{US28} & \multirow{3}{4.6cm}{Réponses sourcées} & T7.4 & Faits de qualité joints par le serveur \\ \cline{3-4}
+ & & T7.5 & Guide d'utilisation de l'application \\ \cline{3-4}
+ & & T7.6 & Restitution de la source, de la requête et des lignes \\ \hline
+\multirow{3}{*}{US29} & \multirow{3}{4.6cm}{Expérience d'utilisation} & T7.7 & Page d'accueil publique \\ \cline{3-4}
+ & & T7.8 & Système d'animation cohérent \\ \cline{3-4}
+ & & T7.9 & Palette de commandes et raccourcis clavier \\ \hline
+\end{tabular}
+\caption{Sprint Backlog du sprint 7}
+\label{tab:backlog-s7}
+\end{table}
+
+\subsection{Tri des questions}
+
+Une question peut porter sur le contenu des données, sur leur qualité ou sur la manière d'utiliser l'application. Le service commence par la classer, ce qui détermine la source de la réponse (tableau~\ref{tab:types-questions}, chapitre~4). Cette étape est décisive : une question sur les règles en échec ne doit pas déclencher une requête sur le graphe, et elle doit pouvoir être traitée avant même que le graphe soit construit. Le diagramme d'activité de la figure~\ref{fig:act-questions} résume le parcours d'une question.
+
+\figplaceholder[0.85]{act_questions.png}{Diagramme d'activité — Parcours d'une question}{fig:act-questions}{Diagramme d'activité (généré).}
+
+\subsection{Génération contrôlée des requêtes}
+
+Pour une question sur les données, le modèle écrit une requête Cypher à partir du schéma du graphe et d'exemples. Cette requête est ensuite soumise aux garde-fous décrits au chapitre~4 : instruction unique en lecture seule, filtre de périmètre sur chaque nœud, vérification du plan par \texttt{EXPLAIN}, durée limitée, nombre de lignes borné. En cas de refus, le motif est renvoyé au modèle, qui dispose de deux tentatives. Le diagramme de séquence de la figure~\ref{fig:seq-questions} décrit l'ensemble.
+
+\figplaceholder[1]{seq_questions.png}{Diagramme de séquence — Question sur les données}{fig:seq-questions}{Diagramme de séquence (généré).}
+
+\subsection{Rédaction des réponses et traçabilité}
+
+La réponse est rédigée uniquement à partir des lignes obtenues, des faits de qualité que le serveur joint à la question (règles et message de chacune, dimensions, constats, rôles de colonnes) et du guide d'utilisation. Le guide est un fichier de l'application, à tenir à jour lorsque l'interface change ; il définit aussi les scores et les gravités. Chaque réponse indique sa provenance (graphe, résultats de qualité ou guide) et, pour le graphe, affiche la requête exécutée et les lignes obtenues, afin que l'utilisateur puisse la vérifier. Les questions de plus de 1\,000 caractères sont refusées.
+
+\subsection{Évaluation rejouable}
+
+Un jeu d'une vingtaine de questions (données, qualité, usage, demandes d'écriture à refuser) peut être rejoué contre les services en fonctionnement. Le script vérifie le type de la réponse et la présence des mots attendus, et renvoie un code d'erreur si un cas échoue, ce qui permet de comparer deux modèles. Les cas fournis sont écrits pour les jeux de démonstration du projet. Les résultats de cette évaluation sont présentés au chapitre~\ref{chap:benchmark}.
+
+\subsection{Expérience d'utilisation}
+
+Le dernier sprint a aussi soigné l'interface. Une \textbf{page d'accueil publique} présente la plateforme à un visiteur non technique : fonctionnalités, fonctionnement, aperçu et bouton de connexion. Le \textbf{tableau de bord} regroupe tous les jeux de données avec leurs chiffres clés, des filtres (tous, à surveiller, sains, en cours), un tri et un anneau de score animé par jeu de données. Un \textbf{système d'animation} unique (durées et courbes communes, transitions de page, apparition au défilement, sorties animées des menus, fenêtres et notifications) a été mis au point en privilégiant les propriétés qui ne déclenchent pas de recalcul de mise en page, et respecte la préférence « réduire les animations » du système. Une \textbf{palette de commandes} (\texttt{Ctrl/Cmd+K} ou \texttt{/}) donne accès aux jeux de données, aux tables, aux onglets et aux actions ; \texttt{N} ouvre une nouvelle analyse et les chiffres de 1 à 9 changent d'onglet.
+
+\subsection{Résultats du sprint 7}
+
+L'utilisateur peut interroger ses données, leur qualité et l'outil lui-même dans sa propre langue, et vérifier chaque réponse. La figure~\ref{fig:capture-ask} présente l'onglet « Questions », et la figure~\ref{fig:capture-accueil} la page d'accueil publique.
+
+\figplaceholder[0.95]{capture_ask.png}{Onglet « Questions »}{fig:capture-ask}{Capture de l'onglet « Questions » : exemples cliquables, réponse avec sa provenance, requête exécutée et lignes obtenues.}
+
+\figplaceholder[0.95]{capture_accueil.png}{Page d'accueil publique}{fig:capture-accueil}{Capture de la page d'accueil : présentation, fonctionnalités, fonctionnement et bouton de connexion.}
+
+\noindent\textbf{Sprint Review.} L'incrément livré complète la plateforme. Il n'a pas été suivi d'un nouveau sprint dans le cadre du stage ; ses limites et les pistes d'évolution sont présentées dans la conclusion.
+
+\section*{Conclusion}
+\addcontentsline{toc}{section}{Conclusion}
+Ce chapitre a présenté les sprints~5 à~7 : les corrections appliquées sur une copie, le graphe de connaissances dans Neo4j et les questions en langage naturel, ainsi que le soin apporté à l'expérience d'utilisation. Le chapitre suivant présente l'évaluation de la solution : les tests automatisés, l'évaluation des questions et le choix du modèle de langage.

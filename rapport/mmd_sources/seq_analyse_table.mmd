@@ -1,0 +1,20 @@
+sequenceDiagram
+  autonumber
+  participant W as Worker
+  participant G as Flux contrôlé
+  participant M as Modèle local
+  participant B as Serveur
+  W->>B: Métriques de la table
+  W->>G: Mesures et contexte
+  G->>M: Consignes, schéma attendu
+  M-->>G: Analyse structuree
+  G->>G: Comparer chaque chiffre a sa colonne
+  alt Réponse invalide
+    G->>M: Demande de réparation
+    M-->>G: Nouvelle réponse
+  end
+  alt Toujours non fiable ou modèle indisponible
+    G->>G: Analyse déterministe
+  end
+  G-->>W: Analyse et statut du modèle
+  W->>B: Résultat enrichi

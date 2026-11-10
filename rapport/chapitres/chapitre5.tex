@@ -1,0 +1,204 @@
+\chapter{Réalisation : Sprints 1 et 2}
+
+\section*{Introduction}
+\addcontentsline{toc}{section}{Introduction}
+Ce chapitre et les deux suivants présentent la réalisation de \projet{}, sprint par sprint, à partir de la conception décrite au chapitre~4. Ce chapitre couvre les deux premiers sprints. Après une présentation de l'environnement de travail, nous décrivons le sprint~1, qui a rendu opérationnels la lecture et le profilage statistique des jeux de données, puis le sprint~2, qui a doté la plateforme de son application web : authentification, dépôt versionné, suivi en temps réel et reprise après incident. Pour chaque sprint, nous présentons l'objectif et le backlog, les éléments réalisés, les diagrammes de séquence et d'activité des fonctionnalités clés, puis les résultats obtenus lors de la revue de sprint.
+
+%==============================================================================
+\section{Environnement de travail}
+%==============================================================================
+
+Avant de décrire les sprints, nous présentons l'environnement matériel et logiciel dans lequel la solution a été développée et évaluée.
+
+\subsection{Environnement matériel}
+
+Le tableau~\ref{tab:materiel} présente la configuration matérielle utilisée. L'exécution locale des modèles de langage en est la composante la plus exigeante : la mémoire graphique et la mémoire vive conditionnent la taille des modèles utilisables et la durée de génération.
+
+\begin{table}[H]
+\centering
+\begin{tabular}{|L{4cm}|L{10cm}|}
+\hline
+\thd{Composant} & \thd{Caractéristiques} \\ \hline
+Processeur & Intel Core Ultra 9 275HX \\ \hline
+Mémoire vive & 16 Go \\ \hline
+Carte graphique & NVIDIA GeForce RTX 5070 Ti \\ \hline
+Stockage & SSD de 1 To \\ \hline
+Système d'exploitation & Windows 11 \\ \hline
+\end{tabular}
+\caption{Environnement matériel}
+\label{tab:materiel}
+\end{table}
+
+Sur ce matériel s'appuie un ensemble d'outils logiciels, présentés ci-après.
+
+\subsection{Environnement logiciel}
+
+Le tableau~\ref{tab:logiciel} présente les outils et technologies utilisés tout au long du projet.
+
+\begin{table}[H]
+\centering
+\begin{tabular}{|C{2cm}|L{3.6cm}|L{8.4cm}|}
+\hline
+\thd{Logo} & \thd{Outil} & \thd{Usage} \\ \hline
+\toolicon{intellij.png} & IntelliJ IDEA & Développement du serveur applicatif Java \\ \hline
+\toolicon{pycharm.png} & PyCharm & Développement du worker et du service de questions \\ \hline
+\toolicon{vscode.png} & Visual Studio Code & Développement de l'interface \\ \hline
+\toolicon{spring.png} & Spring Boot & Serveur applicatif, sécurité, persistance \\ \hline
+\toolicon{angular.png} & Angular & Interface web \\ \hline
+\toolicon{python.png} & Python & Worker de traitement et service de questions \\ \hline
+\toolicon{ollama.png} & Ollama & Exécution locale des modèles de langage \\ \hline
+\toolicon{airflow.png} & Apache Airflow & Orchestration du pipeline \\ \hline
+\toolicon{neo4j.png} & Neo4j & Base de graphe \\ \hline
+\toolicon{docker.png} & Docker & Conteneurisation des services de la plateforme \\ \hline
+\toolicon{postgresql.png} & PostgreSQL & Base de métadonnées d'Airflow \\ \hline
+\toolicon{pandas.png} & pandas & Manipulation des données tabulaires \\ \hline
+-- & SweetViz & Profilage statistique \\ \hline
+\toolicon{powershell.png} & PowerShell & Scripts de démarrage sous Windows \\ \hline
+\toolicon{git.png} & Git et GitHub Actions & Gestion de versions et intégration continue \\ \hline
+\end{tabular}
+\caption{Environnement logiciel}
+\label{tab:logiciel}
+\end{table}
+
+L'environnement étant en place, nous pouvons aborder le premier sprint.
+
+%==============================================================================
+\section{Sprint 1 — Ingestion et profilage}
+%==============================================================================
+
+Le premier sprint réalise l'epic E1. Nous présentons son objectif et son backlog, puis la lecture tolérante, les mesures par table, les relations entre tables et la signature de contenu, avant d'en modéliser le comportement et d'en présenter les résultats.
+
+\subsection{Sprint Goal et Sprint Backlog}
+
+Le \textbf{Sprint Goal} du sprint~1 est le suivant : \textit{« mesurer automatiquement et de manière fiable la qualité de tout jeu de données »}. Le tableau~\ref{tab:backlog-s1} détaille les récits retenus et leurs tâches.
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{|C{1.1cm}|L{4.6cm}|C{1.2cm}|L{6.4cm}|}
+\hline
+\thd{US} & \thd{Récit utilisateur} & \thd{ID} & \thd{Tâche} \\ \hline
+\multirow{2}{*}{US1} & \multirow{2}{4.6cm}{Lecture de tous les fichiers} & T1.1 & Découverte des fichiers CSV d'une version \\ \cline{3-4}
+ & & T1.2 & Lecture tolérante : encodage, séparateur, lignes mal formées \\ \hline
+\multirow{2}{*}{US2} & \multirow{2}{4.6cm}{Profil statistique de chaque table} & T1.3 & Profil SweetViz de chaque table \\ \cline{3-4}
+ & & T1.4 & Métriques par table et par colonne \\ \hline
+US3 & Liens entre tables & T1.5 & Recouvrement de valeurs entre colonnes de tables différentes \\ \hline
+US4 & Détection des changements & T1.6 & Signatures de contenu et de schéma \\ \hline
+\end{tabular}
+\caption{Sprint Backlog du sprint 1}
+\label{tab:backlog-s1}
+\end{table}
+
+Ces tâches s'enchaînent dans les premières phases du pipeline décrit au chapitre~4. La première difficulté concerne la lecture des fichiers.
+
+\subsection{Lecture tolérante des sources}
+
+Les exports issus des systèmes clients sont hétérogènes : encodages différents, séparateurs différents selon les conventions régionales, lignes mal formées. Une lecture naïve échoue ou, pire, produit une table d'une seule colonne. Le worker essaie donc successivement plusieurs combinaisons d'encodage et de séparateur et retient la lecture qui produit le \textbf{plus grand nombre de colonnes}, critère simple et efficace pour identifier le bon séparateur. Si la lecture stricte échoue, un analyseur indulgent ignore les lignes mal formées et consigne un avertissement dans les métriques : le nombre de lignes d'une table peut alors être inférieur au nombre de lignes du fichier. Les chaînes \texttt{NULL}, \texttt{N/A} ou \texttt{NaN} sont lues comme des valeurs manquantes, comme dans le reste de la plateforme. Un fichier réduit à son en-tête est conservé avec zéro ligne et signalé comme table en échec, sans interrompre le traitement des autres.
+
+\subsection{Mesures par table et par colonne}
+
+Pour chaque table, le worker calcule de façon déterministe le nombre de lignes et de colonnes, les valeurs manquantes, les valeurs distinctes, les lignes dupliquées et, pour les colonnes numériques, les quartiles, la moyenne et l'écart type. Le profil SweetViz fournit en complément les valeurs fréquentes et les associations entre colonnes ; l'application construit elle-même ses écrans à partir de ces résultats structurés et ne génère pas de pages HTML.
+
+\subsection{Relations entre tables et signature de contenu}
+
+Les relations entre tables sont déduites du recouvrement des valeurs (chapitre~4, section~III). Chaque table reçoit par ailleurs deux empreintes : \texttt{content\_hash}, calculée sur ses valeurs, et \texttt{schema\_hash}, calculée sur les noms et les types de ses colonnes. Le serveur les compare à celles de la version précédente pour qualifier chaque table de \textit{nouvelle}, \textit{modifiée}, \textit{inchangée} ou \textit{supprimée}.
+
+\subsection{Modélisation dynamique du profilage}
+
+Le diagramme de séquence de la figure~\ref{fig:seq-profilage} décrit les interactions entre composants lors du profilage d'une version.
+
+\figplaceholder[1]{seq_profilage.png}{Diagramme de séquence — Profilage d'une version}{fig:seq-profilage}{Diagramme de séquence (généré).}
+
+Le diagramme d'activité de la figure~\ref{fig:act-profilage} détaille, pour sa part, le traitement appliqué à chaque table.
+
+\figplaceholder[0.6]{act_lecture_profilage.png}{Diagramme d'activité — Lecture tolérante et profilage d'une table}{fig:act-profilage}{Diagramme d'activité (généré).}
+
+Ces traitements ont été validés lors de la revue de sprint, dont nous présentons les résultats.
+
+\subsection{Résultats du sprint 1}
+
+Pour ne pas exposer de données client dans ce rapport, la validation a été conduite sur des jeux de données de démonstration. Le profilage lit les fichiers quelle que soit leur forme, publie les métriques de chaque table et détecte les liens entre tables. La figure~\ref{fig:tables-profil} présente le profil d'une table tel que l'application le restitue.
+
+\figplaceholder[0.95]{capture_tables.png}{Profil d'une table dans l'application}{fig:tables-profil}{Capture de l'onglet « Tables » : colonnes et leur rôle, valeurs fréquentes, valeurs manquantes, associations.}
+
+\noindent\textbf{Sprint Review.} L'incrément livré permet de profiler automatiquement les fichiers d'une version. La rétrospective a mis en évidence la nécessité de présenter ces résultats dans une application utilisable par plusieurs personnes et de suivre l'exécution en direct, ce qui constitue l'objet du sprint~2.
+
+%==============================================================================
+\section{Sprint 2 — Application web et exécution suivie}
+%==============================================================================
+
+Le deuxième sprint réalise l'epic E2. Après son objectif et son backlog, nous présentons l'authentification, le dépôt versionné, le déclenchement et le suivi de l'exécution, puis la reprise après incident et le tableau de bord, avant de modéliser les interactions et de présenter les résultats.
+
+\subsection{Sprint Goal et Sprint Backlog}
+
+Le \textbf{Sprint Goal} du sprint~2 est le suivant : \textit{« déposer des fichiers, lancer l'analyse et la suivre en temps réel, de façon sécurisée »}. Le tableau~\ref{tab:backlog-s2} détaille les récits retenus et leurs tâches.
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{|C{1.1cm}|L{4.6cm}|C{1.2cm}|L{6.4cm}|}
+\hline
+\thd{US} & \thd{Récit utilisateur} & \thd{ID} & \thd{Tâche} \\ \hline
+US5 & Authentification & T2.1 & Connexion, jeton JWT, gardes de routes \\ \hline
+\multirow{3}{*}{US6} & \multirow{3}{4.6cm}{Dépôt versionné} & T2.2 & Validation complète avant écriture, empreinte SHA-256 \\ \cline{3-4}
+ & & T2.3 & Création du jeu de données et de la version \\ \cline{3-4}
+ & & T2.4 & Détection d'un dépôt identique \\ \hline
+\multirow{3}{*}{US7} & \multirow{3}{4.6cm}{Suivi en temps réel} & T2.5 & Déclenchement d'Airflow après validation de la transaction \\ \cline{3-4}
+ & & T2.6 & Rappels protégés du pipeline et statuts \\ \cline{3-4}
+ & & T2.7 & Flux d'événements SSE et repli par interrogation \\ \hline
+\multirow{2}{*}{US8} & \multirow{2}{4.6cm}{Reprise et relance} & T2.8 & Surveillance des exécutions bloquées et reprise au démarrage \\ \cline{3-4}
+ & & T2.9 & Bouton de relance \\ \hline
+US9 & Tableau de bord & T2.10 & Liste des jeux de données avec score, note et état \\ \hline
+\end{tabular}
+\caption{Sprint Backlog du sprint 2}
+\label{tab:backlog-s2}
+\end{table}
+
+\subsection{Authentification et dépôt versionné}
+
+Le serveur expose une route de connexion qui renvoie un jeton JWT signé, valable huit heures et conservé par l'interface dans le stockage de session. Toute autre route de l'API, hors connexion et rappels du pipeline, exige le rôle administrateur.
+
+Le dépôt de fichiers obéit à une logique de transaction : tous les fichiers sont validés avant toute écriture, une empreinte SHA-256 est calculée pour chacun, la version est créée et les fichiers sont stockés, puis le serveur déclenche Airflow \textbf{après} la validation de la transaction, de sorte qu'Airflow ne démarre jamais sur une version qui n'existe pas encore. Un dépôt dont les noms de fichiers et les contenus sont identiques à une version existante n'en crée pas de nouvelle : l'interface propose d'ouvrir la version existante ou de la relancer.
+
+\subsection{Déclenchement et suivi en temps réel}
+
+Le serveur déclenche le DAG par l'API REST d'Airflow, avec pour identifiant d'exécution son propre identifiant d'exécution : une exécution dans Airflow et une version dans l'application se correspondent toujours. Le worker rend compte par cinq rappels protégés (démarrage, résultat de table, règles proposées, analyse globale, fin). Le résultat de chaque table est publié \textbf{deux fois} : d'abord les métriques, puis l'analyse enrichie par le modèle, de sorte que l'utilisateur voit une table dès que ses mesures sont prêtes. Le statut final est \texttt{COMPLETED}, \texttt{PARTIAL} (au moins une table en échec, avec la raison) ou \texttt{FAILED}.
+
+Le serveur diffuse ces évolutions à l'interface par un flux SSE. Si le flux est interrompu, l'interface bascule automatiquement sur une interrogation toutes les cinq secondes, en gardant les données à l'écran jusqu'à l'arrivée des nouvelles pour que la page ne saute pas.
+
+\subsection{Reprise après incident}
+
+Trois mécanismes évitent qu'une exécution reste bloquée :
+\begin{itemize}
+  \item les rappels du worker sont \textbf{réessayés} pendant environ deux minutes (2, 4, \ldots, 64 secondes), de sorte qu'un redémarrage du serveur n'interrompt pas une exécution en cours ;
+  \item au \textbf{démarrage}, le serveur interroge Airflow pour chaque exécution en attente ou en cours : une exécution inconnue d'Airflow est relancée si ses fichiers existent encore, une exécution échouée côté Airflow est marquée \texttt{FAILED}, une exécution en cours est laissée en l'état ;
+  \item une \textbf{surveillance} vérifie chaque minute les exécutions en attente ou en cours depuis plus de dix minutes ; elle marque \texttt{FAILED}, avec un message clair, toute exécution inconnue ou échouée dans Airflow, ainsi que toute exécution non terminée après 180 minutes.
+\end{itemize}
+
+\subsection{Modélisation dynamique}
+
+Le diagramme de séquence de la figure~\ref{fig:seq-depot} décrit l'enchaînement du dépôt à la restitution.
+
+\figplaceholder[1]{seq_depot.png}{Diagramme de séquence — Dépôt, exécution et suivi}{fig:seq-depot}{Diagramme de séquence (généré).}
+
+Le diagramme de la figure~\ref{fig:seq-reprise} décrit la reprise après un redémarrage du serveur.
+
+\figplaceholder[0.9]{seq_reprise.png}{Diagramme de séquence — Reprise après redémarrage et surveillance}{fig:seq-reprise}{Diagramme de séquence (généré).}
+
+\subsection{Résultats du sprint 2}
+
+L'utilisateur dispose désormais d'une application complète pour déposer ses fichiers et suivre l'analyse. La figure~\ref{fig:capture-depot} présente la fenêtre de dépôt et la figure~\ref{fig:capture-dashboard} le tableau de bord des jeux de données.
+
+\figplaceholder[0.7]{capture_depot.png}{Fenêtre « Nouvelle analyse »}{fig:capture-depot}{Capture de la fenêtre de dépôt : fichiers, nom du jeu de données, domaine, objectif, ce que représente une ligne.}
+
+\figplaceholder[0.95]{capture_dashboard.png}{Tableau de bord de tous les jeux de données}{fig:capture-dashboard}{Capture de la page /datasets : chiffres clés, recherche, filtres, une carte par jeu de données avec anneau de score, note, état et règles en échec.}
+
+La figure~\ref{fig:capture-overview} montre le suivi d'une exécution et la vue d'ensemble d'une version.
+
+\figplaceholder[0.95]{capture_overview.png}{Vue d'ensemble d'une version}{fig:capture-overview}{Capture de l'onglet « Vue d'ensemble » : progression de l'exécution, score et note, dimensions, état de chaque table.}
+
+\noindent\textbf{Sprint Review.} L'incrément livré permet de déposer des fichiers, de suivre l'analyse étape par étape et de relancer une exécution. La rétrospective a mis en évidence que le score affiché restait une valeur globale difficile à expliquer, et que le sens des colonnes dépendait du contexte, ce qui fait l'objet du sprint~3.
+
+\section*{Conclusion}
+\addcontentsline{toc}{section}{Conclusion}
+Ce chapitre a présenté l'environnement de travail et la réalisation des deux premiers sprints : la lecture et le profilage des fichiers, puis l'application web avec son authentification, son dépôt versionné, son suivi en temps réel et sa reprise après incident. Le chapitre suivant présente les sprints~3 et~4 : le contexte métier, les rôles de colonnes et les dimensions de qualité, puis les règles de qualité et l'industrialisation.

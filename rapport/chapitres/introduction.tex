@@ -1,0 +1,36 @@
+\chapter*{Introduction Générale}
+\markboth{Introduction Générale}{}
+\addcontentsline{toc}{chapter}{Introduction Générale}
+
+Une entreprise vit de ses données : tableaux de bord, rapports réglementaires, modèles d'apprentissage. Mais ces données ne valent que ce que vaut leur qualité, et on la regarde rarement tant que tout semble fonctionner. Il suffit pourtant d'une colonne décalée à l'export, d'un identifiant en double ou d'une date mal formée pour fausser un indicateur et retarder une décision.
+
+Dans la pratique, contrôler la qualité reste un travail manuel. On ouvre chaque fichier, on calcule quelques statistiques, on repère ce qui cloche, puis on traduit le tout en actions pour les équipes métier. Les outils de profilage font bien la première étape, mais ils rendent de longs rapports techniques que peu de gens lisent jusqu'au bout, sans dire quoi faire. Les outils de validation par règles demandent de connaître les règles à l'avance, ce qui est rarement le cas devant un jeu de données qu'on découvre. Et aucun des deux ne corrige les données ni ne permet de les interroger sans écrire de requête.
+
+Les grands modèles de langage changent la donne, à condition de les utiliser avec précaution. Ils savent lire des informations structurées et les expliquer simplement, et on peut désormais les faire tourner en local avec Ollama, sans envoyer de données sensibles à l'extérieur : c'est essentiel pour l'assurance ou la banque. Mais ils se trompent avec aplomb. Ils citent une colonne qui n'existe pas, attribuent un pourcentage à la mauvaise colonne, écrivent une requête qui modifie la base.
+
+Ce projet de fin d'études, réalisé chez \textbf{Wevioo}, part de ce constat. J'ai construit \textbf{\projet}, une plateforme web qui suit une règle simple : \textbf{le code mesure et contrôle, le modèle explique}. Pour chaque jeu de données, elle donne un score de qualité expliqué, le rôle de chaque colonne, et une analyse en langage naturel dont chaque affirmation est vérifiée contre les mesures. On peut y définir des règles surveillées à chaque exécution, corriger les données sur une copie, construire un graphe dans Neo4j et poser des questions en français ou en anglais, dont les requêtes sont contrôlées avant d'être exécutées. L'ensemble est orchestré par Apache Airflow, repose sur Spring Boot et Angular, et se lance avec une seule commande Docker Compose.
+
+\section*{Problématique}
+\addcontentsline{toc}{section}{Problématique}
+
+La question à laquelle ce projet répond est la suivante :
+
+\encadre{Question de recherche}{\itshape Comment automatiser l'évaluation de la qualité de données tabulaires pour obtenir non seulement des indicateurs fiables, mais aussi une interprétation métier, une surveillance par des règles, des corrections sûres et une interrogation en langage naturel, tout en gardant les données en local, les affirmations du modèle vérifiables et les résultats traçables ?}
+
+Elle se décompose en problèmes plus précis. Comment déterminer le rôle d'une colonne sans s'en remettre au seul modèle ? Comment confronter ce que dit le modèle aux mesures, et garantir qu'un résultat exploitable sort toujours ? Comment corriger des données sans jamais toucher à l'original ni laisser le modèle inventer des valeurs ? Comment représenter plusieurs tables sous forme de graphe quand elles n'ont pas d'identifiant déclaré ? Et comment laisser un modèle écrire des requêtes sans lui faire confiance ?
+
+\section*{Organisation du rapport}
+\addcontentsline{toc}{section}{Organisation du rapport}
+
+Le rapport compte huit chapitres.
+
+\begin{itemize}
+  \item Le \textbf{chapitre 1} présente Wevioo, le contexte du projet, l'étude de l'existant et la méthode de travail.
+  \item Le \textbf{chapitre 2} fait l'état de l'art (qualité et profilage des données, modèles de langage, orchestration, applications web, graphes, GraphRAG) et justifie les choix technologiques.
+  \item Le \textbf{chapitre 3} spécifie les besoins : acteurs, cas d'utilisation, backlog et exigences non fonctionnelles.
+  \item Le \textbf{chapitre 4} décrit la conception : modèle UML, architectures, sécurité et composants d'intelligence artificielle.
+  \item Les \textbf{chapitres 5, 6 et 7} racontent la réalisation en sept sprints, du profilage jusqu'aux questions en langage naturel.
+  \item Le \textbf{chapitre 8} présente l'évaluation : tests automatisés, tests fonctionnels et comparaison de trois modèles de langage sur un jeu de questions.
+\end{itemize}
+
+Le rapport se termine par un bilan du travail et des pistes d'évolution.

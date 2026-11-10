@@ -1,0 +1,291 @@
+\chapter{Conception de la Solution}
+
+\section*{Introduction}
+\addcontentsline{toc}{section}{Introduction}
+Après avoir spécifié les besoins, ce chapitre présente la conception de \projet{}. Nous présentons d'abord une conception globale à l'aide du formalisme UML, qui rapproche les entités du domaine des données de celles de l'intelligence artificielle. Nous décrivons ensuite les architectures logicielle, logique et physique de la plateforme, puis la sécurité qui les traverse. Nous détaillons enfin l'architecture de ses composants d'intelligence artificielle : l'analyse contrôlée par table, les corrections, le graphe de connaissances et le service de questions.
+
+%==============================================================================
+\section{Conception globale}
+%==============================================================================
+
+La conception globale donne une vue d'ensemble du domaine manipulé par la solution, indépendamment des choix d'implémentation. Elle comprend une vue statique, le diagramme de classes, et une vue dynamique, le diagramme d'activité global d'une exécution.
+
+\subsection{Diagramme de classes global}
+
+Le diagramme de classes de la figure~\ref{fig:classes} modélise les entités manipulées par la plateforme et leurs relations.
+
+\figplaceholder[1]{diag_classes_global.png}{Diagramme de classes global de \projet}{fig:classes}{Diagramme de classes global (généré).}
+
+Ce diagramme s'organise en cinq groupes d'entités, dont le tableau~\ref{tab:classes} précise le rôle et l'analogie avec les concepts classiques d'un système d'IA.
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{|L{2.8cm}|L{4.2cm}|L{7cm}|}
+\hline
+\thd{Groupe} & \thd{Entités} & \thd{Rôle et analogie avec les concepts d'IA} \\ \hline
+Données & Jeu de données, Version, Table de la version, Métrique de colonne & Les \textbf{données d'entrée} du système. Une version est un dépôt daté ; une version corrigée dérive de celle qu'elle corrige. Le contexte métier (domaine, objectif, grain d'une ligne) joue le rôle d'information contextuelle pour le modèle. \\ \hline
+Mesures & Métriques, Rôle de colonne, Relation entre tables, Signature de contenu & L'équivalent de l'\textbf{extraction de caractéristiques} : des mesures déterministes qui décrivent chaque colonne, ses indices de rôle, ses liens avec les autres tables et le changement d'une version à l'autre. \\ \hline
+Intelligence artificielle & Analyse de table, Analyse globale, Statut du modèle & La chaîne d'\textbf{inférence} : le modèle produit une analyse structurée (problèmes, causes, recommandations), validée contre les mesures ; son statut est conservé. \\ \hline
+Qualité & Règle, Résultat de règle, Dimension, Score & La \textbf{surveillance} : des règles manuelles ou proposées, évaluées à chaque exécution, et un score décomposé en dimensions. \\ \hline
+Exploitation & Exécution du pipeline, Correction, Graphe, Question & Le \textbf{cycle de vie} : chaque exécution a un statut, chaque correction un journal, chaque graphe un périmètre, chaque question une source. \\ \hline
+\end{tabular}
+\caption{Groupes d'entités du diagramme de classes et analogies avec les concepts d'IA}
+\label{tab:classes}
+\end{table}
+
+Cette vue statique décrit ce que manipule la plateforme. La vue dynamique qui suit décrit comment ces entités sont produites au cours d'une exécution.
+
+\subsection{Diagramme d'activité global}
+
+Le diagramme d'activité de la figure~\ref{fig:act-global} décrit le déroulement d'une exécution complète, du dépôt des fichiers à la restitution des résultats, y compris la gestion des échecs.
+
+\figplaceholder[0.8]{act_pipeline_global.png}{Diagramme d'activité global d'une exécution}{fig:act-global}{Diagramme d'activité global (généré).}
+
+Chaque activité de ce diagramme est ensuite détaillée par des diagrammes de séquence et d'activité propres à chaque sprint, aux chapitres~5 à~7. Avant cela, il convient de décrire les architectures qui supportent ces traitements.
+
+%==============================================================================
+\section{Architectures de la solution}
+%==============================================================================
+
+La plateforme est décrite selon trois points de vue complémentaires : l'architecture logicielle, qui précise le style et les composants ; l'architecture logique, qui organise ces composants en couches ; et l'architecture physique, qui décrit leur déploiement. Nous présentons ensuite la sécurité, qui les traverse.
+
+\subsection{Architecture logicielle}
+
+La plateforme suit un style \textbf{en blocs communiquant par des API} : chaque bloc a une responsabilité unique, s'exécute dans son propre processus et ne connaît des autres que leur interface. La figure~\ref{fig:arch-logicielle} présente les cinq blocs, le serveur de modèles de langage et leurs échanges.
+
+\figplaceholder[1]{arch_logicielle.png}{Architecture logicielle de \projet}{fig:arch-logicielle}{Navigateur, interface Angular, serveur Spring Boot, Airflow (worker), service de questions, Neo4j, Ollama, avec les échanges : REST, rappels du pipeline, SSE, Bolt.}
+
+Le tableau~\ref{tab:blocs} précise la responsabilité de chaque bloc.
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{|L{3.2cm}|L{3.2cm}|L{7.6cm}|}
+\hline
+\thd{Bloc} & \thd{Technologie} & \thd{Responsabilité} \\ \hline
+Interface & Angular, TypeScript & Dépôt, suivi en temps réel, onglets de résultats, tableau de bord, page d'accueil publique. \\ \hline
+Serveur applicatif & Spring Boot, Java 17 & Authentification, jeux de données et versions, règles, corrections, graphe, relais des questions, déclenchement et surveillance d'Airflow, événements SSE. \\ \hline
+Worker de traitement & Python, Airflow & Lecture et profilage, rôles de colonnes, relations entre tables, analyse par le modèle, règles proposées, analyse globale. \\ \hline
+Service de questions & Python, FastAPI & Tri des questions, génération et contrôle des requêtes Cypher, rédaction des réponses. \\ \hline
+Base de graphe & Neo4j & Un graphe par version, identifié par une propriété de périmètre. \\ \hline
+Serveur de modèles & Ollama & Exécution locale du modèle utilisé par le worker, le serveur et le service de questions. \\ \hline
+\end{tabular}
+\caption{Blocs de la solution et responsabilités}
+\label{tab:blocs}
+\end{table}
+
+Un principe structure cet ensemble : le worker ne décide jamais seul de ce qui est publié. Chaque résultat est envoyé au serveur par un appel protégé par un jeton, et les réponses du modèle sont validées contre les mesures avant d'être affichées. Ces blocs peuvent être regroupés selon leur responsabilité, ce qui conduit à l'architecture logique.
+
+\subsection{Architecture logique}
+
+L'architecture logique organise chaque bloc en couches, chacune ne s'appuyant que sur la couche inférieure. La figure~\ref{fig:arch-logique} présente celle du serveur applicatif, le bloc le plus riche.
+
+\figplaceholder[0.9]{arch_logique.png}{Architecture logique en couches du serveur applicatif}{fig:arch-logique}{Couches : contrôleurs REST et sécurité ; services métier (jeux de données, règles, corrections, graphe, questions, dimensions, comparaison) ; domaine et persistance (JPA) ; clients externes (Airflow, Neo4j, Ollama, service de questions). Services transverses : surveillance, reprise, événements.}
+
+Le tableau~\ref{tab:couches} résume le rôle de chaque couche et les autres blocs qui suivent la même logique.
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{|L{3.2cm}|L{10.8cm}|}
+\hline
+\thd{Bloc} & \thd{Organisation en couches} \\ \hline
+Serveur applicatif & Contrôleurs REST $\rightarrow$ services métier $\rightarrow$ domaine et persistance $\rightarrow$ clients externes ; services transverses de surveillance des exécutions bloquées et de reprise au démarrage. \\ \hline
+Interface & \texttt{core} (appels HTTP, authentification, événements, état partagé en signaux) $\rightarrow$ \texttt{features} (un dossier par écran) $\rightarrow$ \texttt{shared} (formatage, composants communs, animations). \\ \hline
+Worker & Phases du DAG $\rightarrow$ analyseurs (rôles, modèle, règles) et extracteurs (profil, formats) $\rightarrow$ client du serveur et stockage des résultats. \\ \hline
+Service de questions & API FastAPI $\rightarrow$ tri et génération $\rightarrow$ garde-fous $\rightarrow$ accès à Neo4j. \\ \hline
+\end{tabular}
+\caption{Organisation en couches de chaque bloc}
+\label{tab:couches}
+\end{table}
+
+Cette organisation logique doit enfin être projetée sur une infrastructure concrète, ce que décrit l'architecture physique.
+
+\subsection{Architecture physique}
+
+L'architecture physique (figure~\ref{fig:arch-physique}) décrit le déploiement de la plateforme. Les services sont conteneurisés par Docker Compose et partagent un même réseau et les mêmes secrets ; le serveur de modèles de langage reste sur la machine hôte, afin de bénéficier directement du processeur graphique.
+
+\figplaceholder[1]{arch_physique.png}{Architecture physique (diagramme de déploiement)}{fig:arch-physique}{Conteneurs : frontend (nginx, 4200), backend (8081), airflow-webserver (8080), airflow-scheduler, airflow-init, postgres, neo4j (7474, 7687), graphrag (8090). Sur l'hôte : Ollama (11434), volumes de données.}
+
+Le tableau~\ref{tab:conteneurs} liste les conteneurs et leur rôle.
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{|L{3.8cm}|L{7.8cm}|C{2.2cm}|}
+\hline
+\thd{Conteneur} & \thd{Rôle} & \thd{Port} \\ \hline
+\texttt{frontend} & Interface Angular servie par nginx & 4200 \\ \hline
+\texttt{backend} & API Spring Boot et base H2 (volume dédié) & 8081 \\ \hline
+\texttt{airflow-webserver} & Interface web d'Airflow & 8080 \\ \hline
+\texttt{airflow-scheduler} & Exécution des phases du pipeline & interne \\ \hline
+\texttt{airflow-init} & Migration de la base d'Airflow et création du compte administrateur, puis arrêt & aucun \\ \hline
+\texttt{postgres} & Base d'Airflow, non publiée sur l'hôte & interne \\ \hline
+\texttt{neo4j} & Base de graphe (volume dédié) & 7474, 7687 \\ \hline
+\texttt{graphrag} & Service de questions & 8090 \\ \hline
+\end{tabular}
+\caption{Conteneurs de la plateforme}
+\label{tab:conteneurs}
+\end{table}
+
+Un script de démarrage permet aussi de lancer chaque service dans sa propre fenêtre pour le développement sous Windows. Reste à décrire la sécurité, qui traverse ces trois vues.
+
+\subsection{Sécurité}
+
+La sécurité repose sur des mesures simples et vérifiables, résumées dans le tableau~\ref{tab:securite}.
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{|L{3.8cm}|L{10.2cm}|}
+\hline
+\thd{Menace} & \thd{Mesure} \\ \hline
+Accès non autorisé & Connexion par identifiant et mot de passe, jeton JWT signé valable 8~h ; toute route de l'API, hors connexion et rappels du pipeline, exige le rôle administrateur. Côté interface, des gardes de routes renvoient un visiteur vers la page de connexion. \\ \hline
+Appels falsifiés du pipeline & Les rappels d'Airflow n'ont pas de session : ils exigent un jeton partagé, comparé en temps constant. \\ \hline
+Secrets par défaut & Un avertissement est journalisé au démarrage si un secret de développement est utilisé ; l'option de mode strict refuse de démarrer avec eux. \\ \hline
+Requêtes générées dangereuses & Le service de questions n'est appelé que par le serveur (jeton dédié) ; toute requête Cypher doit être en lecture seule et limitée au périmètre de la version (voir section~\ref{sec:questions-conception}). \\ \hline
+Altération des données & Les corrections s'appliquent à une copie ; les fichiers d'origine ne sont jamais réécrits. \\ \hline
+Fuite de données & Le modèle s'exécute localement ; la base du pipeline n'est pas exposée ; les secrets ne sont jamais versionnés. \\ \hline
+\end{tabular}
+\caption{Menaces et mesures de sécurité}
+\label{tab:securite}
+\end{table}
+
+Ces architectures décrivent la plateforme dans son ensemble. Ses composants d'intelligence artificielle méritent toutefois une description détaillée.
+
+%==============================================================================
+\section{Architecture des composants d'intelligence artificielle}
+%==============================================================================
+
+L'intelligence artificielle intervient à quatre endroits : l'analyse des tables, la rédaction des corrections, le choix des noms du graphe et les réponses aux questions. Un même principe les gouverne : \textbf{le code mesure et contrôle, le modèle interprète et rédige}. Nous présentons d'abord ce principe, puis chaque composant.
+
+\subsection{Principes de conception}
+
+Quatre principes ont guidé la conception :
+\begin{itemize}
+  \item \textbf{Séparer la mesure de l'interprétation} : les statistiques, les rôles de colonnes, les formats et les liens entre tables sont calculés de façon déterministe ; le modèle ne tranche que les cas que les mesures laissent ouverts.
+  \item \textbf{Confronter le modèle aux preuves} : chaque affirmation chiffrée est vérifiée contre la colonne qu'elle concerne ; une réponse non fiable est remplacée par une analyse déterministe.
+  \item \textbf{Contraindre ce que le modèle peut faire} : il choisit parmi des opérations connues (corrections), propose des règles que le code filtre, et écrit des requêtes que des garde-fous contrôlent.
+  \item \textbf{Dire d'où vient chaque résultat} : statut du modèle, indices du rôle des colonnes, journal des corrections, requête et lignes de chaque réponse.
+\end{itemize}
+
+\subsection{Pipeline de profilage et d'analyse par table}
+
+Le pipeline s'exécute dans Airflow sous la forme d'un DAG de neuf phases, chacune visible comme une tâche distincte (tableau~\ref{tab:phases}). Les phases se transmettent leur travail par de petits fichiers de manifeste, ce qui permet de relancer l'une d'elles isolément.
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{|C{0.8cm}|L{4.4cm}|L{8.8cm}|}
+\hline
+\thd{N\textsuperscript{o}} & \thd{Phase} & \thd{Traitement} \\ \hline
+1 & Validation de la demande & Contrôle des identifiants et du dossier de la version reçus du serveur. \\ \hline
+2 & Notification de démarrage & Contrôle de santé du serveur, puis signal de début d'exécution. \\ \hline
+3 & Découverte des tables & Recherche des fichiers CSV de la version ; le fichier de contexte réservé n'est pas une table. \\ \hline
+4 & Profilage & Lecture avec détection d'encodage et de séparateur, profil SweetViz ; une table vide est conservée et signalée. \\ \hline
+5 & Métriques et analyse par le modèle & Mesures, rôles des colonnes, contrôles de format et de dates, signature ; premier résultat publié ; puis analyse du modèle et second résultat publié. \\ \hline
+6 & Publication & Nouvelle tentative pour les résultats refusés par le serveur. \\ \hline
+7 & Règles proposées & Règles dérivées de l'objectif de l'utilisateur, au mieux : cette phase n'échoue jamais l'exécution. \\ \hline
+8 & Analyse globale & Charge utile compacte, un appel du modèle si activé, sinon analyse déterministe. \\ \hline
+9 & Clôture & S'exécute toujours en dernier : statut \texttt{success}, \texttt{partial} ou \texttt{failed}, tables en échec, message lisible. \\ \hline
+\end{tabular}
+\caption{Phases du DAG de profilage et d'analyse}
+\label{tab:phases}
+\end{table}
+
+La figure~\ref{fig:pipeline-ia} présente le détail de la phase 5, qui concentre l'intelligence du pipeline.
+
+\figplaceholder[1]{pipeline_ia.png}{Architecture du traitement d'une table (phase 5)}{fig:pipeline-ia}{Mesures déterministes (métriques, rôles par indices, formats, dates, relations, signature) ; publication du premier résultat ; colonnes de rôle incertain soumises au modèle ; analyse du modèle : génération, validation contre les preuves, réparation, repli déterministe ; publication du résultat enrichi.}
+
+\subsubsection{Rôle des colonnes}
+
+Chaque colonne reçoit un rôle parmi seize (identifiant, référence, courriel, téléphone, URL, date, montant, quantité, catégorie, statut, booléen, nom, lieu, code postal, texte libre, inconnu). Le rôle est noté à partir des mots du nom de la colonne, des statistiques de ses valeurs et des formats qu'elles suivent ; les indices sont conservés pour pouvoir l'expliquer. Seules les colonnes qui restent incertaines sont soumises au modèle, avec l'objectif de l'utilisateur et ce que représente une ligne ; la source de la décision est enregistrée.
+
+\subsubsection{Contrôles de format et de dates}
+
+Pour chaque colonne de texte, le worker compte les valeurs qui sont un courriel, un téléphone, une URL, une date ou un nombre, et garde des exemples de valeurs invalides. Pour chaque couple de colonnes de date, il mesure, sur les lignes où les deux sont remplies, à quelle fréquence la première est postérieure à la seconde. Le serveur juge ensuite ces mesures contre les règles approuvées, sans relire les fichiers.
+
+\subsubsection{Relations entre tables}
+
+Une relation est proposée lorsque au moins 85\,\% des valeurs d'une colonne source existent dans une colonne cible presque unique. Une colonne est source si elle est majoritairement remplie et n'est pas l'identifiant de sa propre table. Les correspondances ambiguës, sans indice dans le nom, sont écartées. Chaque relation porte sa confiance, sa couverture et les effectifs.
+
+\subsubsection{Analyse contrôlée par le modèle}
+
+L'analyse d'une table suit un flux contrôlé \textit{générer, valider, réparer, replier}, implémenté avec LangGraph : la réponse doit respecter un schéma, chaque pourcentage cité est comparé à la colonne qu'il concerne, une réponse invalide donne lieu à une tentative de réparation, et, si elle reste non fiable, une analyse déterministe est utilisée. Le statut du modèle (\texttt{ok}, \texttt{unavailable}, \texttt{invalid}, \texttt{disabled}, \texttt{pending}) est publié avec l'analyse.
+
+\subsection{Score et dimensions de qualité}
+
+Le serveur calcule le score d'une table comme 100 moins le pourcentage moyen de valeurs manquantes moins le pourcentage de lignes dupliquées ; le score d'une version est la moyenne pondérée par le nombre de lignes. Les notes vont de A (à partir de 90) à D (moins de 60). Quatre dimensions complètent ce score : complétude, unicité, validité et cohérence. Chacune est affichée avec son numérateur et son dénominateur, ou « non mesurée » avec la raison.
+
+\subsection{Règles de qualité}
+
+Une règle cible une table et, le cas échéant, une colonne. Les types disponibles sont : colonne sans valeur manquante, au plus X\,\% de valeurs manquantes, valeurs uniques, au moins N lignes, au plus X\,\% de doublons, score minimal, baisse maximale du nombre de lignes par rapport à la version précédente, valeurs au bon format (courriel, téléphone, URL, date, nombre) et ordre de deux dates. Chaque règle est d'état \texttt{ACTIVE}, \texttt{SUGGESTED} ou \texttt{DISMISSED}, de gravité \texttt{WARNING} ou \texttt{CRITICAL}, et son résultat est \texttt{PASS}, \texttt{FAIL} ou \texttt{SKIPPED}. Les règles proposées par le pipeline restent des suggestions tant qu'elles ne sont pas approuvées, et une suggestion écartée ne revient pas. Le code ne retient parmi les propositions du modèle que celles qui sont vérifiables sur les données : tables et colonnes réelles, types connus, seuils raisonnables.
+
+\subsection{Corrections}
+
+La correction d'une table obéit à deux règles : l'original n'est jamais modifié, et le modèle ne peut qu'\textbf{assembler des opérations connues}. Les corrections viennent de deux sources : ce que le système trouve (espaces superflus, marqueurs d'absence, dates en plusieurs formats, valeur écrite de plusieurs façons, doublons) ou une demande écrite en langage naturel, que le modèle traduit en opérations choisies parmi douze, chacune vérifiée contre les colonnes. L'aperçu donne le nombre de valeurs touchées, des exemples et des avertissements ; une date ambiguë n'est jamais devinée. L'application crée une nouvelle version, analysée comme un dépôt, avec un journal. Les fichiers corrigés sont écrits en UTF-8, séparés par des virgules, en-tête inchangé.
+
+\subsection{Graphe de connaissances}
+
+Le modèle de graphe est déduit des rôles et des données : une ligne d'une table de comptes devient un nœud \textit{Compte}, et le \textit{Client} qu'elle référence devient un nœud à part entière, dont les propriétés sont les colonnes constantes pour un client. Les relations proviennent des liens trouvés par l'analyse. Quatre cas courants sont traités sans identifiant déclaré :
+\begin{itemize}
+  \item une table sans identifiant dont les lignes se distinguent par une \textbf{combinaison de références} (une commande et un numéro de ligne) est identifiée par cette combinaison ;
+  \item une colonne qui contient les \textbf{numéros de ligne} d'un autre fichier sans identifiant le relie à ces lignes ;
+  \item une \textbf{table de deux références} (amis, produit-magasin) devient une relation, sans nœud propre ;
+  \item une colonne d'identifiants de la \textbf{même table} (un identifiant de responsable) relie deux lignes de cette table.
+\end{itemize}
+Lorsque les lignes d'une même clé se contredisent (deux courriels pour un client), le graphe conserve \textbf{toutes} les valeurs, marque le nœud comme conflictuel et n'en choisit aucune. Les références vers un nœud absent, les tables liées à rien et les liens incertains sont signalés avant la construction. Chaque nœud porte une propriété de périmètre (\texttt{d<jeu>v<version>}) : les versions ne se mélangent pas.
+
+\subsection{Service de questions et garde-fous}\label{sec:questions-conception}
+
+Le service de questions commence par \textbf{trier} la question en trois types (tableau~\ref{tab:types-questions}). Seul le premier utilise Neo4j ; les deux autres répondent même avant la construction du graphe. Un tri incertain retombe sur le type « qualité ».
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{|L{1.8cm}|L{4.6cm}|L{5cm}|C{1.6cm}|}
+\hline
+\thd{Type} & \thd{Exemples} & \thd{Source de la réponse} & \thd{Neo4j} \\ \hline
+Données (\textit{graph}) & « Combien de commandes par client ? » & Requête Cypher écrite par le modèle, contrôlée, puis exécutée sur le graphe de la version & oui \\ \hline
+Qualité (\textit{quality}) & « Quelles règles échouent et pourquoi ? » & Faits de qualité joints par le serveur : règles et messages, dimensions, constats, rôles de colonnes & non \\ \hline
+Aide (\textit{help}) & « Comment appliquer une correction ? » & Guide d'utilisation de l'application & non \\ \hline
+\end{tabular}
+\caption{Types de questions et sources des réponses}
+\label{tab:types-questions}
+\end{table}
+
+Comme le modèle écrit la requête, rien de ce qu'il écrit n'est considéré comme sûr. Une requête ne s'exécute que si les conditions suivantes sont remplies :
+\begin{itemize}
+  \item c'est \textbf{une seule instruction}, en \textbf{lecture seule} (les clauses d'écriture, d'appel de procédure, de chargement ou d'administration sont refusées, hors chaînes et commentaires) ;
+  \item elle contient \texttt{MATCH} et \texttt{RETURN} ;
+  \item \textbf{chaque nœud} est filtré sur le périmètre de la version interrogée, et aucun autre périmètre n'apparaît ;
+  \item Neo4j confirme par \texttt{EXPLAIN} qu'elle ne fait que lire, puis elle s'exécute avec une limite de durée (15\,s) ;
+  \item au plus 50 lignes sont lues et 15 renvoyées à l'interface ; le modèle dispose de \textbf{deux tentatives} et reçoit la raison d'un refus pour se corriger.
+\end{itemize}
+La réponse est rédigée \textbf{uniquement} à partir des lignes obtenues, des faits de qualité et du guide, avec l'instruction de ne rien inventer. La requête exécutée et ses lignes sont renvoyées avec la réponse, pour qu'on puisse la vérifier. Si aucune requête admissible n'est trouvée, la réponse s'appuie sur les faits de qualité seuls et le dit. Le diagramme de séquence correspondant est présenté au chapitre~7.
+
+\subsection{Comparaison avec les approches existantes}
+
+Le tableau~\ref{tab:comparaison-approches} situe la conception retenue par rapport à une approche où le modèle de langage interprète seul un rapport de profilage.
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{|L{3.4cm}|L{5.4cm}|L{5.2cm}|}
+\hline
+\thd{Axe} & \thd{Modèle interprétant un rapport} & \thd{Conception retenue} \\ \hline
+Rôle du modèle & Lire le profil et tout en déduire & Trancher les cas ouverts, rédiger et traduire en opérations connues \\ \hline
+Rôle des colonnes & Déduit par le modèle & Calculé par indices explicites, modèle en dernier recours \\ \hline
+Contrôle des sorties & Validation du format uniquement & Comparaison de chaque chiffre à sa colonne, repli déterministe \\ \hline
+Surveillance & Aucune & Règles évaluées à chaque exécution, alertes \\ \hline
+Correction & Hors périmètre & Sur une copie, avec aperçu chiffré et journal \\ \hline
+Vision transverse & Un appel sur une vue agrégée & Relations mesurées, graphe, questions contrôlées \\ \hline
+\end{tabular}
+\caption{Comparaison de la conception retenue avec une interprétation directe par le modèle}
+\label{tab:comparaison-approches}
+\end{table}
+
+\section*{Conclusion}
+\addcontentsline{toc}{section}{Conclusion}
+Ce chapitre a présenté la conception de \projet{} : une conception globale fondée sur le formalisme UML ; des architectures logicielle, logique et physique organisées en cinq blocs ; une sécurité fondée sur des mesures simples ; et des composants d'intelligence artificielle gouvernés par un même principe, selon lequel le code mesure et contrôle tandis que le modèle interprète et rédige. Les chapitres~5 à~7 décrivent la réalisation, sprint par sprint, et le chapitre~\ref{chap:benchmark} l'évaluation de la solution.

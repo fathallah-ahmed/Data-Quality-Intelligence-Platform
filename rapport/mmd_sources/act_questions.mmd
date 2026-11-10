@@ -1,0 +1,18 @@
+flowchart TD
+  A([Question]) --> B[Trier par le modèle]
+  B --> C{Type}
+  C -- aide --> D[Répondre depuis le guide]
+  C -- qualité --> E[Répondre depuis les faits de qualité]
+  C -- données --> F{Graphe construit ?}
+  C -- incertain --> E
+  F -- non --> G[Demander de construire le graphe]
+  F -- oui --> H[Le modèle écrit une requête Cypher]
+  H --> I{Requête admissible ?}
+  I -- non, tentative 1 --> H
+  I -- non, après 2 tentatives --> E
+  I -- oui --> J[EXPLAIN puis exécution limitee]
+  J --> K[Répondre depuis les lignes obtenues]
+  D --> L([Réponse avec sa source])
+  E --> L
+  G --> L
+  K --> L

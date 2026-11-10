@@ -1,0 +1,19 @@
+flowchart TD
+  A([Dépôt des fichiers CSV]) --> B{Fichiers valides ?}
+  B -- non --> B1[Refus, rien n'est écrit]
+  B -- oui --> C{Dépôt identique a une version ?}
+  C -- oui --> C1[Ouvrir ou relancer la version existante]
+  C -- non --> D[Créer la version et stocker les fichiers]
+  D --> E[Déclencher le DAG Airflow]
+  E --> F[Découvrir et profiler les tables]
+  F --> G[Métriques, rôles, formats, relations]
+  G --> H[Publier le premier résultat de chaque table]
+  H --> I{Modèle disponible ?}
+  I -- oui --> J[Analyse du modèle validée contre les mesures]
+  I -- non --> K[Analyse déterministe de repli]
+  J --> L[Publier le résultat enrichi]
+  K --> L
+  L --> M[Proposer des règles, analyse globale]
+  M --> N[Clôturer : COMPLETED, PARTIAL ou FAILED]
+  N --> O[Évaluer les règles et alerter]
+  O --> P([Résultats consultables])

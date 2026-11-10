@@ -1,0 +1,22 @@
+sequenceDiagram
+  autonumber
+  actor U as Administrateur
+  participant F as Interface
+  participant B as Serveur
+  participant W as Worker
+  W->>B: rule-suggestions (selon l'objectif)
+  B->>B: Statut SUGGESTED
+  U->>F: Ouvrir l'onglet Règles
+  F->>B: Lire les règles
+  U->>F: Approuver ou écarter
+  F->>B: approve ou dismiss
+  W->>B: complete
+  B->>B: Évaluer les règles actives
+  alt Table absente de la version
+    B->>B: SKIPPED avec la raison
+  else Colonne absente ou règle non respectee
+    B->>B: FAIL avec le message
+    B-->>F: Alerte (notification, badge, bandeau)
+  else Règle respectee
+    B->>B: PASS
+  end

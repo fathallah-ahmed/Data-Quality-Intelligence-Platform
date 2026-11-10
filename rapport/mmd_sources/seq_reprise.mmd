@@ -1,0 +1,22 @@
+sequenceDiagram
+  autonumber
+  participant B as Serveur
+  participant A as Airflow
+  participant W as Worker
+  Note over B: Demarrage du serveur
+  B->>A: État de chaque exécution PENDING ou RUNNING
+  alt Inconnue d'Airflow et fichiers presents
+    B->>A: Relancer l'exécution
+  else Echouee dans Airflow
+    B->>B: Marquer FAILED avec un message
+  else En cours
+    B->>B: Laisser en l'état
+  end
+  W->>B: Rappel (serveur indisponible)
+  W->>W: Réessayer 2, 4, 8 ... 64 s
+  W->>B: Rappel accepte
+  loop Chaque minute
+    B->>B: Executions de plus de 10 min ?
+    B->>A: Vérifier avec Airflow
+    B->>B: FAILED si inconnue, échouée ou après 180 min
+  end

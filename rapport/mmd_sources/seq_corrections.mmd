@@ -1,0 +1,22 @@
+sequenceDiagram
+  autonumber
+  actor U as Administrateur
+  participant F as Interface
+  participant B as Serveur
+  participant M as Modèle local
+  U->>F: Choisir une table
+  F->>B: corrections/suggestions
+  B-->>F: Corrections trouvees
+  U->>F: Décrire une correction
+  F->>B: corrections/interpret
+  B->>M: Demande, colonnes, opérations autorisees
+  M-->>B: Operations en JSON
+  B->>B: Vérifier contre les colonnes
+  B-->>F: Operations et hypotheses
+  F->>B: corrections/preview
+  B-->>F: Valeurs touchees, exemples, avertissements
+  U->>F: Appliquer
+  F->>B: corrections/apply
+  B->>B: Écrire la copie, journal
+  B->>B: Nouvelle version dérivée, analyse
+  B-->>F: Version corrigee

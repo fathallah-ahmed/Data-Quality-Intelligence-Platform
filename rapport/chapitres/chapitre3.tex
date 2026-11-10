@@ -1,0 +1,340 @@
+\chapter{Analyse et Spécification des Besoins}
+
+\section*{Introduction}
+\addcontentsline{toc}{section}{Introduction}
+L'analyse des besoins fixe ce que la solution doit faire et les qualités qu'elle doit présenter. Dans ce chapitre, nous identifions d'abord les acteurs du système et formalisons leurs interactions par un diagramme de cas d'utilisation global. Nous exprimons ensuite les besoins fonctionnels à travers le backlog produit, organisé en epics, puis nous structurons les besoins non fonctionnels à l'aide d'un arbre FCM. Nous détaillons enfin les principaux cas d'utilisation et la répartition des récits utilisateurs entre les sprints.
+
+%==============================================================================
+\section{Identification des acteurs et des cas d'utilisation}
+%==============================================================================
+
+Toute spécification commence par l'identification de ceux qui interagissent avec le système. Nous présentons donc les acteurs de \projet{}, puis la vue d'ensemble de leurs interactions sous forme de diagramme de cas d'utilisation.
+
+\subsection{Identification des acteurs}
+
+Un acteur représente un rôle joué par une personne ou un système externe qui interagit avec la solution. Le tableau~\ref{tab:acteurs} présente les acteurs de \projet{}, en distinguant l'acteur principal, qui sollicite le système, des acteurs secondaires, que le système sollicite.
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{|L{3.4cm}|L{1.9cm}|L{8.7cm}|}
+\hline
+\thd{Acteur} & \thd{Type} & \thd{Responsabilités} \\ \hline
+Administrateur (analyste qualité, ingénieur de données) & Principal & S'authentifie, dépose les fichiers sources avec leur contexte métier, suit l'exécution en temps réel, consulte les résultats par table et pour l'ensemble du jeu de données, définit et surveille des règles de qualité, corrige les données sur une copie, construit le graphe et pose des questions en langage naturel. \\ \hline
+Serveur applicatif (Spring Boot) & Secondaire & Reçoit les résultats du traitement par des appels sécurisés, les persiste, évalue les règles et les restitue à l'interface. \\ \hline
+Ordonnanceur Airflow & Secondaire & Exécute les phases du pipeline de profilage, dans l'ordre et avec reprise sur erreur. \\ \hline
+Serveur LLM (Ollama) & Secondaire & Exécute localement les modèles de langage qui interprètent les mesures, rédigent les corrections et répondent aux questions. \\ \hline
+Base de graphe (Neo4j) & Secondaire & Stocke le graphe de chaque version et l'interroge en lecture. \\ \hline
+Service de questions & Secondaire & Trie les questions, génère et contrôle les requêtes Cypher, rédige les réponses. \\ \hline
+\end{tabular}
+\caption{Acteurs du système \projet}
+\label{tab:acteurs}
+\end{table}
+
+Un seul rôle humain est défini à ce stade (\texttt{ADMIN}) : l'architecture de sécurité permet d'en ajouter d'autres sans modifier les écrans, et ce point est repris dans les perspectives. Ces acteurs étant identifiés, leurs interactions avec le système peuvent être formalisées à l'aide du langage UML.
+
+\subsection{Diagramme de cas d'utilisation global}
+
+Le diagramme de cas d'utilisation global (figure~\ref{fig:uc-global}) présente une vue d'ensemble des fonctionnalités offertes par \projet{} et des acteurs qui les sollicitent.
+
+\figplaceholder[0.95]{uc_global.png}{Diagramme de cas d'utilisation global de \projet}{fig:uc-global}{Acteur principal : Administrateur. Cas d'utilisation : S'authentifier ; Déposer des jeux de données et leur contexte ; Suivre l'exécution ; Consulter les résultats ; Définir et surveiller des règles ; Corriger une table ; Construire et supprimer le graphe ; Poser une question ; Comparer deux versions ; Générer le rapport. Acteurs secondaires : Airflow, Ollama, Neo4j, Service de questions.}
+
+Chacune de ces fonctionnalités correspond à un ou plusieurs besoins fonctionnels, que nous formalisons dans le backlog produit.
+
+%==============================================================================
+\section{Besoins fonctionnels : le Product Backlog}
+%==============================================================================
+
+Conformément au framework Scrum (chapitre~1), les besoins fonctionnels de \projet{} sont exprimés à travers l'artefact prévu à cet effet : le \textbf{Product Backlog}. Nous présentons d'abord son organisation en epics, puis son contenu détaillé.
+
+\subsection{Organisation du backlog en epics}
+
+Un \textbf{epic} est un besoin de haut niveau, trop large pour être réalisé en un seul sprint, qui regroupe plusieurs récits utilisateurs (\textit{user stories}) contribuant à un même objectif. Le backlog de \projet{} est organisé en sept epics, présentés dans le tableau~\ref{tab:epics}.
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{|C{1.1cm}|L{4.6cm}|L{6.6cm}|C{1.5cm}|}
+\hline
+\thd{Epic} & \thd{Intitulé} & \thd{Objectif} & \thd{Sprint} \\ \hline
+E1 & Ingestion et profilage & Lire tout jeu de données et en mesurer la qualité de manière fiable. & 1 \\ \hline
+E2 & Application web et exécution suivie & Déposer des fichiers, lancer l'analyse et la suivre en temps réel, de façon sécurisée. & 2 \\ \hline
+E3 & Contexte, rôles et dimensions & Comprendre à quoi sert chaque colonne et expliquer le score de qualité. & 3 \\ \hline
+E4 & Règles de qualité et alertes & Surveiller des règles à chaque exécution et rendre l'ensemble déployable et testé. & 4 \\ \hline
+E5 & Corrections & Corriger les données sans jamais modifier l'original. & 5 \\ \hline
+E6 & Graphe de connaissances & Représenter les tables comme des entités et des relations dans Neo4j. & 6 \\ \hline
+E7 & Questions en langage naturel & Répondre aux questions sur les données, leur qualité et l'usage de l'outil. & 7 \\ \hline
+\end{tabular}
+\caption{Epics du Product Backlog}
+\label{tab:epics}
+\end{table}
+
+Chaque epic est ensuite décomposé en récits utilisateurs, priorisés selon la méthode MoSCoW (\textit{Must}, \textit{Should}, \textit{Could}).
+
+\subsection{Product Backlog détaillé}
+
+\begin{longtable}{|C{1.1cm}|C{1.1cm}|L{8.4cm}|C{1.6cm}|C{1.3cm}|}
+\hline
+\thd{Epic} & \thd{ID} & \thd{Récit utilisateur} & \thd{Priorité} & \thd{Sprint} \\ \hline
+\endfirsthead
+\hline
+\thd{Epic} & \thd{ID} & \thd{Récit utilisateur} & \thd{Priorité} & \thd{Sprint} \\ \hline
+\endhead
+\multirow{4}{*}{E1} & US1 & En tant qu'utilisateur, je veux que mes fichiers soient lus quels que soient leur encodage et leur séparateur. & Must & 1 \\ \cline{2-5}
+ & US2 & En tant qu'utilisateur, je veux le profil statistique de chaque table : lignes, valeurs manquantes, valeurs distinctes, doublons, quartiles. & Must & 1 \\ \cline{2-5}
+ & US3 & En tant qu'utilisateur, je veux connaître les liens entre mes tables, déduits du recouvrement de leurs valeurs. & Should & 1 \\ \cline{2-5}
+ & US4 & En tant qu'utilisateur, je veux savoir quelles tables ont changé d'une version à l'autre (nouvelle, modifiée, inchangée, supprimée). & Should & 1 \\ \hline
+\multirow{5}{*}{E2} & US5 & En tant qu'administrateur, je veux m'authentifier pour que seules les personnes autorisées accèdent aux données. & Must & 2 \\ \cline{2-5}
+ & US6 & En tant qu'utilisateur, je veux déposer un ou plusieurs fichiers CSV, que le système versionne et dont il détecte les dépôts identiques. & Must & 2 \\ \cline{2-5}
+ & US7 & En tant qu'utilisateur, je veux suivre l'avancement de l'analyse en temps réel, étape par étape. & Must & 2 \\ \cline{2-5}
+ & US8 & En tant qu'utilisateur, je veux qu'une analyse interrompue soit reprise ou signalée clairement, et pouvoir la relancer. & Must & 2 \\ \cline{2-5}
+ & US9 & En tant qu'utilisateur, je veux un tableau de bord de tous mes jeux de données, avec score, note et état. & Should & 2 \\ \hline
+\multirow{5}{*}{E3} & US10 & En tant qu'utilisateur, je veux indiquer le domaine, l'objectif et ce que représente une ligne, pour orienter l'analyse. & Must & 3 \\ \cline{2-5}
+ & US11 & En tant qu'utilisateur, je veux connaître le rôle de chaque colonne (identifiant, courriel, date, montant\ldots) et les indices qui le justifient. & Must & 3 \\ \cline{2-5}
+ & US12 & En tant qu'utilisateur, je veux une analyse en langage naturel de chaque table, dont les affirmations sont vérifiées par les mesures. & Must & 3 \\ \cline{2-5}
+ & US13 & En tant qu'utilisateur, je veux un score et une note expliqués par quatre dimensions avec leur numérateur et leur dénominateur. & Must & 3 \\ \cline{2-5}
+ & US14 & En tant qu'utilisateur, je veux comparer deux versions d'un jeu de données. & Should & 3 \\ \hline
+\multirow{5}{*}{E4} & US15 & En tant qu'utilisateur, je veux créer des règles de qualité (valeurs manquantes, unicité, format, ordre de deux dates, score minimal\ldots). & Must & 4 \\ \cline{2-5}
+ & US16 & En tant qu'utilisateur, je veux que le système propose des règles à partir de mon objectif, que j'approuve ou écarte. & Should & 4 \\ \cline{2-5}
+ & US17 & En tant qu'utilisateur, je veux que les règles soient évaluées à chaque exécution et qu'un échec déclenche une alerte. & Must & 4 \\ \cline{2-5}
+ & US18 & En tant qu'utilisateur, je veux un rapport imprimable d'une version, avec la définition de chaque score. & Could & 4 \\ \cline{2-5}
+ & US19 & En tant qu'ingénieur, je veux déployer l'ensemble en une commande, avec des tests automatisés exécutés à chaque modification. & Must & 4 \\ \hline
+\multirow{3}{*}{E5} & US20 & En tant qu'utilisateur, je veux que le système repère les corrections possibles dans mes données (espaces, marqueurs d'absence, dates, doublons). & Must & 5 \\ \cline{2-5}
+ & US21 & En tant qu'utilisateur, je veux décrire une correction en langage naturel et que le modèle la traduise en opérations vérifiées. & Should & 5 \\ \cline{2-5}
+ & US22 & En tant qu'utilisateur, je veux un aperçu chiffré, puis appliquer la correction à une copie qui devient une nouvelle version, avec un journal. & Must & 5 \\ \hline
+\multirow{3}{*}{E6} & US23 & En tant qu'utilisateur, je veux un modèle de graphe déduit de mes tables (entités, propriétés, relations) que je puisse relire avant la construction. & Must & 6 \\ \cline{2-5}
+ & US24 & En tant qu'utilisateur, je veux que les cas courants soient gérés : clé composée, table de liaison, référence vers la même table. & Should & 6 \\ \cline{2-5}
+ & US25 & En tant qu'utilisateur, je veux construire et supprimer le graphe d'une version dans Neo4j, avec les conflits et les liens incertains signalés. & Must & 6 \\ \hline
+\multirow{4}{*}{E7} & US26 & En tant qu'utilisateur, je veux poser une question en langage naturel et que le système sache si elle porte sur les données, la qualité ou l'usage de l'outil. & Must & 7 \\ \cline{2-5}
+ & US27 & En tant qu'utilisateur, je veux que les requêtes générées par le modèle soient contrôlées avant exécution (lecture seule, périmètre de la version). & Must & 7 \\ \cline{2-5}
+ & US28 & En tant qu'utilisateur, je veux que chaque réponse indique sa source et, pour le graphe, la requête et les lignes obtenues. & Must & 7 \\ \cline{2-5}
+ & US29 & En tant que visiteur, je veux une page d'accueil publique et une interface fluide, avec raccourcis clavier. & Could & 7 \\ \hline
+\caption{Product Backlog de \projet}
+\label{tab:backlog}
+\end{longtable}
+
+Ces récits décrivent ce que le système doit faire. Ils doivent être complétés par les qualités attendues du système, qui font l'objet de la section suivante.
+
+%==============================================================================
+\section{Besoins non fonctionnels : arbre FCM}
+%==============================================================================
+
+Les besoins non fonctionnels décrivent les qualités attendues du système plutôt que ses fonctionnalités. Pour les structurer, nous nous appuyons sur le modèle \textbf{FCM} (\textit{Factors -- Criteria -- Metrics}) de McCall. Nous justifions d'abord le choix des facteurs retenus, puis nous présentons l'arbre complet.
+
+\subsection{Choix des facteurs de qualité}
+
+Le modèle FCM décompose la qualité d'un logiciel en trois niveaux : des \textbf{facteurs}, perçus par les utilisateurs ; des \textbf{critères}, qui traduisent chaque facteur en propriétés techniques ; et des \textbf{métriques}, qui permettent de vérifier objectivement chaque critère. Parmi les facteurs proposés par McCall et par la norme ISO/IEC 25010, nous n'avons retenu que ceux qui découlent directement des contraintes du projet, présentés dans le tableau~\ref{tab:facteurs}.
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{|L{3cm}|L{11cm}|}
+\hline
+\thd{Facteur} & \thd{Justification du choix} \\ \hline
+Sécurité & Les données d'assurance sont personnelles et sensibles : l'accès doit être authentifié, aucune donnée ne doit quitter l'infrastructure de l'entreprise, et les données sources ne doivent jamais être altérées. C'est la contrainte la plus forte du projet. \\ \hline
+Fiabilité & Un outil d'audit de la qualité doit lui-même être fiable : chaque table doit obtenir un résultat exploitable, même lorsque le modèle de langage échoue ou répond de manière incorrecte, et une exécution interrompue ne doit pas rester bloquée. \\ \hline
+Efficacité & L'exécution locale de grands modèles est coûteuse en temps et en mémoire ; les résultats doivent apparaître progressivement et l'interface rester fluide. \\ \hline
+Maintenabilité & Le périmètre du produit a évolué à chaque sprint : chaque bloc doit pouvoir changer indépendamment et être couvert par des tests automatisés. \\ \hline
+Portabilité & La solution doit être déployée chez différents clients et sur différents postes, sans adaptation manuelle. \\ \hline
+Exploitabilité & Les résultats d'une IA doivent être vérifiables : l'utilisateur doit pouvoir savoir d'où vient une réponse et ce qui a été modifié dans ses données. \\ \hline
+\end{tabular}
+\caption{Justification des facteurs de qualité retenus}
+\label{tab:facteurs}
+\end{table}
+
+Les six facteurs retenus sont déclinés en critères et métriques dans l'arbre présenté ci-après.
+
+\subsection{Arbre FCM}
+
+Le tableau~\ref{tab:fcm} présente l'arbre FCM de \projet{} : chaque facteur est décliné en critères, puis en métriques vérifiables sur la solution réalisée.
+
+\begin{longtable}{|L{2.3cm}|L{3cm}|L{8.7cm}|}
+\hline
+\thd{Facteur} & \thd{Critère} & \thd{Métrique} \\ \hline
+\endfirsthead
+\hline
+\thd{Facteur} & \thd{Critère} & \thd{Métrique} \\ \hline
+\endhead
+
+\multirow{3}{*}{Sécurité} & Authentification & Jeton JWT signé, valable 8~h ; tout appel à l'API (sauf connexion et rappels du pipeline) exige le rôle administrateur. \\ \cline{2-3}
+ & Confidentialité & Aucun appel vers un service externe : modèle, graphe et questions sont exécutés localement ; le navigateur n'atteint jamais le service de questions. \\ \cline{2-3}
+ & Intégrité des sources & Les corrections s'appliquent à une copie ; les requêtes générées sont en lecture seule et limitées au périmètre d'une version. \\ \hline
+\multirow{3}{*}{Fiabilité} & Robustesse & Une table dont l'analyse échoue donne le statut \texttt{PARTIAL}, avec la raison ; une analyse de repli déterministe remplace une réponse invalide du modèle. \\ \cline{2-3}
+ & Reprise & Rappels du pipeline réessayés pendant environ 2~min ; au démarrage, les exécutions en cours sont réconciliées avec Airflow ; une surveillance marque \texttt{FAILED} toute exécution bloquée au-delà de 180~min. \\ \cline{2-3}
+ & Cohérence & Le téléversement est validé en entier avant toute écriture ; un dépôt identique propose d'ouvrir la version existante. \\ \hline
+\multirow{2}{*}{Efficacité} & Réactivité & Résultats publiés table par table dès que leurs métriques sont prêtes ; événements poussés par SSE, avec repli sur une interrogation toutes les 5~s. \\ \cline{2-3}
+ & Maîtrise des délais & Requête Cypher limitée à 15~s et à 50 lignes lues ; délais paramétrables pour chaque appel au modèle. \\ \hline
+\multirow{2}{*}{Maintenabilité} & Modularité & Cinq blocs indépendants (interface, serveur, worker, service de questions, graphe), chacun avec son README et ses tests. \\ \cline{2-3}
+ & Testabilité & 292 tests automatisés (serveur 110, interface 76, worker 67, questions 39), exécutés à chaque modification par l'intégration continue. \\ \hline
+\multirow{2}{*}{Portabilité} & Reproductibilité & Déploiement complet par une commande Docker Compose ; image dédiée pour chaque service. \\ \cline{2-3}
+ & Configurabilité & Tous les paramètres (adresses, secrets, modèle, délais) sont modifiables par variables d'environnement. \\ \hline
+\multirow{2}{*}{Exploitabilité} & Explicabilité & Chaque rôle de colonne garde ses indices ; chaque dimension du score donne son numérateur et son dénominateur ; chaque réponse dit d'où elle vient. \\ \cline{2-3}
+ & Auditabilité & Statut du modèle enregistré avec chaque analyse ; journal de chaque correction ; requête et lignes retournées avec chaque réponse du graphe. \\ \hline
+\caption{Arbre FCM des besoins non fonctionnels de \projet}
+\label{tab:fcm}
+\end{longtable}
+
+Les besoins étant désormais spécifiés, tant sur le plan fonctionnel que non fonctionnel, nous pouvons raffiner les principaux cas d'utilisation.
+
+%==============================================================================
+\section{Raffinement des cas d'utilisation}
+%==============================================================================
+
+Chaque cas d'utilisation principal est raffiné par un diagramme de cas d'utilisation détaillé, suivi de sa description textuelle. Nous commençons par le cas central, le dépôt et l'analyse d'un jeu de données.
+
+\subsection{Cas d'utilisation « Déposer et analyser un jeu de données »}
+
+\figplaceholder[0.9]{uc_deposer.png}{Diagramme de cas d'utilisation détaillé « Déposer et analyser un jeu de données »}{fig:uc-deposer}{Acteur : Administrateur. Cas : Déposer et analyser un jeu de données, avec include Valider les fichiers, Créer la version, Lancer le pipeline, Suivre l'avancement ; extend Renseigner le contexte métier, Relancer une analyse. Acteurs secondaires : Airflow, Ollama.}
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{|L{3.4cm}|L{10.6cm}|}
+\hline
+\thd{Élément} & \thd{Description} \\ \hline
+Cas d'utilisation & Déposer et analyser un jeu de données \\ \hline
+Acteurs & Administrateur (principal), Airflow, Serveur LLM \\ \hline
+Préconditions & L'administrateur est authentifié ; la plateforme est démarrée. \\ \hline
+Postconditions & Une version du jeu de données existe, avec les résultats de chaque table, le score, les dimensions et l'analyse globale. \\ \hline
+Scénario nominal &
+1. L'administrateur dépose un ou plusieurs fichiers CSV et, s'il le souhaite, renseigne le domaine, l'objectif et ce que représente une ligne.\newline
+2. Le système valide tous les fichiers, calcule leur empreinte et crée la version.\newline
+3. Le système déclenche le pipeline dans Airflow.\newline
+4. Le pipeline profile chaque table, détermine le rôle des colonnes et publie un premier résultat.\newline
+5. Le modèle enrichit l'analyse de chaque table ; le résultat est publié de nouveau.\newline
+6. Le pipeline propose des règles, produit l'analyse globale et déclare l'exécution terminée.\newline
+7. Le système évalue les règles et prévient l'administrateur en cas d'échec. \\ \hline
+Scénarios alternatifs &
+2a. Un fichier est invalide : il est signalé et rien n'est écrit.\newline
+2b. L'envoi est identique à une version existante : le système propose d'ouvrir cette version ou de la relancer.\newline
+4a. Une table est illisible : elle est signalée et les autres sont traitées ; le statut final est \texttt{PARTIAL}.\newline
+5a. Le modèle est indisponible ou répond de façon invalide : une analyse déterministe est publiée et le statut du modèle l'indique.\newline
+*a. L'exécution échoue : l'administrateur peut la relancer. \\ \hline
+\end{tabular}
+\caption{Description du cas d'utilisation « Déposer et analyser un jeu de données »}
+\label{tab:cu-deposer}
+\end{table}
+
+Une fois les résultats disponibles, l'utilisateur peut en tirer des règles de qualité qui seront surveillées dans le temps.
+
+\subsection{Cas d'utilisation « Définir et surveiller des règles de qualité »}
+
+\figplaceholder[0.85]{uc_regles.png}{Diagramme de cas d'utilisation détaillé « Définir et surveiller des règles de qualité »}{fig:uc-regles}{Acteur : Administrateur. Cas : Définir et surveiller des règles, avec include Évaluer les règles ; extend Créer une règle, Approuver une règle proposée, Écarter une règle proposée, Suspendre une règle, Vérifier maintenant.}
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{|L{3.4cm}|L{10.6cm}|}
+\hline
+\thd{Élément} & \thd{Description} \\ \hline
+Cas d'utilisation & Définir et surveiller des règles de qualité \\ \hline
+Acteur & Administrateur \\ \hline
+Préconditions & Au moins une version du jeu de données a été analysée. \\ \hline
+Postconditions & Les règles actives sont évaluées à chaque exécution ; un échec produit une alerte. \\ \hline
+Scénario nominal &
+1. L'administrateur ouvre l'onglet des règles.\newline
+2. Il consulte les règles proposées à partir de l'objectif et en approuve certaines.\newline
+3. Il crée une règle, en choisissant son type, sa table, sa colonne, son seuil et sa gravité.\newline
+4. Il demande une vérification immédiate.\newline
+5. Le système affiche, pour chaque règle, le résultat (réussie, en échec, non évaluée) et un message explicatif. \\ \hline
+Scénarios alternatifs &
+2a. Une règle proposée n'est pas pertinente : l'administrateur l'écarte et elle ne revient pas.\newline
+3a. La table visée n'existe pas dans la version : la règle est non évaluée, avec la raison. Si c'est la colonne qui n'existe plus, la règle échoue et le message le dit.\newline
+5a. Une règle de gravité critique échoue : elle est comptée à part dans l'alerte. \\ \hline
+\end{tabular}
+\caption{Description du cas d'utilisation « Définir et surveiller des règles de qualité »}
+\label{tab:cu-regles}
+\end{table}
+
+Lorsque des règles échouent, l'utilisateur peut corriger les données concernées.
+
+\subsection{Cas d'utilisation « Corriger une table »}
+
+\figplaceholder[0.85]{uc_corriger.png}{Diagramme de cas d'utilisation détaillé « Corriger une table »}{fig:uc-corriger}{Acteur : Administrateur. Cas : Corriger une table, avec include Prévisualiser les corrections, Appliquer sur une copie ; extend Choisir une correction trouvée, Décrire une correction en langage naturel. Acteur secondaire : Ollama.}
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{|L{3.4cm}|L{10.6cm}|}
+\hline
+\thd{Élément} & \thd{Description} \\ \hline
+Cas d'utilisation & Corriger une table \\ \hline
+Acteurs & Administrateur, Serveur LLM \\ \hline
+Préconditions & La version est analysée ; les fichiers sources sont présents. \\ \hline
+Postconditions & Une nouvelle version, dérivée de la première, contient les données corrigées et un journal des changements ; la version d'origine est intacte. \\ \hline
+Scénario nominal &
+1. L'administrateur choisit une table.\newline
+2. Le système liste les corrections qu'il a trouvées (espaces, marqueurs d'absence, formats de date, valeurs écrites de plusieurs façons, doublons).\newline
+3. L'administrateur en retient certaines et peut en ajouter une, écrite en langage naturel.\newline
+4. Le système affiche un aperçu chiffré : nombre de valeurs touchées, exemples, avertissements.\newline
+5. L'administrateur applique ; le système crée la nouvelle version et la fait analyser comme un dépôt. \\ \hline
+Scénarios alternatifs &
+3a. La demande écrite est trop vague ou vise une colonne inexistante : le système la refuse en expliquant pourquoi.\newline
+4a. Une date est ambiguë (\texttt{01/02/2024}) : elle n'est jamais devinée et un avertissement est affiché.\newline
+3b. Le modèle est indisponible : seules les corrections trouvées par le système restent proposées. \\ \hline
+\end{tabular}
+\caption{Description du cas d'utilisation « Corriger une table »}
+\label{tab:cu-corriger}
+\end{table}
+
+Enfin, l'utilisateur peut interroger ses données sans écrire de requête, ce qui fait l'objet du dernier cas d'utilisation.
+
+\subsection{Cas d'utilisation « Poser une question en langage naturel »}
+
+\figplaceholder[0.85]{uc_questions.png}{Diagramme de cas d'utilisation détaillé « Poser une question en langage naturel »}{fig:uc-questions}{Acteur : Administrateur. Cas : Poser une question, avec include Trier la question ; extend Interroger le graphe, Consulter les résultats de qualité, Consulter le guide d'utilisation. Acteurs secondaires : Service de questions, Neo4j, Ollama.}
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{|L{3.4cm}|L{10.6cm}|}
+\hline
+\thd{Élément} & \thd{Description} \\ \hline
+Cas d'utilisation & Poser une question en langage naturel \\ \hline
+Acteurs & Administrateur, Service de questions, Neo4j, Serveur LLM \\ \hline
+Préconditions & La version est analysée ; pour une question sur le contenu des données, son graphe est construit. \\ \hline
+Postconditions & L'administrateur obtient une réponse qui indique sa source ; pour le graphe, la requête exécutée et les lignes obtenues sont fournies. \\ \hline
+Scénario nominal &
+1. L'administrateur saisit une question dans l'onglet dédié.\newline
+2. Le système la classe : contenu des données, qualité ou usage de l'outil.\newline
+3. Pour une question sur les données, le modèle écrit une requête Cypher, qui est contrôlée puis exécutée.\newline
+4. Le système rédige la réponse à partir des seules lignes obtenues, des faits de qualité et du guide.\newline
+5. L'interface affiche la réponse, sa source, la requête et les lignes. \\ \hline
+Scénarios alternatifs &
+3a. La requête n'est pas admissible (écriture, autre périmètre) : le modèle la corrige, deux tentatives au plus ; à défaut, la réponse s'appuie sur les faits de qualité et le dit.\newline
+3b. Le graphe n'est pas construit : le système demande de le construire.\newline
+2a. Le classement est incertain : la question est traitée comme une question de qualité.\newline
+*a. Le modèle ou Neo4j est injoignable : un message explicite est renvoyé. \\ \hline
+\end{tabular}
+\caption{Description du cas d'utilisation « Poser une question en langage naturel »}
+\label{tab:cu-questions}
+\end{table}
+
+Ces cas d'utilisation couvrent l'ensemble du backlog. Il reste à préciser comment ses récits ont été répartis dans le temps.
+
+%==============================================================================
+\section{Répartition du backlog par sprint}
+%==============================================================================
+
+La planification présentée sous forme de diagramme de Gantt au chapitre~1 (figure~\ref{fig:gantt}) répartit les epics et les récits utilisateurs entre sept sprints de durée égale, chacun associé à un objectif de sprint (\textit{Sprint Goal}), comme le montre le tableau~\ref{tab:planif}.
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{|L{1.6cm}|L{6.4cm}|C{1.4cm}|L{4.6cm}|}
+\hline
+\thd{Sprint} & \thd{Sprint Goal} & \thd{Epic} & \thd{Récits utilisateurs} \\ \hline
+Sprint 1 & Mesurer automatiquement la qualité de tout jeu de données & E1 & US1 à US4 \\ \hline
+Sprint 2 & Déposer des fichiers et suivre l'analyse en temps réel, de façon sécurisée & E2 & US5 à US9 \\ \hline
+Sprint 3 & Comprendre les colonnes et expliquer le score & E3 & US10 à US14 \\ \hline
+Sprint 4 & Surveiller la qualité par des règles et livrer une plateforme déployable et testée & E4 & US15 à US19 \\ \hline
+Sprint 5 & Corriger les données sans toucher à l'original & E5 & US20 à US22 \\ \hline
+Sprint 6 & Représenter les tables en graphe dans Neo4j & E6 & US23 à US25 \\ \hline
+Sprint 7 & Répondre aux questions en langage naturel & E7 & US26 à US29 \\ \hline
+\end{tabular}
+\caption{Répartition du backlog par sprint}
+\label{tab:planif}
+\end{table}
+
+\section*{Conclusion}
+\addcontentsline{toc}{section}{Conclusion}
+Ce chapitre a permis de formaliser les besoins de la solution : acteurs et diagramme de cas d'utilisation global, besoins fonctionnels organisés en sept epics dans le Product Backlog, besoins non fonctionnels structurés par un arbre FCM justifié, cas d'utilisation détaillés et répartition du backlog par sprint. Le chapitre suivant traduit ces besoins en une conception de la solution.

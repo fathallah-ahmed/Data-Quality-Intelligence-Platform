@@ -1,0 +1,25 @@
+classDiagram
+  class Dataset { +nom +domaine +objectif +grain }
+  class DatasetVersion { +numéro +statut +score +note +empreinte }
+  class PipelineRun { +runId +statut +messages }
+  class TableVersion { +nomTable +changeStatus +contentHash +schemaHash }
+  class ColumnMetric { +nom +rôle +indices +formatStats }
+  class TableAnalysis { +lignes +colonnes +manquants +doublons +llmStatus }
+  class GlobalAnalysis { +synthèse +recommandations }
+  class QualityRule { +type +gravité +état +table +colonne }
+  class RuleResult { +résultat +message }
+  class Correction { +opérations +journal }
+  class GraphModel { +entités +relations +périmètre }
+  class Question { +texte +mode +cypher }
+  Dataset "1" --> "*" DatasetVersion
+  DatasetVersion "1" --> "1" PipelineRun
+  DatasetVersion "1" --> "*" TableVersion
+  DatasetVersion "1" --> "0..1" GlobalAnalysis
+  TableVersion "1" --> "1" TableAnalysis
+  TableAnalysis "1" --> "*" ColumnMetric
+  Dataset "1" --> "*" QualityRule
+  QualityRule "1" --> "*" RuleResult
+  RuleResult "*" --> "1" DatasetVersion
+  DatasetVersion "1" --> "0..*" Correction : version dérivée
+  DatasetVersion "1" --> "0..1" GraphModel
+  DatasetVersion "1" --> "*" Question

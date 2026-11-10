@@ -1,0 +1,18 @@
+flowchart LR
+  ADM([Administrateur])
+  subgraph S[Definir et surveiller des règles]
+    U0([Definir et surveiller])
+    U1([Évaluer les règles])
+    U2([Créer une règle])
+    U3([Approuver une règle proposee])
+    U4([Écarter une règle proposee])
+    U5([Suspendre une règle])
+    U6([Vérifier maintenant])
+  end
+  ADM --- U0
+  U0 -. include .-> U1
+  U2 -. extend .-> U0
+  U3 -. extend .-> U0
+  U4 -. extend .-> U0
+  U5 -. extend .-> U0
+  U6 -. extend .-> U0
