@@ -365,11 +365,17 @@ def read_csv_flex(file_path):
                 errors.append(f"{enc}/{sep or 'auto'}/{engine}: {exc}")
         return best_single_column
 
-    df = attempt_reads(allow_bad_line_skip=False)
-    if df is not None:
-        return df
+    # A single column is usually a wrong separator, not a real table. Try skipping malformed rows
+    # with every separator before accepting it, so one broken line cannot flatten the whole file.
+    strict = attempt_reads(allow_bad_line_skip=False)
+    if strict is not None and strict.shape[1] > 1:
+        return strict
 
-    df = attempt_reads(allow_bad_line_skip=True)
+    lenient = attempt_reads(allow_bad_line_skip=True)
+    if lenient is not None and lenient.shape[1] > 1:
+        return lenient
+
+    df = strict if strict is not None else lenient
     if df is not None:
         return df
 
