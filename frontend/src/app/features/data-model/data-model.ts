@@ -270,7 +270,7 @@ function edgePoints(
 /** Standalone SVG file of the diagram (light colours, for documents). */
 export function dataModelSvg(model: DataModelMap): string {
   const edges = model.edges.map((edge) => `
-    <path d="${xml(edge.path)}" fill="none" stroke="#4f46e5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arrowHead)"><title>${xml(edge.reason)}</title></path>`).join('');
+    <path d="${xml(edge.path)}" fill="none" stroke="#662583" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arrowHead)"><title>${xml(edge.reason)}</title></path>`).join('');
   const labels = model.edges.map((edge) => `
     <rect x="${edge.labelX - edge.labelWidth / 2}" y="${edge.labelY - 14}" width="${edge.labelWidth}" height="18" rx="9" fill="#f7f8fd" stroke="#c8d8d3"/>
     <text x="${edge.labelX}" y="${edge.labelY}" text-anchor="middle" font-size="11" font-weight="700" fill="#3a37a8">${xml(edge.label)}</text>
@@ -286,7 +286,7 @@ export function dataModelSvg(model: DataModelMap): string {
     </g>`).join('');
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${model.width}" height="${model.height}" viewBox="0 0 ${model.width} ${model.height}" font-family="Inter, system-ui, sans-serif">
   <rect width="100%" height="100%" fill="#f7f8fd"/>
-  <defs><marker id="arrowHead" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#4f46e5"/></marker></defs>
+  <defs><marker id="arrowHead" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#662583"/></marker></defs>
   ${edges}${nodes}${labels}
 </svg>`;
 }

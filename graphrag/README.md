@@ -36,6 +36,8 @@ All routes except `/health` require the `X-QA-Token` header (value of `QA_API_TO
 | --- | --- | --- |
 | `GET` | `/health` | `{"status": "ok", "model": "<model>"}` |
 | `POST` | `/ask` | `{"question": "...", "scope": "d150v155", "facts": {...}}` → answer |
+| `POST` | `/subgraph` | `{"question", "cypher", "scope", "facts"}` → `{nodes, edges, truncated, cypher}`: the nodes and relationships behind an answer. The model writes a second query that returns nodes (same guard, same scope); nodes of another scope are dropped |
+| `POST` | `/expand` | `{"scope", "nodeId"}` → `{nodes, edges, truncated}`: the neighbours of one node (fixed parameterised query, no model) |
 
 Response of `/ask`:
 

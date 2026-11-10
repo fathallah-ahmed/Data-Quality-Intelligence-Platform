@@ -267,3 +267,121 @@ def test_the_service_says_503_when_neo4j_or_the_model_is_unavailable():
     broken = client(lambda: Answerer(FakeDriver(), BrokenLlm()))
     response = broken.post("/ask", json=BODY, headers=headers)
     assert response.status_code == 503 and "Ollama is not running" in response.json()["detail"]
+
+
+# ---------------------------------------------------------------------- the graph behind an answer
+
+
+class FakeNode:
+    def __init__(self, element_id, label, **properties):
+        self.element_id = element_id
+        self.labels = {label}
+        self._properties = {"_scope": SCOPE, **properties}
+
+    def items(self):
+        return self._properties.items()
+
+
+class FakeRelationship:
+    def __init__(self, element_id, start, end, kind):
+        self.element_id, self.start_node, self.end_node, self.type = element_id, start, end, kind
+
+
+class GraphRecord:
+    def __init__(self, *values):
+        self._values = values
+
+    def values(self):
+        return list(self._values)
+
+
+class GraphDriver:
+    """Returns one scripted result per query run (EXPLAIN checks are not scripted)."""
+
+    def __init__(self, *results):
+        self.results = list(results)
+        self.queries = []
+
+    def execute_query(self, query_, routing_=None, parameters_=None, **kwargs):
+        text = getattr(query_, "text", query_)
+        self.queries.append((text, parameters_))
+        records = [] if text.startswith("EXPLAIN") else self.results.pop(0)
+        return records, SimpleNamespace(query_type="r"), []
+
+
+EVIDENCE = f"MATCH (c:Customer {{_scope: '{SCOPE}'}})-[r:HAS_ORDER]->(o:Order {{_scope: '{SCOPE}'}}) RETURN c, r, o LIMIT 25"
+ada = FakeNode("4:a:1", "Customer", key="C1", _conflict=True)
+order = FakeNode("4:a:2", "Order", key="O7")
+placed = FakeRelationship("5:a:9", ada, order, "HAS_ORDER")
+
+
+def test_the_graph_behind_an_answer_is_drawn_from_a_checked_query_and_linked():
+    llm = FakeLlm(EVIDENCE)
+    driver = GraphDriver([GraphRecord(ada, placed, order)], [GraphRecord(placed)])
+
+    result = Answerer(driver, llm).subgraph("Which customers have orders?", GOOD, SCOPE, FACTS)
+
+    assert [node["caption"] for node in result["nodes"]] == ["C1", "O7"]
+    assert result["nodes"][0]["conflict"] is True and "_scope" not in result["nodes"][0]["properties"]
+    assert result["edges"] == [{"id": "5:a:9", "from": "4:a:1", "to": "4:a:2", "type": "HAS_ORDER"}]
+    assert result["cypher"] == EVIDENCE and result["warnings"] == []
+    # The query of the answer is given to the model as context; the evidence query was checked by Neo4j first.
+    assert GOOD in llm.prompts[0]
+    assert driver.queries[0][0] == f"EXPLAIN {EVIDENCE}"
+
+
+def test_a_node_of_another_scope_is_never_drawn():
+    stranger = FakeNode("4:a:3", "Customer", key="X")
+    stranger._properties["_scope"] = "d1v2"
+    driver = GraphDriver([GraphRecord(ada, stranger)], [])
+
+    result = Answerer(driver, FakeLlm(EVIDENCE)).subgraph("q", GOOD, SCOPE, FACTS)
+
+    assert [node["caption"] for node in result["nodes"]] == ["C1"]
+
+
+def test_a_graph_query_that_writes_is_refused_and_nothing_is_drawn():
+    bad = f"MATCH (c:Customer {{_scope: '{SCOPE}'}}) DETACH DELETE c RETURN c"
+    result = Answerer(GraphDriver(), FakeLlm(bad, bad)).subgraph("q", GOOD, SCOPE, FACTS)
+
+    assert result["nodes"] == [] and result["cypher"] is None
+    assert "DETACH is not allowed" in result["warnings"][0]
+
+
+def test_expanding_a_node_returns_its_neighbours_in_the_same_scope():
+    driver = GraphDriver([GraphRecord(ada, placed, order)])
+
+    result = Answerer(driver, FakeLlm()).expand(SCOPE, "4:a:1")
+
+    assert {node["caption"] for node in result["nodes"]} == {"C1", "O7"} and len(result["edges"]) == 1
+    assert driver.queries[1][1] == {"id": "4:a:1", "scope": SCOPE}
+    with pytest.raises(ValueError):
+        Answerer(driver, FakeLlm()).expand("d1v2; DROP", "x")
+
+
+def test_the_http_routes_for_the_graph_need_the_token():
+    class Stub:
+        def subgraph(self, question, cypher, scope, facts):
+            return {"nodes": [], "edges": [], "truncated": False}
+
+        def expand(self, scope, node_id):
+            return {"nodes": [], "edges": [], "truncated": False, "id": node_id}
+
+    settings = Settings.from_env()
+    client = TestClient(create_app(settings, lambda: Stub()))
+    body = {"question": "q", "cypher": GOOD, "scope": SCOPE}
+    assert client.post("/subgraph", json=body).status_code == 401
+    headers = {"X-QA-Token": settings.api_token}
+    assert client.post("/subgraph", json=body, headers=headers).status_code == 200
+    assert client.post("/expand", json={"scope": SCOPE, "nodeId": "4:a:1"}, headers=headers).json()["id"] == "4:a:1"
+
+
+def test_a_node_is_captioned_with_its_name_not_its_key_when_it_has_one():
+    from app.qa import GraphCollector
+
+    person = FakeNode("4:a:5", "Customer", key="703", name="703", last_name="Moreau", first_name="Hugo")
+    plain = FakeNode("4:a:6", "Order", key="2634", name="2634", status="Shipped")
+    collector = GraphCollector(SCOPE)
+    collector.add([person, plain])
+
+    assert [node["caption"] for node in collector.result()["nodes"]] == ["Hugo Moreau", "2634"]

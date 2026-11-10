@@ -193,6 +193,34 @@ class QaApiTest {
         assertThat(error.get("error").asString()).contains("would change data");
     }
 
+    @Test
+    void theGraphBehindAnAnswerIsAskedForWithItsQuestionAndQueryAndExpandedFromANode() throws Exception {
+        JsonNode upload = analysedAccounts();
+        build(upload);
+        String scope = "d" + upload.get("datasetId").asLong() + "v" + upload.get("versionId").asLong();
+        Map<String, Object> drawn = Map.of("nodes", java.util.List.of(), "edges", java.util.List.of(), "truncated", false);
+        when(qaClient.subgraph(anyString(), anyString(), anyString(), anyMap())).thenReturn(drawn);
+        when(qaClient.expand(anyString(), anyString())).thenReturn(drawn);
+
+        postJson(base(upload) + "/ask/subgraph", "{\"question\": \" Who? \", \"cypher\": \"MATCH (c) RETURN c\"}", 200);
+        postJson(base(upload) + "/ask/expand", "{\"nodeId\": \"4:abc:12\"}", 200);
+
+        verify(qaClient).subgraph(eq("Who?"), eq("MATCH (c) RETURN c"), eq(scope), anyMap());
+        verify(qaClient).expand(scope, "4:abc:12");
+        assertThat(postJson(base(upload) + "/ask/subgraph", "{\"question\": \"Who?\"}", 400).get("error").asString()).contains("query");
+        assertThat(postJson(base(upload) + "/ask/expand", "{}", 400).get("error").asString()).contains("node");
+    }
+
+    @Test
+    void theGraphBehindAnAnswerNeedsTheGraphToBeBuilt() throws Exception {
+        JsonNode upload = analysedAccounts();
+
+        JsonNode error = postJson(base(upload) + "/ask/subgraph", "{\"question\": \"Who?\", \"cypher\": \"MATCH (c) RETURN c\"}", 400);
+
+        assertThat(error.get("error").asString()).contains("not been built");
+        verifyNoInteractions(qaClient);
+    }
+
     // ------------------------------------------------------------------ helpers
 
     private JsonNode json(MvcResult result) throws Exception {

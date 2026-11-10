@@ -506,13 +506,40 @@ export interface DataModelMap {
 }
 
 /** The answer of the question service: the sentence, and the query and rows it rests on. */
+/** A node of the graph as the drawing of an answer shows it. */
+export interface SubgraphNode {
+  id: string;
+  label: string;
+  caption: string;
+  /** The node holds a property with several candidate values: the data disagrees with itself. */
+  conflict: boolean;
+  properties: Record<string, unknown>;
+}
+
+export interface SubgraphEdge {
+  id: string;
+  from: string;
+  to: string;
+  type: string;
+}
+
+/** The nodes and relationships behind an answer (or the neighbours of one node). */
+export interface Subgraph {
+  nodes: SubgraphNode[];
+  edges: SubgraphEdge[];
+  truncated: boolean;
+  cypher?: string | null;
+  warnings?: string[];
+}
+
 export interface QuestionAnswer {
   answer: string;
   /** What the answer rests on: the graph, the quality results, or the guide of the application. */
   mode?: 'graph' | 'quality' | 'help';
   cypher: string | null;
   columns: string[];
-  rows: unknown[][];
+  /** Each row is an object keyed by column name (older answers may use arrays). */
+  rows: (Record<string, unknown> | unknown[])[];
   rowCount: number;
   truncated: boolean;
   warnings: string[];

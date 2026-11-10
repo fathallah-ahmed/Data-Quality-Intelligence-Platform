@@ -12,6 +12,7 @@ import {
   DatasetSummary,
   GraphBuild,
   GraphSchema,
+  Subgraph,
   GraphStatus,
   QuestionAnswer,
   LoginResponse,
@@ -156,6 +157,16 @@ export class ApiService {
   /** Asks a question in plain language about the graph of a version (it must have been built). */
   askQuestion(datasetId: number, versionId: number, question: string): Observable<QuestionAnswer> {
     return this.http.post<QuestionAnswer>(`${this.base}/datasets/${datasetId}/versions/${versionId}/ask`, { question });
+  }
+
+  /** The nodes and relationships behind an answer, from the question and the query that produced it. */
+  answerSubgraph(datasetId: number, versionId: number, question: string, cypher: string): Observable<Subgraph> {
+    return this.http.post<Subgraph>(`${this.base}/datasets/${datasetId}/versions/${versionId}/ask/subgraph`, { question, cypher });
+  }
+
+  /** The neighbours of one node of the graph, to explore from an answer. */
+  expandNode(datasetId: number, versionId: number, nodeId: string): Observable<Subgraph> {
+    return this.http.post<Subgraph>(`${this.base}/datasets/${datasetId}/versions/${versionId}/ask/expand`, { nodeId });
   }
 
   /** Corrections found by reading a table: spaces, placeholders, date formats, spellings, repeated rows. */

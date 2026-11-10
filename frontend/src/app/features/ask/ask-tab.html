@@ -66,7 +66,7 @@
                   <tbody>
                     @for (row of answer.rows; track $index) {
                       <tr>
-                        @for (cell of row; track $index) {
+                        @for (cell of rowCells(row, answer.columns); track $index) {
                           <td>{{ cellText(cell) }}</td>
                         }
                       </tr>
@@ -79,6 +79,24 @@
               }
             }
           </details>
+          <div class="exchange__graph">
+            @switch (exchange.subgraphState) {
+              @case ('ready') {
+                <app-graph-view [datasetId]="datasetId()" [versionId]="versionId()" [graph]="exchange.subgraph!" />
+              }
+              @case ('empty') {
+                <div class="callout" data-tone="warning"><app-icon name="alert" /><span>No node could be drawn for this answer. {{ exchange.subgraphError }}</span></div>
+              }
+              @case ('error') {
+                <div class="callout" data-tone="danger" role="alert"><app-icon name="xCircle" /><span>{{ exchange.subgraphError }}</span></div>
+              }
+            }
+            @if (exchange.subgraphState !== 'ready') {
+              <button type="button" class="btn" [disabled]="exchange.subgraphState === 'loading'" (click)="showGraph(exchange)">
+                <app-icon name="network" [size]="16" /> {{ exchange.subgraphState === 'loading' ? 'Drawing…' : 'Show the graph behind this answer' }}
+              </button>
+            }
+          </div>
         }
       }
     </section>

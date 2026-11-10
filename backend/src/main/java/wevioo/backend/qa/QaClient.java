@@ -37,15 +37,29 @@ public class QaClient {
         this.restTemplate = new RestTemplate(factory);
     }
 
-    @SuppressWarnings("unchecked")
     public Map<String, Object> ask(String question, String scope, Map<String, Object> facts) {
+        return post("/ask", Map.of("question", question, "scope", scope, "facts", facts));
+    }
+
+    /** The nodes and relationships behind an answer, from the query that produced it. */
+    public Map<String, Object> subgraph(String question, String cypher, String scope, Map<String, Object> facts) {
+        return post("/subgraph", Map.of("question", question, "cypher", cypher, "scope", scope, "facts", facts));
+    }
+
+    /** The neighbours of one node of the graph. */
+    public Map<String, Object> expand(String scope, String nodeId) {
+        return post("/expand", Map.of("scope", scope, "nodeId", nodeId));
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> post(String path, Map<String, Object> body) {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         headers.set("X-QA-Token", properties.getQaToken());
         String base = properties.getQaUrl().replaceAll("/$", "");
         try {
-            return restTemplate.exchange(base + "/ask", HttpMethod.POST,
-                new HttpEntity<>(Map.of("question", question, "scope", scope, "facts", facts), headers), Map.class).getBody();
+            return restTemplate.exchange(base + path, HttpMethod.POST,
+                new HttpEntity<>(body, headers), Map.class).getBody();
         } catch (HttpStatusCodeException e) {
             String detail = detail(e.getResponseBodyAsString());
             if (e.getStatusCode().is4xxClientError() && e.getStatusCode().value() != 401) {

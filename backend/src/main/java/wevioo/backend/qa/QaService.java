@@ -66,6 +66,33 @@ public class QaService {
         return client.ask(text, GraphService.scope(datasetId, versionId), facts(datasetId, versionId, built));
     }
 
+    /** Draws what an answer rests on: the nodes and relationships behind the query that produced it. */
+    public Map<String, Object> subgraph(Long datasetId, Long versionId, String question, String cypher) {
+        String text = question == null ? "" : question.strip();
+        if (text.isEmpty() || text.length() > MAX_QUESTION_CHARS) {
+            throw new IllegalArgumentException("Give the question of the answer (up to " + MAX_QUESTION_CHARS + " characters)");
+        }
+        if (cypher == null || cypher.isBlank() || cypher.length() > 4000) {
+            throw new IllegalArgumentException("Give the query of the answer");
+        }
+        Map<String, Object> built = graph.last(datasetId, versionId);
+        if (built.isEmpty()) {
+            throw new IllegalArgumentException("The graph of this version has not been built yet");
+        }
+        return client.subgraph(text, cypher.strip(), GraphService.scope(datasetId, versionId), facts(datasetId, versionId, built));
+    }
+
+    /** The neighbours of one node, for exploring the graph from an answer. */
+    public Map<String, Object> expand(Long datasetId, Long versionId, String nodeId) {
+        if (nodeId == null || nodeId.isBlank() || nodeId.length() > 200) {
+            throw new IllegalArgumentException("Give the node to expand");
+        }
+        if (graph.last(datasetId, versionId).isEmpty()) {
+            throw new IllegalArgumentException("The graph of this version has not been built yet");
+        }
+        return client.expand(GraphService.scope(datasetId, versionId), nodeId.strip());
+    }
+
     Map<String, Object> facts(Long datasetId, Long versionId, Map<String, Object> built) {
         Dataset dataset = datasetRepository.findById(datasetId).orElseThrow(() -> new NotFoundException("Dataset not found"));
         VersionDetails details = datasets.getVersionDetails(datasetId, versionId, false);

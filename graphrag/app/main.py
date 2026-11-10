@@ -21,6 +21,18 @@ class AskRequest(BaseModel):
     facts: Dict[str, Any] = Field(default_factory=dict)
 
 
+class SubgraphRequest(BaseModel):
+    question: str = Field(min_length=1, max_length=1000)
+    cypher: str = Field(min_length=1, max_length=4000)
+    scope: str = Field(pattern=SCOPE_PATTERN.pattern)
+    facts: Dict[str, Any] = Field(default_factory=dict)
+
+
+class ExpandRequest(BaseModel):
+    scope: str = Field(pattern=SCOPE_PATTERN.pattern)
+    nodeId: str = Field(min_length=1, max_length=200)
+
+
 def default_answerer(settings: Settings) -> Callable[[], Answerer]:
     """One Neo4j driver for the whole service; the model client is cheap and is built per question."""
     driver = neo4j.GraphDatabase.driver(settings.neo4j_uri, auth=(settings.neo4j_user, settings.neo4j_password),
@@ -65,6 +77,27 @@ def create_app(settings: Optional[Settings] = None, answerer: Optional[Callable[
         except Exception as error:  # the model is unreachable, slow or refused: say so, do not crash
             log.exception("Question failed")
             raise HTTPException(503, f"The language model could not answer: {error}")
+
+    def guarded(call: Callable[[], Dict[str, Any]]) -> Dict[str, Any]:
+        try:
+            return call()
+        except GraphUnavailable as error:
+            raise HTTPException(503, str(error))
+        except HTTPException:
+            raise
+        except ValueError as error:
+            raise HTTPException(400, str(error))
+        except Exception as error:
+            log.exception("Graph request failed")
+            raise HTTPException(503, f"The graph could not be read: {error}")
+
+    @app.post("/subgraph", dependencies=[Depends(authorised)])
+    def subgraph(request: SubgraphRequest) -> Dict[str, Any]:
+        return guarded(lambda: factory().subgraph(request.question, request.cypher, request.scope, request.facts))
+
+    @app.post("/expand", dependencies=[Depends(authorised)])
+    def expand(request: ExpandRequest) -> Dict[str, Any]:
+        return guarded(lambda: factory().expand(request.scope, request.nodeId))
 
     return app
 

@@ -98,3 +98,13 @@
   text-align: left;
   white-space: nowrap;
 }
+
+.exchange__graph {
+  display: grid;
+  gap: var(--space-2);
+  justify-items: start;
+}
+
+.exchange__graph app-graph-view {
+  justify-self: stretch;
+}
