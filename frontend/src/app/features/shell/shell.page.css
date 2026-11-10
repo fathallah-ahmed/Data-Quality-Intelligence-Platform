@@ -69,12 +69,17 @@
   display: grid;
   place-items: center;
   flex: none;
-  width: 38px;
+  width: 60px;
   height: 38px;
   border-radius: 11px;
-  background: linear-gradient(145deg, #6f6cf5, #3a33b5);
-  box-shadow: 0 6px 16px -6px rgb(0 0 0 / 60%), inset 0 1px 0 rgb(255 255 255 / 18%);
-  fill: #eef0ff;
+  background: #ffffff;
+  box-shadow: 0 6px 16px -6px rgb(0 0 0 / 60%);
+}
+
+.brand__mark img {
+  display: block;
+  width: 50px;
+  height: auto;
 }
 
 .brand__text {
@@ -240,44 +245,6 @@
   margin-left: auto;
 }
 
-.live {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-pill);
-  background: var(--surface);
-  font-size: var(--text-xs);
-  font-weight: 600;
-  color: var(--text-muted);
-}
-
-.live__dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--text-subtle);
-}
-
-.live[data-state='sse'] .live__dot {
-  background: var(--success);
-  box-shadow: 0 0 0 3px var(--success-soft);
-  animation: blink 2.4s ease-in-out infinite;
-}
-
-.live[data-state='polling'] .live__dot {
-  background: var(--warning);
-}
-
-.live[data-state='offline'] {
-  color: var(--danger);
-}
-
-.live[data-state='offline'] .live__dot {
-  background: var(--danger);
-}
-
 .user-button {
   display: inline-flex;
   align-items: center;
@@ -394,14 +361,10 @@
 
   .search-trigger__keys,
   .user-button__name,
-  .user-button .icon,
-  .live__text {
+  .user-button .icon {
     display: none;
   }
 
-  .live {
-    padding: 6px;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {

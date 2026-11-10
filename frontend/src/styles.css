@@ -8,14 +8,14 @@
   color-scheme: light;
 
   /* Brand */
-  --primary: #4f46e5;
-  --primary-strong: #3730a3;
-  --primary-soft: #e9e8fd;
-  --primary-softer: #f4f3ff;
+  --primary: #662583;
+  --primary-strong: #4a1a60;
+  --primary-soft: #f0e4f6;
+  --primary-softer: #f8f2fb;
   --on-primary: #ffffff;
-  --accent: #0891b2;
-  --accent-soft: #dcf3f8;
-  --focus: #6366f1;
+  --accent: #e89900;
+  --accent-soft: #fdf0d4;
+  --focus: #8e3fb5;
 
   /* Semantic */
   --success: #1e9e62;
@@ -27,33 +27,33 @@
   --danger-soft: #fde5e3;
   --info: #0b7fc4;
   --info-soft: #dff1fb;
-  --running: #8b5cf6;
-  --running-soft: #efe8fe;
-  --neutral-soft: #eceef7;
+  --running: #3b6fd4;
+  --running-soft: #e3ebfb;
+  --neutral-soft: #efeaf2;
   --on-tone: #ffffff;
 
   /* Surfaces and text */
-  --bg: #f4f5fb;
+  --bg: #f6f3f8;
   --surface: #ffffff;
-  --surface-raised: #fafafe;
-  --surface-sunken: #eceef8;
-  --surface-hover: #f1f2fb;
-  --border: #e1e4f2;
-  --border-strong: #c9cee6;
-  --text: #13162b;
-  --text-muted: #565c7e;
-  --text-subtle: #858bab;
-  --grid-dot: #d3d7ec;
-  --backdrop: rgb(12 14 36 / 50%);
+  --surface-raised: #fbf9fc;
+  --surface-sunken: #efeaf2;
+  --surface-hover: #f4eff7;
+  --border: #e6dfeb;
+  --border-strong: #d0c5d9;
+  --text: #1f1a24;
+  --text-muted: #5f566b;
+  --text-subtle: #8c8398;
+  --grid-dot: #ddd3e5;
+  --backdrop: rgb(20 10 28 / 50%);
 
   /* Brand sidebar (dark in both themes) */
-  --side-bg: #12133a;
-  --side-raised: #1a1c4a;
-  --side-hover: #22255a;
-  --side-active: #2e3290;
-  --side-border: #25285a;
-  --side-text: #e3e5fa;
-  --side-muted: #9ea4d6;
+  --side-bg: #1c1522;
+  --side-raised: #261c2f;
+  --side-hover: #31243c;
+  --side-active: #662583;
+  --side-border: #33263f;
+  --side-text: #f1eaf5;
+  --side-muted: #b8a6c4;
 
   /* Typography */
   --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
@@ -103,14 +103,14 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
     color-scheme: dark;
-    --primary: #8b8cf8;
-    --primary-strong: #b7b8ff;
-    --primary-soft: #24265a;
-    --primary-softer: #1b1d46;
-    --on-primary: #0c0d2b;
-    --accent: #38bdf8;
-    --accent-soft: #10303f;
-    --focus: #a5a6ff;
+    --primary: #c58be6;
+    --primary-strong: #dcb4f2;
+    --primary-soft: #3a2147;
+    --primary-softer: #2a1a34;
+    --on-primary: #1a0d22;
+    --accent: #f0ae2e;
+    --accent-soft: #3a2a0e;
+    --focus: #d7a6f0;
     --success: #4cc88c;
     --success-soft: #143528;
     --warning: #eaad47;
@@ -120,27 +120,27 @@
     --danger-soft: #3f1f1e;
     --info: #5fb4ee;
     --info-soft: #14304a;
-    --running: #b79cfa;
-    --running-soft: #2b2350;
-    --neutral-soft: #1e2140;
-    --on-tone: #0a0b1f;
-    --bg: #0b0c1c;
-    --surface: #121430;
-    --surface-raised: #171a38;
-    --surface-sunken: #0d0e24;
-    --surface-hover: #1c1f42;
-    --border: #25294d;
-    --border-strong: #373c68;
-    --text: #e8eaf8;
-    --text-muted: #a1a6cc;
-    --text-subtle: #737a9b;
-    --grid-dot: #1e2245;
+    --running: #7aa7ff;
+    --running-soft: #1f2d55;
+    --neutral-soft: #2a2233;
+    --on-tone: #150d1b;
+    --bg: #120d17;
+    --surface: #1a1321;
+    --surface-raised: #20182a;
+    --surface-sunken: #0f0a14;
+    --surface-hover: #271d32;
+    --border: #33283f;
+    --border-strong: #473a57;
+    --text: #f0eaf4;
+    --text-muted: #b5a9c2;
+    --text-subtle: #82768f;
+    --grid-dot: #271d32;
     --backdrop: rgb(0 0 0 / 65%);
-    --side-bg: #080919;
-    --side-raised: #0f1130;
-    --side-hover: #151840;
-    --side-active: #20256f;
-    --side-border: #171a42;
+    --side-bg: #0d0910;
+    --side-raised: #17101e;
+    --side-hover: #20162a;
+    --side-active: #4a1a60;
+    --side-border: #241a2e;
     --shadow-sm: 0 1px 2px rgb(0 0 0 / 45%);
     --shadow-md: 0 8px 22px -8px rgb(0 0 0 / 60%);
     --shadow-lg: 0 24px 48px -12px rgb(0 0 0 / 70%);
@@ -149,14 +149,14 @@
 
 :root[data-theme='dark'] {
   color-scheme: dark;
-  --primary: #8b8cf8;
-  --primary-strong: #b7b8ff;
-  --primary-soft: #24265a;
-  --primary-softer: #1b1d46;
-  --on-primary: #0c0d2b;
-  --accent: #38bdf8;
-  --accent-soft: #10303f;
-  --focus: #a5a6ff;
+  --primary: #c58be6;
+  --primary-strong: #dcb4f2;
+  --primary-soft: #3a2147;
+  --primary-softer: #2a1a34;
+  --on-primary: #1a0d22;
+  --accent: #f0ae2e;
+  --accent-soft: #3a2a0e;
+  --focus: #d7a6f0;
   --success: #4cc88c;
   --success-soft: #143528;
   --warning: #eaad47;
@@ -166,27 +166,27 @@
   --danger-soft: #3f1f1e;
   --info: #5fb4ee;
   --info-soft: #14304a;
-  --running: #b79cfa;
-  --running-soft: #2b2350;
-  --neutral-soft: #1e2140;
-  --on-tone: #0a0b1f;
-  --bg: #0b0c1c;
-  --surface: #121430;
-  --surface-raised: #171a38;
-  --surface-sunken: #0d0e24;
-  --surface-hover: #1c1f42;
-  --border: #25294d;
-  --border-strong: #373c68;
-  --text: #e8eaf8;
-  --text-muted: #a1a6cc;
-  --text-subtle: #737a9b;
-  --grid-dot: #1e2245;
+  --running: #7aa7ff;
+  --running-soft: #1f2d55;
+  --neutral-soft: #2a2233;
+  --on-tone: #150d1b;
+  --bg: #120d17;
+  --surface: #1a1321;
+  --surface-raised: #20182a;
+  --surface-sunken: #0f0a14;
+  --surface-hover: #271d32;
+  --border: #33283f;
+  --border-strong: #473a57;
+  --text: #f0eaf4;
+  --text-muted: #b5a9c2;
+  --text-subtle: #82768f;
+  --grid-dot: #271d32;
   --backdrop: rgb(0 0 0 / 65%);
-  --side-bg: #080919;
-  --side-raised: #0f1130;
-  --side-hover: #151840;
-  --side-active: #20256f;
-  --side-border: #171a42;
+  --side-bg: #0d0910;
+  --side-raised: #17101e;
+  --side-hover: #20162a;
+  --side-active: #4a1a60;
+  --side-border: #241a2e;
   --shadow-sm: 0 1px 2px rgb(0 0 0 / 45%);
   --shadow-md: 0 8px 22px -8px rgb(0 0 0 / 60%);
   --shadow-lg: 0 24px 48px -12px rgb(0 0 0 / 70%);
@@ -1492,4 +1492,18 @@ summary {
   a {
     color: inherit;
   }
+}
+
+
+/* ---------------------------------------------------------------- Wevioo signature
+   The five colours of the Wevioo mark as a thin bar: the one detail that says whose product this is. */
+.brandbar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 5;
+  height: 4px;
+  pointer-events: none;
+  background: linear-gradient(90deg, #6f8d33 0 20%, #94c120 20% 40%, #e89900 40% 60%, #e40613 60% 80%, #662583 80% 100%);
 }

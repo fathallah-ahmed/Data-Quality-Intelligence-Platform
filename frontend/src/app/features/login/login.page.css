@@ -16,7 +16,7 @@
   overflow: hidden;
   background:
     radial-gradient(700px 400px at 0% 0%, color-mix(in srgb, var(--primary) 35%, transparent), transparent 65%),
-    radial-gradient(500px 360px at 100% 100%, rgb(34 211 238 / 16%), transparent 70%),
+    radial-gradient(500px 360px at 100% 100%, rgb(232 153 0 / 16%), transparent 70%),
     var(--side-bg);
   color: var(--side-text);
 }
@@ -51,12 +51,17 @@
 .login__mark {
   display: grid;
   place-items: center;
-  width: 44px;
-  height: 44px;
-  border-radius: 13px;
-  background: linear-gradient(145deg, #6f6cf5, #3a33b5);
-  box-shadow: 0 8px 20px -8px rgb(0 0 0 / 60%), inset 0 1px 0 rgb(255 255 255 / 18%);
-  fill: #eef0ff;
+  width: 84px;
+  height: 50px;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 8px 20px -8px rgb(0 0 0 / 60%);
+}
+
+.login__mark img {
+  display: block;
+  width: 70px;
+  height: auto;
 }
 
 .login__pitch {
@@ -101,7 +106,7 @@
   height: 34px;
   border-radius: var(--radius-md);
   background: rgb(255 255 255 / 7%);
-  color: #b9baff;
+  color: #dcb4f2;
 }
 
 .login__preview {
@@ -134,8 +139,8 @@
   height: 52px;
   border-radius: 50%;
   background:
-    radial-gradient(closest-side, #191b45 72%, transparent 74%),
-    conic-gradient(#8b8cf8 0 82%, rgb(255 255 255 / 10%) 0);
+    radial-gradient(closest-side, #241530 72%, transparent 74%),
+    conic-gradient(#c58be6 0 82%, rgb(255 255 255 / 10%) 0);
 }
 
 .preview-card__lines {
@@ -157,7 +162,7 @@
 
 .preview-card__lines i:nth-child(1) { width: 85%; }
 .preview-card__lines i:nth-child(2) { width: 60%; }
-.preview-card__lines i:nth-child(3) { width: 72%; background: rgb(185 186 255 / 40%); }
+.preview-card__lines i:nth-child(3) { width: 72%; background: rgb(220 180 242 / 40%); }
 
 .preview-card__bars {
   display: flex;
@@ -173,7 +178,7 @@
 .preview-card__bars i:nth-child(1) { height: 40%; }
 .preview-card__bars i:nth-child(2) { height: 70%; }
 .preview-card__bars i:nth-child(3) { height: 55%; background: rgb(240 176 77 / 55%); }
-.preview-card__bars i:nth-child(4) { height: 90%; background: rgb(185 186 255 / 50%); }
+.preview-card__bars i:nth-child(4) { height: 90%; background: rgb(220 180 242 / 50%); }
 .preview-card__bars i:nth-child(5) { height: 65%; }
 
 /* ---------------------------------------------------------------- form side */

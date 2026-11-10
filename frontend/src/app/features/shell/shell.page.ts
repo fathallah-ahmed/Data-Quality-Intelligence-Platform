@@ -34,18 +34,6 @@ export class ShellPage implements OnInit {
   readonly now = signal(Date.now());
   readonly isMac = /Mac|iPhone|iPad/.test(globalThis.navigator?.platform ?? '');
 
-  readonly liveLabel = computed(() => {
-    switch (this.live.transport()) {
-      case 'sse':
-        return { text: 'Live', hint: 'Receiving live updates from the backend.' };
-      case 'polling':
-        return { text: 'Polling', hint: 'Live stream unavailable; refreshing every 5 seconds.' };
-      case 'offline':
-        return { text: 'Offline', hint: 'The backend cannot be reached. Retrying…' };
-      default:
-        return { text: 'Connecting', hint: 'Connecting to the live update stream…' };
-    }
-  });
 
   ngOnInit(): void {
     this.store.loadDatasets();

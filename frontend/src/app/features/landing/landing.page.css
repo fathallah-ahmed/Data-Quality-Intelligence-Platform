@@ -1,5 +1,7 @@
 :host {
   display: block;
+  /* The hero glow is as wide as the window; clip it so it can never add a horizontal scrollbar. */
+  overflow-x: clip;
   min-height: 100vh;
   background: var(--bg);
   color: var(--text);
@@ -19,6 +21,51 @@
 
 .skip:focus {
   top: var(--space-3);
+}
+
+/* Large screens. The content column is 1160px wide: on a 2560px screen that is a small island with huge margins and
+   tiny text. Above 1700px the whole page is scaled so that its effective width stays between about 1450 and 1500px
+   (the proportions of a laptop), whatever the screen: 1920 -> x1.3, 2K (2560) -> x1.75, 4K (3840) -> x2.4. */
+@media (min-width: 1700px) {
+  :host {
+    zoom: 1.15;
+  }
+}
+
+@media (min-width: 1920px) {
+  :host {
+    zoom: 1.3;
+  }
+}
+
+@media (min-width: 2200px) {
+  :host {
+    zoom: 1.5;
+  }
+}
+
+@media (min-width: 2560px) {
+  :host {
+    zoom: 1.75;
+  }
+}
+
+@media (min-width: 3000px) {
+  :host {
+    zoom: 2;
+  }
+}
+
+@media (min-width: 3600px) {
+  :host {
+    zoom: 2.4;
+  }
+}
+
+@media (min-width: 4400px) {
+  :host {
+    zoom: 3;
+  }
 }
 
 /* ------------------------------------------------------------------ top bar */
@@ -46,7 +93,7 @@
 .top--scrolled {
   border-bottom-color: var(--border);
   background: color-mix(in srgb, var(--bg) 92%, transparent);
-  box-shadow: 0 8px 24px -16px rgb(19 22 60 / 30%);
+  box-shadow: 0 8px 24px -16px rgb(28 21 34 / 30%);
 }
 
 @media (min-width: 901px) {
@@ -79,14 +126,51 @@
   color: var(--text-muted);
 }
 
+/* The Wevioo logo is on a white background: it sits on a white badge so it reads on the dark and the light theme. */
+.partner {
+  display: inline-flex;
+  align-items: center;
+  margin-left: var(--space-1);
+  padding: 3px var(--space-3);
+  border-radius: var(--radius-md);
+  background: #fff;
+  box-shadow: 0 0 0 1px var(--border);
+}
+
+.partner img,
+img.partner {
+  display: block;
+  height: 26px;
+  width: auto;
+}
+
+img.partner--foot {
+  height: 24px;
+  padding: 3px var(--space-3);
+  box-sizing: content-box;
+}
+
+.foot__credit {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
 .brand__mark {
   display: grid;
   place-items: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 11px;
-  background: linear-gradient(145deg, #6f6cf5, #3a33b5);
-  fill: #eef0ff;
+  width: 64px;
+  height: 40px;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 0 0 1px var(--border);
+}
+
+.brand__mark img {
+  display: block;
+  width: 54px;
+  height: auto;
 }
 
 .top__nav {
@@ -162,7 +246,11 @@ a.btn {
 .hero::before {
   content: '';
   position: absolute;
-  inset: 0 0 auto;
+  /* Full window width, not the width of the content column: the glow must not end in a visible edge. */
+  top: 0;
+  left: 50%;
+  width: 100vw;
+  margin-left: -50vw;
   height: 620px;
   pointer-events: none;
   background:

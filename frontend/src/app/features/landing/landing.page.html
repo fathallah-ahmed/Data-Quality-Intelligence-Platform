@@ -3,12 +3,11 @@
 <div id="top-marker" class="marker" aria-hidden="true"></div>
 
 <header class="top" [class.top--scrolled]="scrolled()">
+  <span class="brandbar" aria-hidden="true"></span>
   <div class="top__inner">
     <a class="brand" routerLink="/" aria-label="Data Quality Wevioo, home">
-      <span class="brand__mark" aria-hidden="true">
-        <svg viewBox="0 0 32 32" width="22" height="22"><rect x="5" y="17" width="5" height="10" rx="1.5" /><rect x="13.5" y="11" width="5" height="16" rx="1.5" /><rect x="22" y="5" width="5" height="22" rx="1.5" /></svg>
-      </span>
-      <span>Data Quality <small>Wevioo</small></span>
+      <span class="brand__mark" aria-hidden="true"><img src="wevioo-logo.png" alt="" width="265" height="155" /></span>
+      <span>Data Quality</span>
     </a>
 
     <nav class="top__nav" aria-label="Sections">
@@ -226,7 +225,10 @@
 </main>
 
 <footer class="foot">
-  <span>© {{ year }} Wevioo Data Quality</span>
+  <span class="foot__credit">
+    <span>© {{ year }} Data Quality · final-year project carried out at</span>
+    <img class="partner partner--foot" src="wevioo-logo.png" alt="Wevioo" width="265" height="155" />
+  </span>
   <nav aria-label="Footer">
     <button type="button" (click)="scrollTo('features')">Features</button>
     <button type="button" (click)="scrollTo('how')">How it works</button>
